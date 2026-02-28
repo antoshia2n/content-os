@@ -67,7 +67,11 @@ function BodyEditor({value,onChange,editorRef}){
       onPaste={e=>{e.preventDefault();document.execCommand("insertText",false,e.clipboardData.getData("text/plain"));}}
       onKeyDown={e=>{
         if(e.isComposing||isComposing.current)return;
-        if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();document.execCommand("insertParagraph");}
+        if(e.key==="Enter"){
+          e.preventDefault();
+          if(e.shiftKey){document.execCommand("insertParagraph");}
+          else{document.execCommand("insertLineBreak");}
+        }
       }}
       style={{minHeight:360,fontSize:17,lineHeight:1.75,color:"#0f1419",fontFamily:XFONT,wordBreak:"break-word",caretColor:"#1d9bf0",outline:"none"}}
     />
@@ -115,7 +119,7 @@ function Toolbar({onInsertOpen}){
         ＋挿入
       </button>
       <B title="書式クリア" onClick={()=>exec("removeFormat")} ch="✕"/>
-      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=段落　⇧Enter=改行</div>
+      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=改行　⇧Enter=段落</div>
     </div>
   );
 }
@@ -400,10 +404,10 @@ function EditorModal({post,onSave,onClose}){
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <Toolbar onInsertOpen={openInsert}/>
             <div style={{flex:1,overflowY:"auto"}}>
-              <div ref={articleAreaRef} style={{maxWidth:680,margin:"0 auto",padding:"38px 50px 100px"}}>
+              <div ref={articleAreaRef} style={{padding:"28px 32px 100px"}}>
                 <input type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
-                  style={{width:"100%",border:"none",outline:"none",fontSize:32,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:22,paddingBottom:22,borderBottom:"1px solid #e8e0d6",background:"transparent",display:"block",boxSizing:"border-box"}}/>
+                  style={{width:"100%",border:"none",outline:"none",fontSize:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:18,paddingBottom:18,borderBottom:"1px solid #e8e0d6",background:"transparent",display:"block",boxSizing:"border-box"}}/>
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
               </div>
             </div>
