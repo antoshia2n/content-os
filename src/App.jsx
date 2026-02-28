@@ -21,7 +21,7 @@ const STATUS = {
   flop:      { label:"不評",        chip:"#fee2e2", text:"#dc2626", border:"#fca5a5" },
 };
 const DAYS   = ["月","火","水","木","金","土","日"];
-const HOURS  = Array.from({length:16},(_,i)=>i+7);
+const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
