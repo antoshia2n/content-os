@@ -59,6 +59,11 @@ function BodyEditor({value,onChange,editorRef}){
   },[value]);
   const emit=()=>{if(!editorRef.current)return;internal.current=true;onChange(editorRef.current.innerHTML);};
 
+  // ブラウザがdivでなくpタグで段落を生成するよう強制
+  useEffect(()=>{
+    document.execCommand("defaultParagraphSeparator",false,"p");
+  },[]);
+
   const handleKeyDown=e=>{
     if(e.isComposing||isComposing.current)return;
     if(e.key!=="Enter")return;
@@ -926,8 +931,8 @@ export default function App(){
         ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:2px;}
         .xb{outline:none;}
         .xb:empty:before,.xb[data-ph]:empty:before{content:attr(data-ph);color:#8b98a5;pointer-events:none;}
-        .xb p{font-size:17px;line-height:1.75;color:#0f1419;margin:0 0 1.3em;}
-        .xb p:last-child{margin-bottom:0;}
+        .xb p,.xb div{font-size:17px;line-height:1.75;color:#0f1419;margin:0 0 1.3em;}
+        .xb p:last-child,.xb div:last-child{margin-bottom:0;}
         .xb br{display:block;height:0;}
         .xb h1{font-size:28px;font-weight:800;line-height:1.3;margin:1.2em 0 .5em;color:#0f1419;}
         .xb h2{font-size:20px;font-weight:700;line-height:1.4;margin:1em 0 .4em;color:#0f1419;}
