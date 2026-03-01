@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase.js";
 
 // ── 定数 ──────────────────────────────────────────────
@@ -27,7 +27,7 @@ const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ari
 
 function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function fmtTime(s){return s?s.slice(11,16):"";}
-function genId(){return Date.now();}
+function genId(){return typeof crypto!=="undefined"&&crypto.randomUUID?parseInt(crypto.randomUUID().replace(/-/g,"").slice(0,15),16):Date.now()+Math.floor(Math.random()*10000);}
 function nowStr(){return new Date().toISOString();}
 function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
 function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
@@ -58,6 +58,28 @@ function BodyEditor({value,onChange,editorRef}){
     if(editorRef.current.innerHTML!==(value||""))editorRef.current.innerHTML=value||"";
   },[value]);
   const emit=()=>{if(!editorRef.current)return;internal.current=true;onChange(editorRef.current.innerHTML);};
+
+  const handleKeyDown=e=>{
+    if(e.isComposing||isComposing.current)return;
+    if(e.key!=="Enter")return;
+    e.preventDefault();
+    if(e.shiftKey){
+      // Shift+Enter: 同形式内で改行（br挿入）
+      document.execCommand("insertLineBreak");
+    } else {
+      // Enter: 新段落 + 形式をpにリセット
+      document.execCommand("insertParagraph");
+      const sel=window.getSelection();
+      if(sel&&sel.rangeCount>0){
+        const node=sel.getRangeAt(0).commonAncestorContainer;
+        const block=node.nodeType===3?node.parentElement:node;
+        const tag=block?.closest("h1,h2,blockquote")?.tagName?.toLowerCase();
+        if(tag)document.execCommand("formatBlock",false,"p");
+      }
+    }
+    emit();
+  };
+
   return(
     <div ref={editorRef} contentEditable suppressContentEditableWarning
       className="xb" data-ph="本文を入力…"
@@ -65,61 +87,86 @@ function BodyEditor({value,onChange,editorRef}){
       onCompositionEnd={()=>{isComposing.current=false;emit();}}
       onInput={()=>{if(!isComposing.current)emit();}}
       onPaste={e=>{e.preventDefault();document.execCommand("insertText",false,e.clipboardData.getData("text/plain"));}}
-      onKeyDown={e=>{
-        if(e.isComposing||isComposing.current)return;
-        if(e.key==="Enter"){
-          e.preventDefault();
-          if(e.shiftKey){document.execCommand("insertParagraph");}
-          else{document.execCommand("insertLineBreak");}
-        }
-      }}
+      onKeyDown={handleKeyDown}
       style={{minHeight:360,fontSize:17,lineHeight:1.75,color:"#0f1419",fontFamily:XFONT,wordBreak:"break-word",caretColor:"#1d9bf0",outline:"none"}}
     />
   );
 }
 
 function Toolbar({onInsertOpen}){
-  const exec=(cmd,val)=>document.execCommand(cmd,false,val??null);
-  const B=({title,onClick,ch})=>(
+  const exec=React.useCallback((cmd,val)=>document.execCommand(cmd,false,val??null),[]);
+  // アクティブ状態トラッキング
+  const [fmt,setFmt]=useState({bold:false,italic:false,strike:false,block:"p"});
+  useEffect(()=>{
+    const update=()=>{
+      try{
+        const sel=window.getSelection();
+        if(!sel||sel.rangeCount===0)return;
+        const node=sel.getRangeAt(0).commonAncestorContainer;
+        const el=node.nodeType===3?node.parentElement:node;
+        const block=el?.closest("h1,h2,blockquote,p,li")||el;
+        setFmt({
+          bold:document.queryCommandState("bold"),
+          italic:document.queryCommandState("italic"),
+          strike:document.queryCommandState("strikeThrough"),
+          block:block?.tagName?.toLowerCase()||"p",
+        });
+      }catch(e){}
+    };
+    document.addEventListener("selectionchange",update);
+    return()=>document.removeEventListener("selectionchange",update);
+  },[]);
+
+  const B=({title,onClick,active,ch})=>(
     <button title={title} onMouseDown={e=>{e.preventDefault();onClick();}}
-      style={{border:"none",background:"none",color:"#536471",borderRadius:5,padding:"4px 6px",cursor:"pointer",fontSize:"0.82em",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",height:28,minWidth:26,fontFamily:"inherit"}}
-      onMouseEnter={e=>{e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}
-      onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}>
+      style={{border:active?"1.5px solid #1d9bf0":"1px solid transparent",background:active?"#e8f5fe":"none",color:active?"#1d9bf0":"#536471",borderRadius:5,padding:"4px 6px",cursor:"pointer",fontSize:"0.82em",fontWeight:active?800:600,display:"flex",alignItems:"center",justifyContent:"center",height:28,minWidth:26,fontFamily:"inherit",transition:"all .1s"}}
+      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}}
+      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}}>
       {ch}
     </button>
   );
   const Sp=()=><div style={{width:1,height:16,background:"#e8e0d6",margin:"0 2px"}}/>;
+
+  // ブロックラベル
+  const blockLabels={"p":"本文","h1":"見出し","h2":"小見出し","blockquote":"引用","li":"リスト"};
+  const blockLabel=blockLabels[fmt.block]||"本文";
+
   return(
     <div style={{display:"flex",alignItems:"center",gap:1,padding:"5px 14px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexWrap:"wrap",flexShrink:0}}>
-      <select onChange={e=>{exec("formatBlock",e.target.value);e.target.value="";}} defaultValue=""
-        style={{border:"1px solid #e8e0d6",borderRadius:5,padding:"2px 7px",fontSize:"0.77em",color:"#1a1a1a",background:"#fff",cursor:"pointer",fontFamily:"inherit",height:28}}>
-        <option value="" disabled>形式</option>
-        <option value="p">本文</option><option value="h1">見出し</option>
-        <option value="h2">小見出し</option><option value="blockquote">引用</option>
+      {/* 形式セレクト（現在の形式を表示） */}
+      <select value={["p","h1","h2","blockquote"].includes(fmt.block)?fmt.block:"p"}
+        onChange={e=>{exec("formatBlock",e.target.value);}}
+        style={{border:"1px solid #e8e0d6",borderRadius:5,padding:"2px 7px",fontSize:"0.77em",color:"#1a1a1a",background:"#fff",cursor:"pointer",fontFamily:"inherit",height:28,fontWeight:600}}>
+        <option value="p">本文</option>
+        <option value="h1">見出し</option>
+        <option value="h2">小見出し</option>
+        <option value="blockquote">引用</option>
       </select>
       <Sp/>
-      <B title="太字" onClick={()=>exec("bold")} ch={<strong>B</strong>}/>
-      <B title="斜体" onClick={()=>exec("italic")} ch={<em>I</em>}/>
-      <B title="取り消し線" onClick={()=>exec("strikeThrough")} ch={<s>S</s>}/>
+      <B title="太字 (Ctrl+B)" onClick={()=>exec("bold")} active={fmt.bold} ch={<strong>B</strong>}/>
+      <B title="斜体 (Ctrl+I)" onClick={()=>exec("italic")} active={fmt.italic} ch={<em>I</em>}/>
+      <B title="取り消し線" onClick={()=>exec("strikeThrough")} active={fmt.strike} ch={<s>S</s>}/>
       <Sp/>
-      <B title="箇条書き" onClick={()=>exec("insertUnorderedList")} ch={
+      <B title="箇条書き" onClick={()=>exec("insertUnorderedList")} active={fmt.block==="li"} ch={
         <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor">
           <circle cx="1.5" cy="3" r="1.5"/><rect x="4" y="2" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="7" r="1.5"/><rect x="4" y="6" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="11" r="1.5"/><rect x="4" y="10" width="10" height="2" rx="1"/>
         </svg>}/>
-      <B title="番号リスト" onClick={()=>exec("insertOrderedList")} ch="1≡"/>
+      <B title="番号リスト" onClick={()=>exec("insertOrderedList")} active={false} ch="1≡"/>
       <Sp/>
-      <B title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} ch="🔗"/>
-      <B title="区切り線" onClick={()=>exec("insertHorizontalRule")} ch="—"/>
+      <B title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
+      <B title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
       <button onMouseDown={e=>e.preventDefault()} onClick={onInsertOpen}
         style={{border:"1px solid #e8e0d6",background:"none",color:"#536471",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:600,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
         onMouseEnter={e=>{e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}
         onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}>
         ＋挿入
       </button>
-      <B title="書式クリア" onClick={()=>exec("removeFormat")} ch="✕"/>
-      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=改行　⇧Enter=段落</div>
+      <B title="書式クリア" onClick={()=>exec("removeFormat")} active={false} ch="✕"/>
+      {/* 現在の形式バッジ */}
+      <div style={{marginLeft:6,fontSize:"0.68em",color:"#1d9bf0",background:"#e8f5fe",border:"1px solid #93d3fc",borderRadius:10,padding:"1px 7px",fontWeight:700}}>{blockLabel}</div>
+      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=新段落　⇧Enter=同形式改行</div>
     </div>
   );
 }
@@ -171,14 +218,35 @@ function InsertModal({onClose,savedRange,bodyRef}){
 }
 
 // ── copy helpers ──
-function copyRichText(html,plain,onDone){
-  try{navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(onDone).catch(()=>fallbackCopy(html,onDone));}
-  catch(e){fallbackCopy(html,onDone);}
+// HTMLを読みやすいプレーンテキストに変換
+function htmlToPlain(html){
+  const div=document.createElement("div");
+  div.innerHTML=html;
+  function walk(node){
+    if(node.nodeType===3)return node.textContent;
+    const tag=node.tagName?.toLowerCase();
+    const children=Array.from(node.childNodes).map(walk).join("");
+    if(tag==="br")return "\n";
+    if(tag==="p")return children+"\n\n";
+    if(tag==="h1"||tag==="h2")return children+"\n\n";
+    if(tag==="blockquote")return children.split("\n").map(l=>"　"+l).join("\n")+"\n\n";
+    if(tag==="li")return "・"+children+"\n";
+    if(tag==="ul"||tag==="ol")return children+"\n";
+    if(tag==="hr")return "───────────\n\n";
+    if(tag==="div"&&node.getAttribute("contenteditable")==="false")return "[リンク]\n";
+    return children;
+  }
+  return walk(div).replace(/\n{3,}/g,"\n\n").trim();
 }
-function fallbackCopy(html,onDone){
-  const div=document.createElement("div");div.innerHTML=html;div.style.cssText="position:fixed;left:-9999px;white-space:pre-wrap";
-  document.body.appendChild(div);const r=document.createRange();r.selectNodeContents(div);const s=window.getSelection();s.removeAllRanges();s.addRange(r);
-  try{document.execCommand("copy");}catch(e){}s.removeAllRanges();document.body.removeChild(div);onDone?.();
+function copyRichText(html,_plain,onDone){
+  const plain=htmlToPlain(html);
+  try{navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(onDone).catch(()=>fallbackCopy(plain,onDone));}
+  catch(e){fallbackCopy(plain,onDone);}
+}
+function fallbackCopy(plain,onDone){
+  const ta=document.createElement("textarea");ta.value=plain;ta.style.cssText="position:fixed;left:-9999px;top:0";
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);onDone?.();
 }
 
 // ════════════════════════════════════════════════════════
@@ -466,20 +534,8 @@ function EditorModal({post,onSave,onClose}){
                   </div>
                 )}
                 {sidePanel==="share"&&(
-                  <div>
-                    <div style={{fontSize:"0.72em",color:"#536471",marginBottom:12,lineHeight:1.6}}>クライアントに記事をシェアしてX/noteへのコピーを依頼できます。</div>
-                    <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"9px 11px",fontSize:"0.72em",color:"#92400e",lineHeight:1.7,marginBottom:12}}>
-                      💡 リンクを開いてコピーボタンを押すだけ
-                    </div>
-                    <button onClick={()=>{
-                      const base=window.location.href.split("?")[0];
-                      const data={title:draft.title,body:draft.body};
-                      const url=`${base}#share=${encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(data)))))}`;
-                      navigator.clipboard.writeText(url).catch(()=>{});
-                      alert("共有リンクをコピーしました！");
-                    }} style={{width:"100%",background:"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"10px",fontWeight:700,fontSize:"0.82em",cursor:"pointer",fontFamily:"inherit"}}>
-                      🔗 共有リンクをコピー
-                    </button>
+                  <div style={{fontSize:"0.8em",color:"#aaa",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
+                    共有機能は<br/>準備中です
                   </div>
                 )}
               </div>
@@ -557,6 +613,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
               </div>
             )}
             {post.memo&&<div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:"0.8em",color:"#92400e",lineHeight:1.6,marginBottom:16}}>{post.memo}</div>}
+            {/* ⚠️ XSS: 信頼済みユーザーのみ。不特定多数が使う場合はDOMPurifyでサニタイズ */}
             <div className="xb" dangerouslySetInnerHTML={{__html:post.body||"<p style='color:#aaa'>本文はまだありません</p>"}}/>
           </div>
 
@@ -677,7 +734,7 @@ export default function App(){
   const [repostTgt,          setRepostTgt]          = useState(null);
   const [deleteConfirm,      setDeleteConfirm]      = useState(null);
 
-  const today    =fmtDate(new Date());
+  const today    =React.useMemo(()=>fmtDate(new Date()),[]);
   const weekDates=getWeekDates(week);
   const activeAcc=accounts.find(a=>a.id===activeAccId);
   const posts    =allPosts[activeAccId]||[];
@@ -711,7 +768,6 @@ export default function App(){
   function dbToPost(p){
     return{...p,
       postType:p.post_type||"x_post",
-      threads:p.threads||[],
       comments:p.comments||[],
       body:p.body||"",
       memo:p.memo||"",
@@ -722,14 +778,13 @@ export default function App(){
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2500);}
 
-  // ── 保存 ──
-  async function save(p){
+  // ── DB保存（内部共通） ──
+  async function saveToDb(p){
     const record={
       id:p.id,account_id:activeAccId,
       title:p.title,status:p.status,
       post_type:p.postType||"x_post",
       datetime:p.datetime,
-      threads:p.threads||[],
       body:p.body||"",
       memo:p.memo||"",
       memo_links:p.memoLinks||[],
@@ -737,12 +792,19 @@ export default function App(){
       history:p.history||[],
     };
     const{error}=await supabase.from("posts").upsert(record);
-    if(error){showToast("保存に失敗しました");return;}
+    if(error){showToast("保存に失敗しました");return false;}
     setAllPosts(prev=>{
       const cur=prev[activeAccId]||[];
       const exists=cur.find(x=>x.id===p.id);
       return{...prev,[activeAccId]:exists?cur.map(x=>x.id===p.id?p:x):[...cur,p]};
     });
+    return true;
+  }
+
+  // ── エディタ保存（保存→エディタ閉じる→プレビュー表示） ──
+  async function save(p){
+    const ok=await saveToDb(p);
+    if(!ok)return;
     setEditing(null);setPreview(p);
     showToast("保存しました ✅");
   }
@@ -780,8 +842,10 @@ export default function App(){
       history:[{at:nowStr(),note:`「${p.title}」から再投稿${repeat!=="none"?` (${repeat})`:""}`}],
       comments:[],
     };
-    await save(newPost);
-    setRepostTgt(null);showToast("再投稿を作成しました ✅");
+    const ok=await saveToDb(newPost);
+    if(!ok)return;
+    setRepostTgt(null);
+    showToast("再投稿を作成しました ✅");
   }
 
   // ── 複製 ──
@@ -794,8 +858,10 @@ export default function App(){
       history:[{at:nowStr(),note:`「${p.title}」を複製`}],
       comments:[],
     };
-    await save(newPost);
-    setPreview(null);showToast("翌日同時刻に複製しました ✅");
+    const ok=await saveToDb(newPost);
+    if(!ok)return;
+    setPreview(null);
+    showToast("翌日同時刻に複製しました ✅");
   }
 
   // ── アカウント管理 ──
@@ -817,9 +883,11 @@ export default function App(){
     if(accounts.length<=1){showToast("最後のアカウントは削除できません");return;}
     const{error}=await supabase.from("accounts").delete().eq("id",id);
     if(error){showToast("削除に失敗しました");return;}
-    setAccounts(prev=>prev.filter(a=>a.id!==id));
+    const remaining=accounts.filter(a=>a.id!==id);
+    setAccounts(remaining);
     setAllPosts(prev=>{const n={...prev};delete n[id];return n;});
-    setActiveAccId(accounts.find(a=>a.id!==id).id);
+    // remaining が確実に存在する（length<=1チェック済み）
+    if(activeAccId===id) setActiveAccId(remaining[0].id);
   }
   function copyShareLink(accId){
     const base=window.location.href.split("?")[0];
@@ -827,7 +895,7 @@ export default function App(){
     navigator.clipboard.writeText(url).then(()=>showToast("共有リンクをコピーしました")).catch(()=>showToast("コピー完了"));
   }
   function openNew(datetime){
-    setEditing({id:genId(),title:"",status:"draft",postType:"x_post",datetime:datetime||`${today}T07:00`,threads:[],body:"",memo:"",memoLinks:[],comments:[],history:[]});
+    setEditing({id:genId(),title:"",status:"draft",postType:"x_post",datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
   }
 
   // ⌘K
@@ -987,8 +1055,8 @@ export default function App(){
               );
             })}
             {HOURS.map(hour=>(
-              <>
-                <div key={"h"+hour} style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#faf7f3",borderRight:"1px solid #e8e0d6"}}>{hour}:00</div>
+              <React.Fragment key={hour}>
+                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#faf7f3",borderRight:"1px solid #e8e0d6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
                   const key=fmtDate(date)+"_"+String(hour).padStart(2,"0");
                   const sp=postsBySlot[key]||[];
@@ -1021,7 +1089,7 @@ export default function App(){
                     </div>
                   );
                 })}
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -1093,7 +1161,7 @@ export default function App(){
         onDelete={p=>setDeleteConfirm(p)}
         onSaveComment={saveComment}/>}
 
-      {editing&&<EditorModal post={editing} onSave={save} onClose={()=>setEditing(null)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
       {showSearch&&<SearchModal posts={posts} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
