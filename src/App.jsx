@@ -66,6 +66,26 @@ function BodyEditor({value,onChange,editorRef}){
 
   const handleKeyDown=e=>{
     if(e.isComposing||isComposing.current)return;
+
+    // Tab: 箇条書きのインデント／アウトデント
+    if(e.key==="Tab"){
+      e.preventDefault();
+      const sel=window.getSelection();
+      if(sel&&sel.rangeCount>0){
+        const node=sel.getRangeAt(0).commonAncestorContainer;
+        const block=node.nodeType===3?node.parentElement:node;
+        const inList=block?.closest("li");
+        if(inList){
+          // リスト内のみインデント操作
+          document.execCommand(e.shiftKey?"outdent":"indent");
+          emit();
+          return;
+        }
+      }
+      // リスト外ではタブを無視（フォーカス移動させない）
+      return;
+    }
+
     if(e.key!=="Enter")return;
     e.preventDefault();
     if(e.shiftKey){
@@ -980,6 +1000,8 @@ export default function App(){
         .xb ul{list-style:disc;padding-left:1.5em;margin:.6em 0 1.2em;}
         .xb ol{list-style:decimal;padding-left:1.5em;margin:.6em 0 1.2em;}
         .xb li{font-size:17px;line-height:1.75;color:#0f1419;margin:.15em 0;}
+        .xb ul ul,.xb ol ul{list-style:circle;padding-left:1.5em;margin:.2em 0;}
+        .xb ul ul ul,.xb ol ul ul{list-style:square;}
         .xb blockquote{border-left:3px solid #cfd9de;padding:4px 0 4px 16px;margin:.8em 0 1.2em;color:#536471;font-style:italic;font-size:17px;line-height:1.75;}
         .xb a{color:#1d9bf0;text-decoration:underline;}
         .xb hr{border:none;border-top:1px solid #eff3f4;margin:1.5em 0;}
