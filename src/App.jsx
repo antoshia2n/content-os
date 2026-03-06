@@ -406,6 +406,7 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
 function EditorModal({post,onSave,onClose}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
+  const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
   const [sidePanel,setSidePanel]=useState(null);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null);
@@ -428,6 +429,34 @@ function EditorModal({post,onSave,onClose}){
       if(target==="x"){setCopyX(true);setTimeout(()=>setCopyX(false),3500);}
       else{setCopyNote(true);setTimeout(()=>setCopyNote(false),3500);}
     });
+  };
+
+  const saveToNotion=async()=>{
+    setNotionState("saving");
+    try{
+      const res=await fetch("/api/notion",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          title:draft.title,
+          body:draft.body,
+          status:draft.status,
+          postType:draft.postType,
+          datetime:draft.datetime,
+          memo:draft.memo,
+        }),
+      });
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||"エラー");
+      setNotionState("done");
+      setTimeout(()=>setNotionState("idle"),4000);
+      // Notion URLを新しいタブで開く
+      if(data.url)window.open(data.url,"_blank");
+    }catch(e){
+      setNotionState("error");
+      setTimeout(()=>setNotionState("idle"),4000);
+      console.error(e);
+    }
   };
 
   const pt=POST_TYPE[draft.postType]||POST_TYPE.x_post;
@@ -464,6 +493,18 @@ function EditorModal({post,onSave,onClose}){
           <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
             style={{border:"1.5px solid #e0d8ce",borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
           <div style={{flex:1}}/>
+          <button onClick={saveToNotion} disabled={notionState==="saving"}
+            style={{
+              background:notionState==="done"?"#00ba7c":notionState==="error"?"#ef4444":notionState==="saving"?"#9ca3af":"#000",
+              color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,
+              cursor:notionState==="saving"?"default":"pointer",fontFamily:"inherit",whiteSpace:"nowrap",
+              transition:"background .2s",display:"flex",alignItems:"center",gap:5,
+            }}>
+            {notionState==="saving"?"⏳ 保存中…":notionState==="done"?"✅ Notion保存完了":notionState==="error"?"❌ 保存失敗":<>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg>
+              Notionに保存
+            </>}
+          </button>
           <button onClick={()=>doCopy("note")} style={{background:copyNote?"#00ba7c":"#41c9b4",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyNote?"✅ 完了":"note にコピー"}</button>
           <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"✅ 完了":"𝕏 にコピー"}</button>
           <div style={{width:1,height:20,background:"#e8e0d6"}}/>
