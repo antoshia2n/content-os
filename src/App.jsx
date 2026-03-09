@@ -111,12 +111,39 @@ function BodyEditor({value,onChange,editorRef}){
       onCompositionStart={()=>{isComposing.current=true;}}
       onCompositionEnd={()=>{isComposing.current=false;emit();}}
       onInput={()=>{if(!isComposing.current)emit();}}
-      onPaste={e=>{e.preventDefault();document.execCommand("insertText",false,e.clipboardData.getData("text/plain"));}}
+      onPaste={e=>{
+        e.preventDefault();
+        const text=e.clipboardData.getData("text/plain");
+        if(!text)return;
+        // 段落（2連続改行）と行内改行を区別して変換
+        const paras=text.split(/\n{2,}/);
+        if(paras.length<=1){
+          // 単一段落 — 改行をbrに
+          document.execCommand("insertHTML",false,text.replace(/\n/g,"<br>"));
+        }else{
+          // 複数段落 — pタグで囲む
+          const html=paras.filter(p=>p.trim()).map(p=>`<p>${p.replace(/\n/g,"<br>").trim()}</p>`).join("");
+          document.execCommand("insertHTML",false,html);
+        }
+      }}
       onKeyDown={handleKeyDown}
       style={{minHeight:360,fontSize:17,lineHeight:1.75,color:"#0f1419",fontFamily:XFONT,wordBreak:"break-word",caretColor:"#1d9bf0",outline:"none"}}
     />
   );
 }
+
+// ── ツールバー用ボタン（Toolbar外で定義することで毎レンダー再生成を防ぐ） ──
+function ToolbarBtn({title,onClick,active,ch}){
+  return(
+    <button title={title} onMouseDown={e=>{e.preventDefault();onClick();}}
+      style={{border:active?"1.5px solid #1d9bf0":"1px solid transparent",background:active?"#e8f5fe":"none",color:active?"#1d9bf0":"#536471",borderRadius:5,padding:"4px 6px",cursor:"pointer",fontSize:"0.82em",fontWeight:active?800:600,display:"flex",alignItems:"center",justifyContent:"center",height:28,minWidth:26,fontFamily:"inherit",transition:"all .1s"}}
+      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}}
+      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}}>
+      {ch}
+    </button>
+  );
+}
+function ToolbarSep(){return <div style={{width:1,height:16,background:"#e8e0d6",margin:"0 2px"}}/>;}
 
 function Toolbar({onInsertOpen}){
   const exec=React.useCallback((cmd,val)=>document.execCommand(cmd,false,val??null),[]);
@@ -142,15 +169,7 @@ function Toolbar({onInsertOpen}){
     return()=>document.removeEventListener("selectionchange",update);
   },[]);
 
-  const B=({title,onClick,active,ch})=>(
-    <button title={title} onMouseDown={e=>{e.preventDefault();onClick();}}
-      style={{border:active?"1.5px solid #1d9bf0":"1px solid transparent",background:active?"#e8f5fe":"none",color:active?"#1d9bf0":"#536471",borderRadius:5,padding:"4px 6px",cursor:"pointer",fontSize:"0.82em",fontWeight:active?800:600,display:"flex",alignItems:"center",justifyContent:"center",height:28,minWidth:26,fontFamily:"inherit",transition:"all .1s"}}
-      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}}
-      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}}>
-      {ch}
-    </button>
-  );
-  const Sp=()=><div style={{width:1,height:16,background:"#e8e0d6",margin:"0 2px"}}/>;
+  // B・Sp はファイル上部で定義済み
 
   // ブロックラベル
   const blockLabels={"p":"本文","h1":"見出し","h2":"小見出し","blockquote":"引用","li":"リスト"};
@@ -167,28 +186,28 @@ function Toolbar({onInsertOpen}){
         <option value="h2">小見出し</option>
         <option value="blockquote">引用</option>
       </select>
-      <Sp/>
-      <B title="太字 (Ctrl+B)" onClick={()=>exec("bold")} active={fmt.bold} ch={<strong>B</strong>}/>
-      <B title="斜体 (Ctrl+I)" onClick={()=>exec("italic")} active={fmt.italic} ch={<em>I</em>}/>
-      <B title="取り消し線" onClick={()=>exec("strikeThrough")} active={fmt.strike} ch={<s>S</s>}/>
-      <Sp/>
-      <B title="箇条書き" onClick={()=>exec("insertUnorderedList")} active={fmt.block==="li"} ch={
+      <ToolbarSep/>
+      <ToolbarBtn title="太字 (Ctrl+B)" onClick={()=>exec("bold")} active={fmt.bold} ch={<strong>B</strong>}/>
+      <ToolbarBtn title="斜体 (Ctrl+I)" onClick={()=>exec("italic")} active={fmt.italic} ch={<em>I</em>}/>
+      <ToolbarBtn title="取り消し線" onClick={()=>exec("strikeThrough")} active={fmt.strike} ch={<s>S</s>}/>
+      <ToolbarSep/>
+      <ToolbarBtn title="箇条書き" onClick={()=>exec("insertUnorderedList")} active={fmt.block==="li"} ch={
         <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor">
           <circle cx="1.5" cy="3" r="1.5"/><rect x="4" y="2" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="7" r="1.5"/><rect x="4" y="6" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="11" r="1.5"/><rect x="4" y="10" width="10" height="2" rx="1"/>
         </svg>}/>
-      <B title="番号リスト" onClick={()=>exec("insertOrderedList")} active={false} ch="1≡"/>
-      <Sp/>
-      <B title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
-      <B title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
+      <ToolbarBtn title="番号リスト" onClick={()=>exec("insertOrderedList")} active={false} ch="1≡"/>
+      <ToolbarSep/>
+      <ToolbarBtn title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
+      <ToolbarBtn title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
       <button onMouseDown={e=>e.preventDefault()} onClick={onInsertOpen}
         style={{border:"1px solid #e8e0d6",background:"none",color:"#536471",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:600,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
         onMouseEnter={e=>{e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}
         onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}>
         ＋挿入
       </button>
-      <B title="書式クリア" onClick={()=>exec("removeFormat")} active={false} ch="✕"/>
+      <ToolbarBtn title="書式クリア" onClick={()=>exec("removeFormat")} active={false} ch="✕"/>
       {/* 現在の形式バッジ */}
       <div style={{marginLeft:6,fontSize:"0.68em",color:"#1d9bf0",background:"#e8f5fe",border:"1px solid #93d3fc",borderRadius:10,padding:"1px 7px",fontWeight:700}}>{blockLabel}</div>
       <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=新段落　⇧Enter=同形式改行</div>
@@ -205,11 +224,25 @@ function InsertModal({onClose,savedRange,bodyRef}){
     if(savedRange){sel.removeAllRanges();sel.addRange(savedRange);}
     document.execCommand("insertHTML",false,html);
   };
-  const handleImage=e=>{
+  const [uploading,setUploading]=useState(false);
+  const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
-    const r=new FileReader();
-    r.onload=ev=>{insertAt(`<p><img src="${ev.target.result}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);onClose();};
-    r.readAsDataURL(file);
+    // ファイルサイズ上限 5MB
+    if(file.size>5*1024*1024){alert("画像は5MB以下にしてください");return;}
+    setUploading(true);
+    try{
+      const ext=file.name.split(".").pop();
+      const path=`images/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const{error:upErr}=await supabase.storage.from("contentos").upload(path,file,{contentType:file.type,upsert:false});
+      if(upErr)throw upErr;
+      const{data}=supabase.storage.from("contentos").getPublicUrl(path);
+      insertAt(`<p><img src="${data.publicUrl}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);
+      onClose();
+    }catch(err){
+      alert("画像のアップロードに失敗しました: "+err.message);
+    }finally{
+      setUploading(false);
+    }
   };
   const handlePost=()=>{
     if(!url.trim())return;
@@ -229,7 +262,7 @@ function InsertModal({onClose,savedRange,bodyRef}){
         </div>
         <div style={{padding:"14px 16px 8px"}}>
           {tab==="image"&&(<><input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleImage}/>
-            <button onClick={()=>fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f7f9f9",borderRadius:9,padding:"24px 0",cursor:"pointer",color:"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e0d6";e.currentTarget.style.color="#aaa";}}>📁 クリックして画像を選択</button></>)}
+            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f7f9f9",borderRadius:9,padding:"24px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e8e0d6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
           {tab==="post"&&(<><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."
             style={{width:"100%",border:"1.5px solid #e8e0d6",borderRadius:8,padding:"9px 11px",fontSize:"0.82em",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e8e0d6"}
@@ -616,7 +649,7 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
   const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
@@ -647,12 +680,17 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
               <span style={{fontSize:11,color:pt.color,fontWeight:700,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10}}>{pt.label}</span>
-              {st&&<span style={{fontSize:11,color:st.text,fontWeight:700,background:st.chip,border:`1px solid ${st.border}`,padding:"1px 8px",borderRadius:10}}>{st.label}</span>}
+              {/* ステータスはヘッダー右のセレクトで変更可 */}
               <span style={{fontSize:11,color:"#888"}}>{post.datetime.replace("T"," ")}</span>
             </div>
             <div style={{fontSize:20,fontWeight:800,color:"#0f1419",lineHeight:1.3}}>{post.title||"（タイトルなし）"}</div>
           </div>
-          <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
+            {/* ステータスをその場で変更 */}
+            <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value)}
+              style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
             <button onClick={()=>onEdit(post)} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ 編集</button>
             <button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋 複製</button>
@@ -799,6 +837,15 @@ export default function App(){
   const [showSearch,         setShowSearch]         = useState(false);
   const [repostTgt,          setRepostTgt]          = useState(null);
   const [deleteConfirm,      setDeleteConfirm]      = useState(null);
+  const [slots,              setSlots]              = useState([]); // 予約枠 [{id,dow,hour,postType}]
+  const [showSlotSettings,   setShowSlotSettings]   = useState(false);
+  const shareRef=useRef(null);
+  useEffect(()=>{
+    if(!showShare)return;
+    const h=e=>{if(shareRef.current&&!shareRef.current.contains(e.target))setShowShare(false);};
+    document.addEventListener("mousedown",h);
+    return()=>document.removeEventListener("mousedown",h);
+  },[showShare]);
 
   const today    =React.useMemo(()=>fmtDate(new Date()),[]);
   const weekDates=getWeekDates(week);
@@ -964,17 +1011,42 @@ export default function App(){
     setEditing({id:genId(),title:"",status:"draft",postType:"x_post",datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
   }
 
+  // 予約枠 — アカウントごとにlocalStorageで永続化
+  useEffect(()=>{
+    if(!activeAccId)return;
+    try{const saved=localStorage.getItem(`slots_${activeAccId}`);if(saved)setSlots(JSON.parse(saved));}catch(e){}
+  },[activeAccId]);
+  function saveSlots(next){
+    setSlots(next);
+    if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
+  }
+
   // ⌘K
   useEffect(()=>{
     const h=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowSearch(true);}};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[]);
 
-  const postsBySlot={};
-  filtered.forEach(p=>{
-    const key=`${p.datetime.slice(0,10)}_${p.datetime.slice(11,13)}`;
-    (postsBySlot[key]=postsBySlot[key]||[]).push(p);
-  });
+  const postsBySlot=React.useMemo(()=>{
+    const m={};
+    filtered.forEach(p=>{
+      const key=`${p.datetime.slice(0,10)}_${p.datetime.slice(11,13)}`;
+      (m[key]=m[key]||[]).push(p);
+    });
+    return m;
+  },[filtered]);
+
+  const ghostBySlot=React.useMemo(()=>{
+    const m={};
+    weekDates.forEach(date=>{
+      const dow=date.getDay()===0?7:date.getDay();
+      slots.filter(s=>s.dow===dow).forEach(s=>{
+        const key=`${fmtDate(date)}_${String(s.hour).padStart(2,"0")}`;
+        (m[key]=m[key]||[]).push(s);
+      });
+    });
+    return m;
+  },[weekDates,slots]);
 
   if(loading)return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans', sans-serif"}}>
@@ -1063,8 +1135,9 @@ export default function App(){
           </div>
           {isAdmin&&(
             <>
+              <Btn onClick={()=>setShowSlotSettings(true)}>予約枠</Btn>
               <Btn onClick={()=>setShowAccountSettings(true)}>設定</Btn>
-              <div style={{position:"relative"}}>
+              <div ref={shareRef} style={{position:"relative"}}>
                 <Btn onClick={()=>setShowShare(s=>!s)}>共有</Btn>
                 {showShare&&(
                   <div style={{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",border:"1.5px solid #e8e0d6",borderRadius:12,padding:16,zIndex:100,width:300,boxShadow:"0 8px 24px #0000001a"}}>
@@ -1135,6 +1208,7 @@ export default function App(){
                       style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e8e0d6",padding:"3px",minHeight:42,background:dateStr===today?"#fffcf5":"#fff",cursor:isEmpty?"pointer":"default",transition:"background .1s"}}
                       onMouseEnter={isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fff8e8":"#faf7f3";}:undefined}
                       onMouseLeave={isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
+                      {/* 実投稿 */}
                       {sp.map(p=>{
                         const pt2=POST_TYPE[p.postType||"x_post"],st2=STATUS[p.status];
                         return(
@@ -1154,6 +1228,24 @@ export default function App(){
                           </div>
                         );
                       })}
+                      {/* ゴースト枠（予約枠が埋まっていない場合のみ表示） */}
+                      {(ghostBySlot[key]||[]).filter(g=>sp.length===0).map((g,gi)=>{
+                        const gpt=POST_TYPE[g.postType||"x_post"];
+                        return(
+                          <div key={"g"+gi}
+                            onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`);}}
+                            style={{border:`1.5px dashed ${gpt.border}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"pointer",opacity:0.5,transition:"opacity .1s",background:"transparent"}}
+                            onMouseEnter={e=>e.currentTarget.style.opacity="0.9"}
+                            onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>
+                            <div style={{display:"flex",alignItems:"center",gap:3}}>
+                              <span style={{width:4,height:4,borderRadius:"50%",border:`1.5px solid ${gpt.dot}`,flexShrink:0}}/>
+                              <span style={{fontSize:9,color:"#aaa"}}>{String(g.hour).padStart(2,"0")}:00</span>
+                            </div>
+                            <div style={{fontSize:9,color:"#bbb",lineHeight:1.3}}>予約枠</div>
+                            <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:gpt.bg,padding:"0 4px",borderRadius:6,opacity:0.7}}>{gpt.label}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -1163,61 +1255,61 @@ export default function App(){
         </div>
       )}
 
-      {/* ── リストビュー ── */}
+            {/* ── リストビュー ── */}
       {view==="list"&&(
-        <div style={{padding:20,overflowY:"auto",maxHeight:"calc(100vh - 52px)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-            {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
-            <span style={{fontWeight:800,fontSize:14}}>{activeAcc?.name} の投稿</span>
-            <span style={{fontSize:12,color:"#aaa"}}>{filtered.length}件</span>
-            <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
-              style={{marginLeft:"auto",background:"#f8f4ef",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
-              <option value="all">すべてのステータス</option>
-              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
-          {Object.entries(STATUS).map(([sk,sv])=>{
-            const grp=filtered.filter(p=>p.status===sk);
-            if(!grp.length)return null;
-            return(
-              <div key={sk} style={{marginBottom:24}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                  <span style={{fontSize:11,fontWeight:700,color:sv.text,background:sv.chip,border:`1px solid ${sv.border}`,padding:"2px 10px",borderRadius:20}}>{sv.label}</span>
-                  <span style={{fontSize:11,color:"#ccc"}}>{grp.length}件</span>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:9}}>
-                  {grp.sort((a,b)=>a.datetime.localeCompare(b.datetime)).map(p=>{
-                    const pt2=POST_TYPE[p.postType||"x_post"];
-                    return(
-                      <div key={p.id} onClick={()=>setPreview(p)}
-                        style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderTop:`3px solid ${pt2.dot}`,borderRadius:10,padding:"11px 13px",cursor:"pointer",transition:"box-shadow .15s"}}
-                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 14px #0000001a"}
-                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}>
-                          <span style={{width:7,height:7,borderRadius:"50%",background:pt2.dot}}/>
-                          <span style={{fontSize:10,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 6px",borderRadius:10}}>{pt2.label}</span>
-                          <span style={{fontSize:10,color:"#aaa",marginLeft:"auto"}}>{p.datetime.slice(0,10)}</span>
-                        </div>
-                        <div style={{fontSize:13,fontWeight:800,marginBottom:5,color:"#0f1419",lineHeight:1.3}}>{p.title||"（タイトルなし）"}</div>
-                        {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:5,padding:"2px 7px",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
-                        <div style={{display:"flex",gap:5,marginTop:4}}>
-                          <button onClick={e=>{e.stopPropagation();setEditing({...p});}}
-                            style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>編集</button>
-                          <button onClick={e=>{e.stopPropagation();handleDuplicate(p);}}
-                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:6,padding:"4px 8px",fontSize:10,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-                            onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
-                          <button onClick={e=>{e.stopPropagation();setRepostTgt(p);}}
-                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:6,padding:"4px 8px",fontSize:10,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-                            onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+        <ListView
+          filtered={filtered}
+          today={today}
+          activeAcc={activeAcc}
+          filterStatus={filterStatus}
+          setFilter={setFilter}
+          setPreview={setPreview}
+          setEditing={setEditing}
+          handleDuplicate={handleDuplicate}
+          setRepostTgt={setRepostTgt}
+          openNew={openNew}
+        />
+      )}
+
+      {/* ── 予約枠設定モーダル ── */}
+      {showSlotSettings&&isAdmin&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+          onClick={e=>{if(e.target===e.currentTarget)setShowSlotSettings(false);}}>
+          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"80vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+            <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
+              <div>
+                <div style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
+                <div style={{fontSize:11,color:"#aaa",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
               </div>
-            );
-          })}
-          {filtered.length===0&&<div style={{textAlign:"center",color:"#ccc",padding:60,fontSize:13}}>投稿がありません</div>}
+              <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
+            </div>
+            <div style={{flex:1,overflowY:"auto",padding:18}}>
+              {/* 枠一覧 */}
+              {slots.length===0&&<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"24px 0"}}>枠がまだありません</div>}
+              {slots.map((s,i)=>{
+                const pt=POST_TYPE[s.postType||"x_post"];
+                const dowLabel=["","月","火","水","木","金","土","日"][s.dow];
+                return(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                    <span style={{fontWeight:700,fontSize:13,minWidth:24}}>{dowLabel}</span>
+                    <span style={{fontSize:13,color:"#555"}}>{String(s.hour).padStart(2,"0")}:00</span>
+                    <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700}}>{pt.label}</span>
+                    <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
+                      style={{marginLeft:"auto",border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700}}>×</button>
+                  </div>
+                );
+              })}
+              {/* 新規追加フォーム */}
+              <SlotAddForm onAdd={s=>{
+                if(slots.some(x=>x.dow===s.dow&&x.hour===s.hour)){
+                  alert(`${["","月","火","水","木","金","土","日"][s.dow]}曜 ${String(s.hour).padStart(2,"0")}:00 の枠はすでに存在します`);
+                  return;
+                }
+                saveSlots([...slots,{...s,id:genId()}]);
+              }}/>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1227,7 +1319,8 @@ export default function App(){
         onRepost={p=>{setPreview(null);setRepostTgt(p);}}
         onDuplicate={handleDuplicate}
         onDelete={p=>setDeleteConfirm(p)}
-        onSaveComment={saveComment}/>}
+        onSaveComment={saveComment}
+        onChangeStatus={changeStatus}/>}
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
@@ -1263,6 +1356,145 @@ export default function App(){
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── リストビュー ──
+function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew}){
+  const byDate={};
+  filtered.forEach(p=>{
+    const d=p.datetime.slice(0,10);
+    (byDate[d]=byDate[d]||[]).push(p);
+  });
+  const dates=Object.keys(byDate).sort();
+  return(
+    <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 52px)",overflow:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexShrink:0}}>
+        {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
+        <span style={{fontWeight:800,fontSize:14}}>{activeAcc?.name} の投稿</span>
+        <span style={{fontSize:12,color:"#aaa"}}>{filtered.length}件</span>
+        <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
+          style={{marginLeft:"auto",background:"#f8f4ef",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
+          <option value="all">すべてのステータス</option>
+          {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+      <div style={{flex:1,overflowX:"auto",overflowY:"hidden",display:"flex",padding:"16px 18px",gap:14,alignItems:"flex-start"}}>
+        {dates.length===0&&<div style={{color:"#ccc",fontSize:13,margin:"auto"}}>投稿がありません</div>}
+        {dates.map(date=>{
+          const isToday=date===today;
+          const dayPosts=byDate[date].sort((a,b)=>a.datetime.localeCompare(b.datetime));
+          const d=new Date(date);
+          const dayLabel=["日","月","火","水","木","金","土"][d.getDay()];
+          return(
+            <div key={date} style={{flexShrink:0,width:200}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:7,borderBottom:`2px solid ${isToday?"#f59e0b":"#e8e0d6"}`}}>
+                <div style={{width:30,height:30,borderRadius:"50%",background:isToday?"#f59e0b":"#f2ede6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:isToday?"#fff":"#555",flexShrink:0}}>
+                  {d.getDate()}
+                </div>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:isToday?"#f59e0b":"#aaa"}}>{dayLabel}曜日</div>
+                  <div style={{fontSize:10,color:"#bbb"}}>{d.getMonth()+1}月</div>
+                </div>
+                <span style={{marginLeft:"auto",fontSize:10,color:"#ccc"}}>{dayPosts.length}件</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                {dayPosts.map(p=>{
+                  const pt2=POST_TYPE[p.postType||"x_post"];
+                  const st2=STATUS[p.status];
+                  return(
+                    <div key={p.id} onClick={()=>setPreview(p)}
+                      style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:9,padding:"9px 10px",cursor:"pointer",transition:"box-shadow .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px #0000001a"}
+                      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                      <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                        <span style={{fontSize:10,color:"#888"}}>{p.datetime.slice(11,16)}</span>
+                        <span style={{fontSize:9,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 5px",borderRadius:6,marginLeft:2}}>{pt2.label}</span>
+                        {st2&&<span style={{fontSize:9,color:st2.text,background:st2.chip,border:`1px solid ${st2.border}`,padding:"0 5px",borderRadius:6,fontWeight:600,marginLeft:"auto"}}>{st2.label}</span>}
+                      </div>
+                      <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,22)}{(p.title||"").length>22?"…":""}</div>
+                      {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",borderRadius:4,padding:"2px 6px",marginBottom:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
+                      <div style={{display:"flex",gap:4,marginTop:4}}>
+                        <button onClick={e=>{e.stopPropagation();setEditing({...p});}}
+                          style={{background:"#f59e0b",border:"none",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>編集</button>
+                        <button onClick={e=>{e.stopPropagation();handleDuplicate(p);}}
+                          style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                          onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
+                        <button onClick={e=>{e.stopPropagation();setRepostTgt(p);}}
+                          style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button onClick={()=>openNew(`${date}T09:00`)}
+                  style={{width:"100%",border:"1.5px dashed #e0d8ce",background:"transparent",borderRadius:9,padding:"8px 0",fontSize:10,color:"#ccc",cursor:"pointer",fontFamily:"inherit",transition:"all .15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#e0d8ce";e.currentTarget.style.color="#ccc";}}>
+                  ＋ 追加
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        <div style={{flexShrink:0,width:200}}>
+          <button onClick={()=>openNew()}
+            style={{width:"100%",border:"2px dashed #e0d8ce",background:"transparent",borderRadius:9,padding:"14px 0",fontSize:11,color:"#ccc",cursor:"pointer",fontFamily:"inherit",transition:"all .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="#e0d8ce";e.currentTarget.style.color="#ccc";}}>
+            ＋ 新規作成
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 予約枠追加フォーム ──
+function SlotAddForm({onAdd}){
+  const [dow,setDow]=useState(1);
+  const [hour,setHour]=useState(9);
+  const [postType,setPostType]=useState("x_post");
+  const DOWS=[[1,"月"],[2,"火"],[3,"水"],[4,"木"],[5,"金"],[6,"土"],[7,"日"]];
+  const pt=POST_TYPE[postType];
+  return(
+    <div style={{background:"#fffbeb",border:"1.5px dashed #fcd34d",borderRadius:10,padding:"14px 14px 12px",marginTop:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:10}}>＋ 新しい予約枠</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {/* 曜日 */}
+        <div style={{flex:1,minWidth:120}}>
+          <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {DOWS.map(([v,l])=>(
+              <button key={v} onClick={()=>setDow(v)}
+                style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* 時刻 */}
+        <div style={{minWidth:80}}>
+          <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
+          <select value={hour} onChange={e=>setHour(Number(e.target.value))}
+            style={{border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+            {Array.from({length:24},(_,i)=>i).map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
+          </select>
+        </div>
+      </div>
+      {/* 投稿種類 */}
+      <div style={{marginBottom:12}}>
+        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
+        <select value={postType} onChange={e=>setPostType(e.target.value)}
+          style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+          {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+      <button onClick={()=>onAdd({dow,hour,postType})}
+        style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+        この枠を追加
+      </button>
     </div>
   );
 }
