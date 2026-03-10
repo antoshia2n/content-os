@@ -1458,12 +1458,21 @@ export default function App(){
           accountName={activeAcc?.name||""}
           onSave={saveNotifySettings}
           onClose={()=>setShowNotifySettings(false)}
-          onTestSend={async()=>{
-            if(!notifySettings.email){alert("メールアドレスを入力してください");return;}
-            const res=await fetch("/api/cron-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:activeAccId,testMode:true})});
-            const d=await res.json();
-            if(res.ok)showToast("テストメールを送信しました ✅");
-            else alert("送信失敗: "+(d.error||"エラー"));
+          onTestSend={async(email)=>{
+            if(!email){alert("メールアドレスを入力してください");return;}
+            try{
+              const res=await fetch("/api/cron-notify",{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({accountId:activeAccId,testMode:true,email}),
+              });
+              const d=await res.json();
+              if(res.ok)showToast("テストメールを送信しました ✅");
+              else alert("送信失敗:
+"+(d.error||JSON.stringify(d)));
+            }catch(e){
+              alert("通信エラー: "+e.message);
+            }
           }}
         />
       )}
@@ -1818,7 +1827,7 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
         </div>
         {/* フッター */}
         <div style={{padding:"12px 18px",borderTop:"1px solid #e8e0d6",display:"flex",gap:8,background:"#faf7f3"}}>
-          <button onClick={async()=>{setSending(true);await onTestSend();setSending(false);}}
+          <button onClick={async()=>{setSending(true);await onTestSend(draft.email);setSending(false);}}
             disabled={!draft.email||sending}
             style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:600,color:draft.email?"#555":"#bbb",cursor:draft.email?"pointer":"default",fontFamily:"inherit"}}>
             {sending?"送信中…":"📨 テスト送信"}
