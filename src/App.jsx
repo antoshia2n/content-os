@@ -1684,17 +1684,17 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                   return(
                     <div key={"g"+idx}
                       onClick={()=>openNew(`${date}T${String(s.hour).padStart(2,"0")}:00`,{title:s.title||"",postType:s.postType||"x_post"})}
-                      style={{border:`1.5px dashed ${gpt.border}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:9,padding:"8px 10px",cursor:"pointer",opacity:0.55,transition:"opacity .15s,box-shadow .15s",background:"transparent"}}
+                      style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:9,padding:"8px 10px",cursor:"pointer",opacity:0.7,transition:"all .15s",background:gpt.bg}}
                       onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 2px 8px #0000001a";}}
-                      onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.boxShadow="none";}}>
+                      onMouseLeave={e=>{e.currentTarget.style.opacity="0.7";e.currentTarget.style.boxShadow="none";}}>
                       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
-                        <span style={{width:5,height:5,borderRadius:"50%",border:`1.5px solid ${gpt.dot}`,flexShrink:0}}/>
-                        <span style={{fontSize:10,color:"#bbb"}}>{String(s.hour).padStart(2,"0")}:00</span>
-                        <span style={{fontSize:9,color:gpt.color,background:gpt.bg,border:`1px solid ${gpt.border}`,padding:"0 5px",borderRadius:6,fontWeight:700,marginLeft:"auto"}}>{gpt.label}</span>
+                        <span style={{width:5,height:5,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
+                        <span style={{fontSize:10,color:gpt.color,fontWeight:700}}>{String(s.hour).padStart(2,"0")}:00</span>
+                        <span style={{fontSize:9,color:gpt.color,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 5px",borderRadius:6,fontWeight:700,marginLeft:"auto"}}>{gpt.label}</span>
                       </div>
                       {s.title
-                        ?<div style={{fontSize:11,fontWeight:700,color:"#bbb",lineHeight:1.35,marginBottom:2}}>{s.title.slice(0,20)}{s.title.length>20?"…":""}</div>
-                        :<div style={{fontSize:10,color:"#ccc",fontWeight:600}}>予約枠 — クリックで作成</div>
+                        ?<div style={{fontSize:11,fontWeight:700,color:"#555",lineHeight:1.35,marginBottom:2}}>{s.title.slice(0,20)}{s.title.length>20?"…":""}</div>
+                        :<div style={{fontSize:10,color:"#999",fontWeight:600}}>予約枠 — クリックで作成</div>
                       }
                     </div>
                   );
