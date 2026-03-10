@@ -24,7 +24,9 @@ const DAYS   = ["月","火","水","木","金","土","日"];
 const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const STORAGE_BUCKET = "contentos"; // ⑧ Supabase Storageバケット名
+const STORAGE_BUCKET = "contentos"; // Supabase Storageバケット名
+// 通知対象：予約済みのまま過ぎた投稿を検出するステータス
+const OVERDUE_STATUS = "reserved";
 
 // ⑦ レンダー内で再生成されないようモジュールレベルで定義
 const IMG_SIZES_OPTS=[["small","小 (25%)"],["medium","中 (50%)"],["large","大 (75%)"],["full","全幅"]];
@@ -903,6 +905,10 @@ export default function App(){
   const [deleteConfirm,      setDeleteConfirm]      = useState(null);
   const [slots,              setSlots]              = useState([]); // 予約枠 [{id,dow,hour,postType}]
   const [showSlotSettings,   setShowSlotSettings]   = useState(false);
+  const [dragId,             setDragId]             = useState(null); // ⑧ DnD
+  const [dragOver,           setDragOver]           = useState(null); // ⑧ ドラッグ中セルkey
+  const [showNotifySettings, setShowNotifySettings] = useState(false); // メール通知設定
+  const [notifySettings,     setNotifySettings]     = useState(null); // {email,notify_overdue,notify_today,notify_daily,send_hour,enabled}
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -912,10 +918,15 @@ export default function App(){
   },[showShare]);
 
   const today    =React.useMemo(()=>fmtDate(new Date()),[]);
+  const nowDt    =React.useMemo(()=>new Date().toISOString().slice(0,16),[]);
   const weekDates=React.useMemo(()=>getWeekDates(week),[week]);
   const activeAcc=accounts.find(a=>a.id===activeAccId);
   const posts    =allPosts[activeAccId]||[];
   const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
+  // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
+  const overdueCount=React.useMemo(()=>
+    posts.filter(p=>p.status===OVERDUE_STATUS&&p.datetime<=nowDt).length
+  ,[posts,nowDt]);
 
   // ── ロード ──
   useEffect(()=>{
@@ -1060,9 +1071,9 @@ export default function App(){
     const url=`${base}?account=${accId}`;
     navigator.clipboard.writeText(url).then(()=>showToast("共有リンクをコピーしました")).catch(()=>showToast("コピー完了"));
   }
-  function openNew(datetime){
+  const openNew=React.useCallback((datetime)=>{
     setEditing({id:genId(),title:"",status:"draft",postType:"x_post",datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
-  }
+  },[today]);
 
   // 予約枠 — アカウントごとにlocalStorageで永続化
   useEffect(()=>{
@@ -1074,11 +1085,62 @@ export default function App(){
     if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
   }
 
-  // ⌘K
+  // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
+  const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
+    const p=posts.find(x=>x.id===postId);
+    if(!p)return;
+    const newDt=`${dateStr}T${String(hour).padStart(2,"0")}:00`;
+    if(p.datetime===newDt)return;
+    const updated={...p,datetime:newDt,history:[...(p.history||[]),{at:nowStr(),note:`${p.datetime}→${newDt} (DnD)`}]};
+    await saveToDb(updated);
+    showToast("日時を変更しました 📅");
+    setDragId(null);setDragOver(null);
+  },[posts,saveToDb]);
+
+  // メール通知設定ロード
   useEffect(()=>{
-    const h=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowSearch(true);}};
+    if(!activeAccId)return;
+    async function loadNotify(){
+      const{data}=await supabase.from("notification_settings").select("*").eq("account_id",activeAccId).single();
+      if(data)setNotifySettings(data);
+      else setNotifySettings({account_id:activeAccId,email:"",notify_overdue:true,notify_today:true,notify_daily:false,send_hour:8,enabled:false});
+    }
+    loadNotify();
+  },[activeAccId]);
+
+  async function saveNotifySettings(s){
+    setNotifySettings(s);
+    await supabase.from("notification_settings").upsert({...s,account_id:activeAccId});
+    showToast("通知設定を保存しました ✅");
+  }
+
+  // ⌘K + ⑦ キーボードショートカット
+  useEffect(()=>{
+    const h=e=>{
+      // ⌘K 検索
+      if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowSearch(true);return;}
+      // 入力中・修飾キーは無視
+      const tag=e.target.tagName;
+      if(tag==="INPUT"||tag==="TEXTAREA"||e.target.contentEditable==="true")return;
+      if(e.metaKey||e.ctrlKey||e.altKey)return;
+      switch(e.key){
+        case"n":case"N": e.preventDefault();openNew();break;
+        case"ArrowLeft":
+          if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()-7);return x;});}
+          break;
+        case"ArrowRight":
+          if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
+          break;
+        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"list":"calendar");break;
+        case"e":case"E":
+          if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
+          break;
+        case"Escape": setPreview(null);break;
+        default:break;
+      }
+    };
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[]);
+  },[view,preview,openNew]);
 
   const postsBySlot=React.useMemo(()=>{
     const m={};
@@ -1187,7 +1249,16 @@ export default function App(){
           </div>
           {isAdmin&&(
             <>
+              {/* ⑨ 未投稿アラートバッジ */}
+              {overdueCount>0&&(
+                <div style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0}}
+                  title={`予約済みで期限切れの投稿が${overdueCount}件あります`}
+                  onClick={()=>setFilter("reserved")}>
+                  ⚠️ {overdueCount}件 未投稿
+                </div>
+              )}
               <Btn onClick={()=>setShowSlotSettings(true)}>予約枠</Btn>
+              <Btn onClick={()=>setShowNotifySettings(true)}>🔔 通知</Btn>
               <Btn onClick={()=>setShowAccountSettings(true)}>設定</Btn>
               <div ref={shareRef} style={{position:"relative"}}>
                 <Btn onClick={()=>setShowShare(s=>!s)}>共有</Btn>
@@ -1257,15 +1328,25 @@ export default function App(){
                   return(
                     <div key={hour+"-"+di}
                       onClick={isEmpty?()=>openNew(`${dateStr}T${String(hour).padStart(2,"0")}:00`):undefined}
-                      style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e8e0d6",padding:"3px",minHeight:42,background:dateStr===today?"#fffcf5":"#fff",cursor:isEmpty?"pointer":"default",transition:"background .1s"}}
-                      onMouseEnter={isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fff8e8":"#faf7f3";}:undefined}
-                      onMouseLeave={isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
+                      onDragOver={dragId?e=>{e.preventDefault();setDragOver(key);}:undefined}
+                      onDragLeave={dragId?()=>setDragOver(null):undefined}
+                      onDrop={dragId?e=>{e.preventDefault();handleDrop(dragId,dateStr,hour);}:undefined}
+                      style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e8e0d6",padding:"3px",minHeight:42,
+                        background:dragOver===key?"#fef9e7":dragId?"#fffdf5":dateStr===today?"#fffcf5":"#fff",
+                        cursor:dragId?"copy":isEmpty?"pointer":"default",transition:"background .1s",
+                        outline:dragOver===key?"2px dashed #f59e0b":"none",outlineOffset:-2}}
+                      onMouseEnter={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fff8e8":"#faf7f3";}:undefined}
+                      onMouseLeave={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
                       {/* 実投稿 */}
                       {sp.map(p=>{
                         const pt2=POST_TYPE[p.postType||"x_post"],st2=STATUS[p.status];
                         return(
-                          <div key={p.id} onClick={e=>{e.stopPropagation();setPreview(p);}}
-                            style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"pointer",transition:"all .1s"}}
+                          <div key={p.id}
+                            draggable
+                            onDragStart={e=>{e.stopPropagation();setDragId(p.id);e.dataTransfer.effectAllowed="move";}}
+                            onDragEnd={()=>{setDragId(null);setDragOver(null);}}
+                            onClick={e=>{e.stopPropagation();setPreview(p);}}
+                            style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"grab",transition:"all .1s",opacity:dragId===p.id?0.5:1}}
                             onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px #0000001a";e.currentTarget.style.borderColor=pt2.color;}}
                             onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=pt2.border;}}>
                             <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:1}}>
@@ -1368,6 +1449,23 @@ export default function App(){
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── 通知設定モーダル ── */}
+      {showNotifySettings&&isAdmin&&notifySettings&&(
+        <NotifySettingsModal
+          settings={notifySettings}
+          accountName={activeAcc?.name||""}
+          onSave={saveNotifySettings}
+          onClose={()=>setShowNotifySettings(false)}
+          onTestSend={async()=>{
+            if(!notifySettings.email){alert("メールアドレスを入力してください");return;}
+            const res=await fetch("/api/cron-notify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:activeAccId,testMode:true})});
+            const d=await res.json();
+            if(res.ok)showToast("テストメールを送信しました ✅");
+            else alert("送信失敗: "+(d.error||"エラー"));
+          }}
+        />
       )}
 
       {/* ── モーダル群 ── */}
@@ -1641,6 +1739,102 @@ function SlotAddForm({onAdd}){
     </div>
   );
 }
+
+// ════════════════════════════════════════════════════════
+// 通知設定モーダル
+// ════════════════════════════════════════════════════════
+function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
+  const [draft,setDraft]=useState({...settings});
+  const [sending,setSending]=useState(false);
+  const HOURS=Array.from({length:24},(_,i)=>i);
+  const changed=JSON.stringify(draft)!==JSON.stringify(settings);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+        {/* ヘッダー */}
+        <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:14}}>🔔 メール通知設定</div>
+            <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{accountName} — Vercel Cronで毎日自動送信</div>
+          </div>
+          <Btn onClick={onClose}>閉じる</Btn>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:14}}>
+          {/* 有効/無効トグル */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:draft.enabled?"#f0fdf4":"#f9fafb",border:`1.5px solid ${draft.enabled?"#86efac":"#e0d8ce"}`,borderRadius:10,padding:"12px 14px"}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:13,color:draft.enabled?"#15803d":"#555"}}>通知を{draft.enabled?"有効":"無効"}</div>
+              <div style={{fontSize:11,color:"#888",marginTop:2}}>オンにするとメールが届きます</div>
+            </div>
+            <button onClick={()=>setDraft(d=>({...d,enabled:!d.enabled}))}
+              style={{width:44,height:24,borderRadius:12,border:"none",background:draft.enabled?"#22c55e":"#d1d5db",cursor:"pointer",position:"relative",transition:"background .2s"}}>
+              <span style={{position:"absolute",top:2,left:draft.enabled?22:2,width:20,height:20,borderRadius:"50%",background:"#fff",boxShadow:"0 1px 3px #0003",transition:"left .2s",display:"block"}}/>
+            </button>
+          </div>
+          {/* メールアドレス */}
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:5}}>送信先メールアドレス</label>
+            <input value={draft.email||""} onChange={e=>setDraft(d=>({...d,email:e.target.value}))}
+              placeholder="your@email.com" type="email"
+              style={{...INP,fontSize:13}}
+              onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+          </div>
+          {/* 送信時刻 */}
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:5}}>送信時刻</label>
+            <select value={draft.send_hour} onChange={e=>setDraft(d=>({...d,send_hour:Number(e.target.value)}))}
+              style={{border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:13,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+              {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
+            </select>
+            <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>（JST）毎日この時刻に送信</span>
+          </div>
+          {/* 通知種別 */}
+          <div>
+            <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:8}}>通知内容</label>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {[
+                ["notify_overdue","⚠️ 未投稿アラート","予約済みのまま期限が過ぎた投稿を通知"],
+                ["notify_today","📅 本日の予定","当日の予約済み投稿一覧を朝に通知"],
+                ["notify_daily","📊 日次ダイジェスト","全ステータスの進捗サマリーを通知"],
+              ].map(([key,label,desc])=>(
+                <label key={key} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",background:"#f7f9f9",border:`1.5px solid ${draft[key]?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 12px"}}>
+                  <input type="checkbox" checked={!!draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.checked}))} style={{marginTop:2,accentColor:"#f59e0b",width:15,height:15}}/>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:"#0f1419"}}>{label}</div>
+                    <div style={{fontSize:10,color:"#888",marginTop:2}}>{desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+          {/* セットアップ案内 */}
+          <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.7}}>
+            <div style={{fontWeight:700,marginBottom:4}}>📋 セットアップ手順</div>
+            <div>1. <strong>Resend</strong>（resend.com）でAPIキーを取得</div>
+            <div>2. Vercel環境変数に <code style={{background:"#fef3c7",padding:"0 4px",borderRadius:3}}>RESEND_API_KEY</code> を追加</div>
+            <div>3. <code style={{background:"#fef3c7",padding:"0 4px",borderRadius:3}}>vercel.json</code> でCronを設定（下記ファイル参照）</div>
+          </div>
+        </div>
+        {/* フッター */}
+        <div style={{padding:"12px 18px",borderTop:"1px solid #e8e0d6",display:"flex",gap:8,background:"#faf7f3"}}>
+          <button onClick={async()=>{setSending(true);await onTestSend();setSending(false);}}
+            disabled={!draft.email||sending}
+            style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:600,color:draft.email?"#555":"#bbb",cursor:draft.email?"pointer":"default",fontFamily:"inherit"}}>
+            {sending?"送信中…":"📨 テスト送信"}
+          </button>
+          <div style={{flex:1}}/>
+          <Btn onClick={onClose}>キャンセル</Btn>
+          <Btn primary onClick={()=>onSave(draft)} style={{opacity:changed?1:0.5,cursor:changed?"pointer":"default"}}>保存</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ⑦ キーボードショートカット一覧（ヘルプ） ──
+// （将来的にモーダルとして表示）
+// N=新規, ←/→=週移動, C=ビュー切替, E=編集, ⌘K=検索
 
 // ── 共通UIコンポーネント ──
 function Btn({children,onClick,primary,danger,style}){
