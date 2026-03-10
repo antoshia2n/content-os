@@ -252,8 +252,7 @@ function InsertModal({onClose,savedRange,bodyRef}){
       insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);
       onClose();
     }catch(err){
-      alert("画像のアップロードに失敗しました:
-"+err.message);
+      alert("画像のアップロードに失敗しました:\n"+err.message);
     }finally{
       setUploading(false);
       // inputをリセット（同じファイルを再選択できるよう）
