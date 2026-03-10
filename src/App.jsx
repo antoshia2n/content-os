@@ -24,6 +24,16 @@ const DAYS   = ["月","火","水","木","金","土","日"];
 const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const STORAGE_BUCKET = "contentos"; // ⑧ Supabase Storageバケット名
+
+// ⑦ レンダー内で再生成されないようモジュールレベルで定義
+const IMG_SIZES_OPTS=[["small","小 (25%)"],["medium","中 (50%)"],["large","大 (75%)"],["full","全幅"]];
+const IMG_ALIGNS_OPTS=[["left","左"],["center","中央"],["right","右"]];
+const REPOST_REPEATS=[["none","繰り返しなし"],["weekly","毎週"],["biweekly","隔週"],["monthly","毎月"],["bimonthly","2ヶ月ごと"],["quarterly","3ヶ月ごと"]];
+const SLOT_DOWS=[[1,"月"],[2,"火"],[3,"水"],[4,"木"],[5,"金"],[6,"土"],[7,"日"]];
+const SLOT_NTHS=[[1,"第1"],[2,"第2"],[3,"第3"],[4,"第4"]];
+const SLOT_TYPES=[["weekly","毎週"],["daily","毎日"],["nth_weekday","第N曜日"]];
+const TOOLBAR_BLOCK_LABELS={"p":"本文","h1":"見出し","h2":"小見出し","blockquote":"引用","li":"リスト"};
 
 function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function fmtTime(s){return s?s.slice(11,16):"";}
@@ -40,6 +50,16 @@ function getWeekDates(base){
   const d=new Date(base),day=d.getDay(),mon=new Date(d);
   mon.setDate(d.getDate()+(day===0?-6:1-day));
   return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});
+}
+function dbToPost(p){
+  return{...p,
+    postType:p.post_type||"x_post",
+    comments:p.comments||[],
+    body:p.body||"",
+    memo:p.memo||"",
+    memoLinks:p.memo_links||[],
+    history:p.history||[],
+  };
 }
 function getUrlParams(){
   if(typeof window==="undefined")return{isClient:false,accountId:null};
@@ -172,8 +192,7 @@ function Toolbar({onInsertOpen}){
   // B・Sp はファイル上部で定義済み
 
   // ブロックラベル
-  const blockLabels={"p":"本文","h1":"見出し","h2":"小見出し","blockquote":"引用","li":"リスト"};
-  const blockLabel=blockLabels[fmt.block]||"本文";
+  const blockLabel=TOOLBAR_BLOCK_LABELS[fmt.block]||"本文";
 
   return(
     <div style={{display:"flex",alignItems:"center",gap:1,padding:"5px 14px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexWrap:"wrap",flexShrink:0}}>
@@ -217,6 +236,8 @@ function Toolbar({onInsertOpen}){
 
 function InsertModal({onClose,savedRange,bodyRef}){
   const [tab,setTab]=useState("image"),[url,setUrl]=useState("");
+  const [imgSize,setImgSize]=useState("full");
+  const [imgAlign,setImgAlign]=useState("left");
   const fileRef=useRef(null);
   const insertAt=html=>{
     bodyRef.current?.focus();
@@ -224,6 +245,13 @@ function InsertModal({onClose,savedRange,bodyRef}){
     if(savedRange){sel.removeAllRanges();sel.addRange(savedRange);}
     document.execCommand("insertHTML",false,html);
   };
+  // IMG_SIZES_OPTS / IMG_ALIGNS_OPTS はモジュールレベルで定義済み
+  const imgStyleStr=(()=>{
+    const w=imgSize==="small"?"25%":imgSize==="medium"?"50%":imgSize==="large"?"75%":"100%";
+    const ml=imgAlign==="center"?"auto":imgAlign==="right"?"auto":"0";
+    const mr=imgAlign==="center"?"auto":imgAlign==="right"?"0":"auto";
+    return `max-width:${w};width:${w};border-radius:8px;display:block;margin-left:${ml};margin-right:${mr};`;
+  })();
   const [uploading,setUploading]=useState(false);
   const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
@@ -233,13 +261,10 @@ function InsertModal({onClose,savedRange,bodyRef}){
       const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
       const safeName=`${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const path=`images/${safeName}`;
-      // ※ Supabase Dashboard → Storage → "contentos" バケットを Public で作成
-      // ※ バケットのRLSポリシーで INSERT を許可する必要があります
-      const{data:upData,error:upErr}=await supabase.storage
-        .from("contentos")
+      const{error:upErr}=await supabase.storage
+        .from(STORAGE_BUCKET)
         .upload(path,file,{contentType:file.type,cacheControl:"3600",upsert:false});
       if(upErr){
-        // よくある原因別メッセージ
         const msg=upErr.message||"";
         if(msg.includes("not found")||msg.includes("bucket"))
           throw new Error("バケット「contentos」が存在しないか非公開です。Supabase→Storageで作成してください");
@@ -247,15 +272,14 @@ function InsertModal({onClose,savedRange,bodyRef}){
           throw new Error("ストレージのRLSポリシーでアップロードが拒否されました。ポリシーを確認してください");
         throw upErr;
       }
-      const{data:urlData}=supabase.storage.from("contentos").getPublicUrl(path);
+      const{data:urlData}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
       if(!urlData?.publicUrl)throw new Error("公開URLの取得に失敗しました");
-      insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);
+      insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="${imgStyleStr}"/></p>`);
       onClose();
     }catch(err){
       alert("画像のアップロードに失敗しました:\n"+err.message);
     }finally{
       setUploading(false);
-      // inputをリセット（同じファイルを再選択できるよう）
       if(fileRef.current)fileRef.current.value="";
     }
   };
@@ -277,7 +301,31 @@ function InsertModal({onClose,savedRange,bodyRef}){
         </div>
         <div style={{padding:"14px 16px 8px"}}>
           {tab==="image"&&(<><input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleImage}/>
-            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f7f9f9",borderRadius:9,padding:"24px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e8e0d6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
+            {/* サイズ選択 */}
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#888",marginBottom:5}}>サイズ</div>
+              <div style={{display:"flex",gap:4}}>
+                {IMG_SIZES_OPTS.map(([v,l])=>(
+                  <button key={v} onClick={()=>setImgSize(v)}
+                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgSize===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:imgSize===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgSize===v?700:500,color:imgSize===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* 配置選択 */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#888",marginBottom:5}}>配置</div>
+              <div style={{display:"flex",gap:4}}>
+                {IMG_ALIGNS_OPTS.map(([v,l])=>(
+                  <button key={v} onClick={()=>setImgAlign(v)}
+                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgAlign===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:imgAlign===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgAlign===v?700:500,color:imgAlign===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f7f9f9",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e8e0d6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
           {tab==="post"&&(<><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."
             style={{width:"100%",border:"1.5px solid #e8e0d6",borderRadius:8,padding:"9px 11px",fontSize:"0.82em",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e8e0d6"}
@@ -368,7 +416,7 @@ function RepostModal({post,onClose,onRepost}){
   const today=fmtDate(new Date());
   const [dt,setDt]=useState(`${today}T09:00`);
   const [repeat,setRepeat]=useState("none");
-  const REPEATS=[["none","繰り返しなし"],["weekly","毎週"],["biweekly","隔週"],["monthly","毎月"],["bimonthly","2ヶ月ごと"],["quarterly","3ヶ月ごと"]];
+  // REPOST_REPEATS はモジュールレベルで定義済み
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:380,padding:24,boxShadow:"0 20px 60px #00000025"}}>
@@ -383,14 +431,14 @@ function RepostModal({post,onClose,onRepost}){
         <div style={{marginBottom:20}}>
           <label style={{fontSize:"0.73em",fontWeight:700,color:"#888",display:"block",marginBottom:6}}>定期繰り返し</label>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}}>
-            {REPEATS.map(([v,l])=>(
+            {REPOST_REPEATS.map(([v,l])=>(
               <button key={v} onClick={()=>setRepeat(v)}
                 style={{border:`1.5px solid ${repeat===v?"#f59e0b":"#e0d8ce"}`,background:repeat===v?"#fef3c7":"#fff",color:repeat===v?"#d97706":"#888",borderRadius:8,padding:"7px 0",fontSize:"0.73em",fontWeight:repeat===v?700:400,cursor:"pointer",fontFamily:"inherit"}}>
                 {l}
               </button>
             ))}
           </div>
-          {repeat!=="none"&&<div style={{marginTop:8,background:"#fffbeb",border:"1px solid #fde68a",borderRadius:7,padding:"7px 10px",fontSize:"0.73em",color:"#92400e"}}>{REPEATS.find(([v])=>v===repeat)?.[1]}に自動作成されます</div>}
+          {repeat!=="none"&&<div style={{marginTop:8,background:"#fffbeb",border:"1px solid #fde68a",borderRadius:7,padding:"7px 10px",fontSize:"0.73em",color:"#92400e"}}>{REPOST_REPEATS.find(([v])=>v===repeat)?.[1]}に自動作成されます</div>}
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>onRepost(dt,repeat)} style={{flex:1,background:"#f59e0b",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"0.85em",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>再投稿を作成</button>
@@ -468,6 +516,20 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
   );
 }
 
+// ── エディタサイドアイコン（EditorModal外で定義→毎レンダー再マウントを防ぐ） ──
+function SideIcon({id,icon,label,sidePanel,setSidePanel}){
+  const active=sidePanel===id;
+  return(
+    <button onClick={()=>setSidePanel(active?null:id)} title={label}
+      style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 0",border:"none",background:active?"#fef3c7":"none",color:active?"#d97706":"#bbb",cursor:"pointer",width:"100%",borderLeft:active?"3px solid #f59e0b":"3px solid transparent",transition:"all .1s",fontFamily:"inherit"}}
+      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#faf7f3";e.currentTarget.style.color="#666";}}}
+      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#bbb";}}}>
+      <span style={{fontSize:"1.1em"}}>{icon}</span>
+      <span style={{fontSize:"0.52em",fontWeight:600}}>{label}</span>
+    </button>
+  );
+}
+
 // ════════════════════════════════════════════════════════
 // エディタモーダル
 // ════════════════════════════════════════════════════════
@@ -530,19 +592,6 @@ function EditorModal({post,onSave,onClose}){
   const pt=POST_TYPE[draft.postType]||POST_TYPE.x_post;
   const st=STATUS[draft.status];
 
-  const SideIcon=({id,icon,label})=>{
-    const active=sidePanel===id;
-    return(
-      <button onClick={()=>setSidePanel(active?null:id)} title={label}
-        style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 0",border:"none",background:active?"#fef3c7":"none",color:active?"#d97706":"#bbb",cursor:"pointer",width:"100%",borderLeft:active?"3px solid #f59e0b":"3px solid transparent",transition:"all .1s",fontFamily:"inherit"}}
-        onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#faf7f3";e.currentTarget.style.color="#666";}}}
-        onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#bbb";}}}>
-        <span style={{fontSize:"1.1em"}}>{icon}</span>
-        <span style={{fontSize:"0.52em",fontWeight:600}}>{label}</span>
-      </button>
-    );
-  };
-
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
       {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef}/>}
@@ -600,9 +649,9 @@ function EditorModal({post,onSave,onClose}){
 
           {/* アイコン列 */}
           <div style={{width:50,borderLeft:"1px solid #e8e0d6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-            <SideIcon id="meta" icon="⚙️" label="設定"/>
-            <SideIcon id="history" icon="📋" label="履歴"/>
-            <SideIcon id="share" icon="🔗" label="共有"/>
+            <SideIcon id="meta" icon="⚙️" label="設定" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="history" icon="📋" label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="share" icon="🔗" label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
           </div>
 
           {/* サイドパネル展開 */}
@@ -863,10 +912,10 @@ export default function App(){
   },[showShare]);
 
   const today    =React.useMemo(()=>fmtDate(new Date()),[]);
-  const weekDates=getWeekDates(week);
+  const weekDates=React.useMemo(()=>getWeekDates(week),[week]);
   const activeAcc=accounts.find(a=>a.id===activeAccId);
   const posts    =allPosts[activeAccId]||[];
-  const filtered =filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus);
+  const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
 
   // ── ロード ──
   useEffect(()=>{
@@ -892,17 +941,6 @@ export default function App(){
     }
     load();
   },[]);
-
-  function dbToPost(p){
-    return{...p,
-      postType:p.post_type||"x_post",
-      comments:p.comments||[],
-      body:p.body||"",
-      memo:p.memo||"",
-      memoLinks:p.memo_links||[],
-      history:p.history||[],
-    };
-  }
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2500);}
 
@@ -1269,7 +1307,7 @@ export default function App(){
         </div>
       )}
 
-            {/* ── リストビュー ── */}
+      {/* ── リストビュー ── */}
       {view==="list"&&(
         <ListView
           filtered={filtered}
@@ -1381,12 +1419,15 @@ export default function App(){
 
 // ── リストビュー ──
 function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew}){
-  const byDate={};
-  filtered.forEach(p=>{
-    const d=p.datetime.slice(0,10);
-    (byDate[d]=byDate[d]||[]).push(p);
-  });
-  const dates=Object.keys(byDate).sort();
+  const byDate=React.useMemo(()=>{
+    const m={};
+    filtered.forEach(p=>{
+      const d=p.datetime.slice(0,10);
+      (m[d]=m[d]||[]).push(p);
+    });
+    return m;
+  },[filtered]);
+  const dates=React.useMemo(()=>Object.keys(byDate).sort(),[byDate]);
   const scrollRef=useRef(null);
   const todayColRef=useRef(null);
   // マウント時・today変化時に今日列を左端に自動スクロール
@@ -1514,9 +1555,7 @@ function SlotAddForm({onAdd}){
   const [nth,setNth]=useState(1);
   const [hour,setHour]=useState(9);
   const [postType,setPostType]=useState("x_post");
-  const DOWS=[[1,"月"],[2,"火"],[3,"水"],[4,"木"],[5,"金"],[6,"土"],[7,"日"]];
-  const NTHS=[[1,"第1"],[2,"第2"],[3,"第3"],[4,"第4"]];
-  const TYPES=[["weekly","毎週"],["daily","毎日"],["nth_weekday","第N曜日"]];
+  // SLOT_DOWS / SLOT_NTHS / SLOT_TYPES はモジュールレベルで定義済み
   const pt=POST_TYPE[postType];
 
   const preview=(()=>{
@@ -1533,7 +1572,7 @@ function SlotAddForm({onAdd}){
       <div style={{marginBottom:10}}>
         <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>繰り返し</label>
         <div style={{display:"flex",gap:4}}>
-          {TYPES.map(([v,l])=>(
+          {SLOT_TYPES.map(([v,l])=>(
             <button key={v} onClick={()=>setType(v)}
               style={{padding:"4px 12px",borderRadius:6,border:type===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:type===v?"#fef3c7":"#fff",fontSize:11,fontWeight:type===v?700:500,color:type===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
               {l}
@@ -1548,7 +1587,7 @@ function SlotAddForm({onAdd}){
           <div>
             <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>第N</label>
             <div style={{display:"flex",gap:4}}>
-              {NTHS.map(([v,l])=>(
+              {SLOT_NTHS.map(([v,l])=>(
                 <button key={v} onClick={()=>setNth(v)}
                   style={{padding:"4px 8px",borderRadius:6,border:nth===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:nth===v?"#fef3c7":"#fff",fontSize:11,fontWeight:nth===v?700:500,color:nth===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                   {l}
@@ -1562,7 +1601,7 @@ function SlotAddForm({onAdd}){
           <div style={{flex:1,minWidth:120}}>
             <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-              {DOWS.map(([v,l])=>(
+              {SLOT_DOWS.map(([v,l])=>(
                 <button key={v} onClick={()=>setDow(v)}
                   style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                   {l}
