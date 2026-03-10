@@ -1443,15 +1443,22 @@ export default function App(){
               {slots.map((s,i)=>{
                 const pt=POST_TYPE[s.postType||"x_post"];
                 return(
-                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <span style={{fontWeight:700,fontSize:12,color:"#444"}}>{slotLabel(s)}</span>
-                      {s.title&&<span style={{fontSize:11,color:"#888",marginLeft:6}}>「{s.title}」</span>}
+                  <div key={s.id} style={{background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+                      <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                      <span style={{fontWeight:700,fontSize:12,flex:1,color:"#444"}}>{slotLabel(s)}</span>
+                      <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
+                      <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
+                        style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>×</button>
                     </div>
-                    <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
-                    <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
-                      style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>×</button>
+                    <input
+                      value={s.title||""}
+                      onChange={e=>saveSlots(slots.map((x,j)=>j===i?{...x,title:e.target.value}:x))}
+                      placeholder="仮タイトルを入力（任意）"
+                      style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:6,padding:"5px 8px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",background:"#fff"}}
+                      onFocus={e=>e.target.style.borderColor="#f59e0b"}
+                      onBlur={e=>e.target.style.borderColor="#e0d8ce"}
+                    />
                   </div>
                 );
               })}
@@ -1727,7 +1734,6 @@ function SlotAddForm({onAdd}){
   const [nth,setNth]=useState(1);
   const [hour,setHour]=useState(9);
   const [postType,setPostType]=useState("x_post");
-  const [title,setTitle]=useState("");
   const pt=POST_TYPE[postType];
 
   const preview=React.useMemo(()=>{
@@ -1802,24 +1808,12 @@ function SlotAddForm({onAdd}){
         </select>
       </div>
 
-      {/* 仮タイトル */}
-      <div style={{marginBottom:10}}>
-        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>仮タイトル <span style={{color:"#bbb",fontWeight:400}}>(任意)</span></label>
-        <input value={title} onChange={e=>setTitle(e.target.value)}
-          placeholder="例：週次まとめ、商品紹介など"
-          style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"6px 9px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",background:"#fff"}}
-          onFocus={e=>e.target.style.borderColor="#f59e0b"}
-          onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-      </div>
-
-      {/* プレビュー */}
       <div style={{background:"#fff",border:"1px solid #fcd34d",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#92400e",marginBottom:10,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
         <span>📅 {preview}</span>
         <span style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,borderRadius:10,padding:"0 7px",fontSize:10,fontWeight:700}}>{pt.label}</span>
-        {title&&<span style={{color:"#555",fontWeight:500,fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>「{title}」</span>}
       </div>
 
-      <button onClick={()=>onAdd({type,dow,nth,hour,postType,title})}
+      <button onClick={()=>onAdd({type,dow,nth,hour,postType,title:""})}
         style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
