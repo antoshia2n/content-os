@@ -1429,7 +1429,7 @@ export default function App(){
       {showSlotSettings&&isAdmin&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={e=>{if(e.target===e.currentTarget)setShowSlotSettings(false);}}>
-          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"80vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
             <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
               <div>
                 <div style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
@@ -1437,7 +1437,7 @@ export default function App(){
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:18}}>
+            <div style={{flex:1,overflowY:"auto",padding:18,paddingBottom:32}}>
               {/* 枠一覧 */}
               {slots.length===0&&<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"24px 0"}}>枠がまだありません</div>}
               {slots.map((s,i)=>{
