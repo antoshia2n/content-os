@@ -1452,22 +1452,20 @@ export default function App(){
               {slots.map((s,i)=>{
                 const pt=POST_TYPE[s.postType||"x_post"];
                 return(
-                  <div key={s.id} style={{background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
-                      <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                      <span style={{fontWeight:700,fontSize:12,flex:1,color:"#444"}}>{slotLabel(s)}</span>
-                      <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
-                      <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
-                        style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>×</button>
-                    </div>
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
+                    <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                    <span style={{fontSize:11,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
                     <input
                       value={s.title||""}
                       onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
-                      placeholder="仮タイトルを入力（任意）"
-                      style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:6,padding:"5px 8px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",background:"#fff"}}
-                      onFocus={e=>e.target.style.borderColor="#f59e0b"}
-                      onBlur={e=>e.target.style.borderColor="#e0d8ce"}
+                      placeholder="仮タイトル"
+                      style={{flex:1,minWidth:0,border:"none",borderBottom:"1.5px solid #e0d8ce",borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
+                      onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
+                      onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
                     />
+                    <span style={{fontSize:10,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
+                    <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
+                      style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0,padding:0}}>×</button>
                   </div>
                 );
               })}
