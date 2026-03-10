@@ -1055,14 +1055,20 @@ export default function App(){
   },[showToast]);
 
   const deleteAccount=React.useCallback(async(id)=>{
-    if(accounts.length<=1){showToast("最後のアカウントは削除できません");return;}
+    setAccounts(prev=>{
+      if(prev.length<=1){showToast("最後のアカウントは削除できません");return prev;}
+      return prev; // 非同期処理はsetAccountsの外でやるため、ここでは何もしない
+    });
+    // 改めて現在のaccountsを参照するため非同期処理はuseRefで管理せずシンプルに実施
+    const cur=await supabase.from("accounts").select("*").order("created_at").then(r=>r.data||[]);
+    if(cur.length<=1){showToast("最後のアカウントは削除できません");return;}
     const{error}=await supabase.from("accounts").delete().eq("id",id);
     if(error){showToast("削除に失敗しました");return;}
-    const remaining=accounts.filter(a=>a.id!==id);
+    const remaining=cur.filter(a=>a.id!==id);
     setAccounts(remaining);
     setAllPosts(prev=>{const n={...prev};delete n[id];return n;});
-    if(activeAccId===id)setActiveAccId(remaining[0].id);
-  },[accounts,activeAccId,showToast]);
+    setActiveAccId(prev=>prev===id?remaining[0]?.id:prev);
+  },[showToast]);
 
   const copyShareLink=React.useCallback((accId)=>{
     const base=window.location.href.split("?")[0];
@@ -1166,7 +1172,11 @@ export default function App(){
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[view,preview,openNew]);
 
-  const postsBySlot=React.useMemo(()=>{
+  const cntByDate=React.useMemo(()=>{
+    const m={};
+    filtered.forEach(p=>{const d=p.datetime.slice(0,10);m[d]=(m[d]||0)+1;});
+    return m;
+  },[filtered]);
     const m={};
     filtered.forEach(p=>{
       const key=`${p.datetime.slice(0,10)}_${p.datetime.slice(11,13)}`;
@@ -1334,12 +1344,11 @@ export default function App(){
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];
               const isToday=dateStr===today;
-              const cnt=filtered.filter(p=>p.datetime.startsWith(dateStr)).length;
               return(
                 <div key={i} style={{background:"#fff",padding:"7px 5px 5px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
                   <div style={{width:29,height:29,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:14,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
-                  {cnt>0&&<div style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>{cnt}件</div>}
+                  {cntByDate[dateStr]>0&&<div style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>{cntByDate[dateStr]}件</div>}
                 </div>
               );
             })}
@@ -1387,8 +1396,8 @@ export default function App(){
                           </div>
                         );
                       })}
-                      {/* ゴースト枠（予約枠が埋まっていない場合のみ表示） */}
-                      {(ghostBySlot[key]||[]).filter(g=>sp.length===0).map((g,gi)=>{
+                      {/* ゴースト枠（実投稿がない場合のみ表示） */}
+                      {sp.length===0&&(ghostBySlot[key]||[]).map((g,gi)=>{
                         const gpt=POST_TYPE[g.postType||"x_post"];
                         return(
                           <div key={"g"+gi}
@@ -1446,37 +1455,15 @@ export default function App(){
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
-            <div style={{flex:1,minHeight:0,overflowY:"auto",padding:18,paddingBottom:32}}>
-              {/* 枠一覧 */}
-              {slots.length===0&&<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"24px 0"}}>枠がまだありません</div>}
-              {slots.map((s,i)=>{
-                const pt=POST_TYPE[s.postType||"x_post"];
-                return(
-                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
-                    <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                    <span style={{fontSize:11,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
-                    <input
-                      value={s.title||""}
-                      onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
-                      placeholder="仮タイトル"
-                      style={{flex:1,minWidth:0,border:"none",borderBottom:"1.5px solid #e0d8ce",borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
-                      onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
-                      onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
-                    />
-                    <span style={{fontSize:10,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
-                    <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
-                      style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0,padding:0}}>×</button>
-                  </div>
-                );
-              })}
-              {/* 新規追加フォーム */}
+            {/* フォーム（固定） */}
+            <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6"}}>
               <SlotAddForm onAdd={s=>{
                 const dup=slots.some(x=>{
                   if(x.hour!==s.hour)return false;
                   if(s.type==="daily"||x.type==="daily")return s.type===x.type;
                   if(s.type==="nth_weekday"||x.type==="nth_weekday")
                     return x.type===s.type&&x.dow===s.dow&&x.nth===s.nth;
-                  return x.dow===s.dow; // weekly
+                  return x.dow===s.dow;
                 });
                 if(dup){
                   alert(`「${slotLabel({...s,id:0})}」の枠はすでに存在します`);
@@ -1484,6 +1471,32 @@ export default function App(){
                 }
                 saveSlots([...slots,{...s,id:genId()}]);
               }}/>
+            </div>
+            {/* 枠一覧（スクロール可能） */}
+            <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"12px 18px 24px"}}>
+              {slots.length===0
+                ?<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
+                :slots.map((s,i)=>{
+                  const pt=POST_TYPE[s.postType||"x_post"];
+                  return(
+                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                      <span style={{fontSize:11,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
+                      <input
+                        value={s.title||""}
+                        onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
+                        placeholder="仮タイトル"
+                        style={{flex:1,minWidth:0,border:"none",borderBottom:"1.5px solid #e0d8ce",borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
+                        onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
+                        onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
+                      />
+                      <span style={{fontSize:10,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
+                      <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
+                        style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0,padding:0}}>×</button>
+                    </div>
+                  );
+                })
+              }
             </div>
           </div>
         </div>
