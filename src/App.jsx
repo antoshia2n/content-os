@@ -462,11 +462,11 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
     const h=e=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[]);
-  const results=posts.filter(p=>{
+  const results=React.useMemo(()=>posts.filter(p=>{
     const mq=!q||p.title.includes(q)||stripHtml(p.body).includes(q)||(p.memo||"").includes(q);
     const mp=pt==="all"||(p.postType||"x_post")===pt;
     return mq&&mp;
-  }).sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  }).sort((a,b)=>b.datetime.localeCompare(a.datetime)),[posts,q,pt]);
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"56px 20px 20px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"72vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
@@ -884,8 +884,10 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
 // ════════════════════════════════════════════════════════
 // メインアプリ
 // ════════════════════════════════════════════════════════
+const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
+
 export default function App(){
-  const {isClient,accountId:urlAccountId}=getUrlParams();
+  const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
   const [accounts,           setAccounts]          = useState([]);
@@ -919,9 +921,10 @@ export default function App(){
 
   const today    =React.useMemo(()=>fmtDate(new Date()),[]);
   const nowDt    =React.useMemo(()=>new Date().toISOString().slice(0,16),[]);
-  const weekDates=React.useMemo(()=>getWeekDates(week),[week]);
-  const activeAcc=accounts.find(a=>a.id===activeAccId);
-  const posts    =allPosts[activeAccId]||[];
+  const weekDates   =React.useMemo(()=>getWeekDates(week),[week]);
+  const weekDateStrs=React.useMemo(()=>weekDates.map(fmtDate),[weekDates]);
+  const activeAcc=React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
+  const posts    =React.useMemo(()=>allPosts[activeAccId]||[],[allPosts,activeAccId]);
   const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
@@ -953,10 +956,10 @@ export default function App(){
     load();
   },[]);
 
-  function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2500);}
+  const showToast=React.useCallback((msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);},[]);
 
   // ── DB保存（内部共通） ──
-  async function saveToDb(p){
+  const saveToDb=React.useCallback(async(p)=>{
     const record={
       id:p.id,account_id:activeAccId,
       title:p.title,status:p.status,
@@ -976,43 +979,38 @@ export default function App(){
       return{...prev,[activeAccId]:exists?cur.map(x=>x.id===p.id?p:x):[...cur,p]};
     });
     return true;
-  }
+  },[activeAccId,showToast]);
 
-  // ── エディタ保存（保存→エディタ閉じる→プレビュー表示） ──
-  async function save(p){
+  const save=React.useCallback(async(p)=>{
     const ok=await saveToDb(p);
     if(!ok)return;
     setEditing(null);setPreview(p);
     showToast("保存しました ✅");
-  }
+  },[saveToDb,showToast]);
 
-  // ── 削除 ──
-  async function del(id){
+  const del=React.useCallback(async(id)=>{
     const{error}=await supabase.from("posts").delete().eq("id",id);
     if(error){showToast("削除に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).filter(p=>p.id!==id)}));
     setPreview(null);setDeleteConfirm(null);
     showToast("削除しました 🗑️");
-  }
+  },[activeAccId,showToast]);
 
-  // ── ステータス変更 ──
-  async function changeStatus(id,s){
+  const changeStatus=React.useCallback(async(id,s)=>{
     const{error}=await supabase.from("posts").update({status:s}).eq("id",id);
     if(error){showToast("更新に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,status:s}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,status:s}:prev);
-  }
+  },[activeAccId,showToast]);
 
-  // ── コメント ──
-  async function saveComment(id,comments){
+  const saveComment=React.useCallback(async(id,comments)=>{
     const{error}=await supabase.from("posts").update({comments}).eq("id",id);
     if(error){showToast("コメントの保存に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,comments}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,comments}:prev);
-  }
+  },[activeAccId,showToast]);
 
-  // ── 再投稿 ──
-  async function handleRepost(p,dt,repeat){
+  const handleRepost=React.useCallback(async(p,dt,repeat)=>{
     const newPost={
       ...p,id:genId(),datetime:dt,status:"draft",
       title:repeat!=="none"?`【再】${p.title}`:p.title,
@@ -1023,10 +1021,9 @@ export default function App(){
     if(!ok)return;
     setRepostTgt(null);
     showToast("再投稿を作成しました ✅");
-  }
+  },[saveToDb,showToast]);
 
-  // ── 複製 ──
-  async function handleDuplicate(p){
+  const handleDuplicate=React.useCallback(async(p)=>{
     const newPost={
       ...p,id:genId(),
       datetime:nextDaySameTime(p.datetime),
@@ -1039,10 +1036,9 @@ export default function App(){
     if(!ok)return;
     setPreview(null);
     showToast("翌日同時刻に複製しました ✅");
-  }
+  },[saveToDb,showToast]);
 
-  // ── アカウント管理 ──
-  async function addAccount(){
+  const addAccount=React.useCallback(async()=>{
     const id="acc_"+Date.now();
     const acc={id,name:"新規クライアント",handle:"@handle",color:"#6b7280"};
     const{error}=await supabase.from("accounts").insert(acc);
@@ -1050,29 +1046,32 @@ export default function App(){
     setAccounts(prev=>[...prev,acc]);
     setAllPosts(prev=>({...prev,[id]:[]}));
     setActiveAccId(id);setShowAccountSettings(true);
-  }
-  async function updateAccount(id,fields){
+  },[showToast]);
+
+  const updateAccount=React.useCallback(async(id,fields)=>{
     const{error}=await supabase.from("accounts").update(fields).eq("id",id);
     if(error){showToast("更新に失敗しました");return;}
     setAccounts(prev=>prev.map(a=>a.id===id?{...a,...fields}:a));
-  }
-  async function deleteAccount(id){
+  },[showToast]);
+
+  const deleteAccount=React.useCallback(async(id)=>{
     if(accounts.length<=1){showToast("最後のアカウントは削除できません");return;}
     const{error}=await supabase.from("accounts").delete().eq("id",id);
     if(error){showToast("削除に失敗しました");return;}
     const remaining=accounts.filter(a=>a.id!==id);
     setAccounts(remaining);
     setAllPosts(prev=>{const n={...prev};delete n[id];return n;});
-    // remaining が確実に存在する（length<=1チェック済み）
-    if(activeAccId===id) setActiveAccId(remaining[0].id);
-  }
-  function copyShareLink(accId){
+    if(activeAccId===id)setActiveAccId(remaining[0].id);
+  },[accounts,activeAccId,showToast]);
+
+  const copyShareLink=React.useCallback((accId)=>{
     const base=window.location.href.split("?")[0];
-    const url=`${base}?account=${accId}`;
-    navigator.clipboard.writeText(url).then(()=>showToast("共有リンクをコピーしました")).catch(()=>showToast("コピー完了"));
-  }
-  const openNew=React.useCallback((datetime)=>{
-    setEditing({id:genId(),title:"",status:"draft",postType:"x_post",datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
+    navigator.clipboard.writeText(`${base}?account=${accId}`)
+      .then(()=>showToast("共有リンクをコピーしました"))
+      .catch(()=>showToast("コピー完了"));
+  },[showToast]);
+  const openNew=React.useCallback((datetime,{title="",postType="x_post"}={})=>{
+    setEditing({id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
   },[today]);
 
   // 予約枠 — アカウントごとにlocalStorageで永続化
@@ -1080,10 +1079,11 @@ export default function App(){
     if(!activeAccId)return;
     try{const saved=localStorage.getItem(`slots_${activeAccId}`);if(saved)setSlots(JSON.parse(saved));}catch(e){}
   },[activeAccId]);
-  function saveSlots(next){
+
+  const saveSlots=React.useCallback((next)=>{
     setSlots(next);
     if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
-  }
+  },[activeAccId]);
 
   // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
   const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
@@ -1095,26 +1095,41 @@ export default function App(){
     await saveToDb(updated);
     showToast("日時を変更しました 📅");
     setDragId(null);setDragOver(null);
-  },[posts,saveToDb]);
+  },[posts,saveToDb,showToast]);
+
+  const saveNotifySettings=React.useCallback(async(s)=>{
+    setNotifySettings(s);
+    await supabase.from("notification_settings").upsert({...s,account_id:activeAccId});
+    showToast("通知設定を保存しました ✅");
+  },[activeAccId,showToast]);
 
   // メール通知設定ロード
   useEffect(()=>{
     if(!activeAccId)return;
-    async function loadNotify(){
-      const{data}=await supabase.from("notification_settings").select("*").eq("account_id",activeAccId).single();
-      if(data)setNotifySettings(data);
-      else setNotifySettings({account_id:activeAccId,email:"",notify_overdue:true,notify_today:true,notify_daily:false,send_hour:8,enabled:false});
-    }
-    loadNotify();
+    supabase.from("notification_settings").select("*").eq("account_id",activeAccId).single()
+      .then(({data})=>{
+        if(data)setNotifySettings(data);
+        else setNotifySettings({account_id:activeAccId,email:"",notify_overdue:true,notify_today:true,notify_daily:false,send_hour:8,enabled:false});
+      });
   },[activeAccId]);
 
-  async function saveNotifySettings(s){
-    setNotifySettings(s);
-    await supabase.from("notification_settings").upsert({...s,account_id:activeAccId});
-    showToast("通知設定を保存しました ✅");
-  }
+  const handleTestSend=React.useCallback(async(email)=>{
+    if(!email){alert("メールアドレスを入力してください");return;}
+    try{
+      const res=await fetch("/api/cron-notify",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({accountId:activeAccId,testMode:true,email}),
+      });
+      const d=await res.json();
+      if(res.ok)showToast("テストメールを送信しました ✅");
+      else alert("送信失敗:\n"+(d.error||JSON.stringify(d)));
+    }catch(e){
+      alert("通信エラー: "+e.message);
+    }
+  },[activeAccId,showToast]);
 
-  // ⌘K + ⑦ キーボードショートカット
+
   useEffect(()=>{
     const h=e=>{
       // ⌘K 検索
@@ -1153,14 +1168,14 @@ export default function App(){
 
   const ghostBySlot=React.useMemo(()=>{
     const m={};
-    weekDates.forEach(date=>{
+    weekDates.forEach((date,i)=>{
       slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
-        const key=`${fmtDate(date)}_${String(s.hour).padStart(2,"0")}`;
+        const key=`${weekDateStrs[i]}_${String(s.hour).padStart(2,"0")}`;
         (m[key]=m[key]||[]).push(s);
       });
     });
     return m;
-  },[weekDates,slots]);
+  },[weekDates,weekDateStrs,slots]);
 
   if(loading)return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans', sans-serif"}}>
@@ -1308,8 +1323,9 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860}}>
             <div style={{background:"#fff",position:"sticky",top:0,zIndex:20,borderRight:"1px solid #e8e0d6",borderBottom:"2px solid #e8e0d6"}}/>
             {weekDates.map((date,i)=>{
-              const isToday=fmtDate(date)===today;
-              const cnt=filtered.filter(p=>p.datetime.startsWith(fmtDate(date))).length;
+              const dateStr=weekDateStrs[i];
+              const isToday=dateStr===today;
+              const cnt=filtered.filter(p=>p.datetime.startsWith(dateStr)).length;
               return(
                 <div key={i} style={{background:"#fff",padding:"7px 5px 5px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
@@ -1322,9 +1338,10 @@ export default function App(){
               <React.Fragment key={hour}>
                 <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#faf7f3",borderRight:"1px solid #e8e0d6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
-                  const key=fmtDate(date)+"_"+String(hour).padStart(2,"0");
+                  const dateStr=weekDateStrs[di];
+                  const key=dateStr+"_"+String(hour).padStart(2,"0");
                   const sp=postsBySlot[key]||[];
-                  const dateStr=fmtDate(date),isEmpty=sp.length===0;
+                  const isEmpty=sp.length===0;
                   return(
                     <div key={hour+"-"+di}
                       onClick={isEmpty?()=>openNew(`${dateStr}T${String(hour).padStart(2,"0")}:00`):undefined}
@@ -1366,7 +1383,7 @@ export default function App(){
                         const gpt=POST_TYPE[g.postType||"x_post"];
                         return(
                           <div key={"g"+gi}
-                            onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`);}}
+                            onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
                             style={{border:`1.5px dashed ${gpt.border}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"pointer",opacity:0.5,transition:"opacity .1s",background:"transparent"}}
                             onMouseEnter={e=>e.currentTarget.style.opacity="0.9"}
                             onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>
@@ -1374,7 +1391,10 @@ export default function App(){
                               <span style={{width:4,height:4,borderRadius:"50%",border:`1.5px solid ${gpt.dot}`,flexShrink:0}}/>
                               <span style={{fontSize:9,color:"#aaa"}}>{String(g.hour).padStart(2,"0")}:00</span>
                             </div>
-                            <div style={{fontSize:9,color:"#bbb",lineHeight:1.3}}>予約枠</div>
+                            {g.title
+                              ?<div style={{fontSize:9,fontWeight:700,color:"#bbb",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
+                              :<div style={{fontSize:9,color:"#bbb",lineHeight:1.3}}>予約枠</div>
+                            }
                             <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:gpt.bg,padding:"0 4px",borderRadius:6,opacity:0.7}}>{gpt.label}</span>
                           </div>
                         );
@@ -1401,6 +1421,7 @@ export default function App(){
           handleDuplicate={handleDuplicate}
           setRepostTgt={setRepostTgt}
           openNew={openNew}
+          slots={slots}
         />
       )}
 
@@ -1424,10 +1445,13 @@ export default function App(){
                 return(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
                     <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                    <span style={{fontWeight:700,fontSize:12,flex:1,color:"#444"}}>{slotLabel(s)}</span>
-                    <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700}}>{pt.label}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <span style={{fontWeight:700,fontSize:12,color:"#444"}}>{slotLabel(s)}</span>
+                      {s.title&&<span style={{fontSize:11,color:"#888",marginLeft:6}}>「{s.title}」</span>}
+                    </div>
+                    <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
                     <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
-                      style={{marginLeft:"auto",border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700}}>×</button>
+                      style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>×</button>
                   </div>
                 );
               })}
@@ -1458,22 +1482,7 @@ export default function App(){
           accountName={activeAcc?.name||""}
           onSave={saveNotifySettings}
           onClose={()=>setShowNotifySettings(false)}
-          onTestSend={async(email)=>{
-            if(!email){alert("メールアドレスを入力してください");return;}
-            try{
-              const res=await fetch("/api/cron-notify",{
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({accountId:activeAccId,testMode:true,email}),
-              });
-              const d=await res.json();
-              if(res.ok)showToast("テストメールを送信しました ✅");
-              else alert("送信失敗:
-"+(d.error||JSON.stringify(d)));
-            }catch(e){
-              alert("通信エラー: "+e.message);
-            }
-          }}
+          onTestSend={handleTestSend}
         />
       )}
 
@@ -1525,7 +1534,8 @@ export default function App(){
 }
 
 // ── リストビュー ──
-function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew}){
+function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots}){
+  const [showSlots,setShowSlots]=useState(true);
   const byDate=React.useMemo(()=>{
     const m={};
     filtered.forEach(p=>{
@@ -1534,23 +1544,42 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
     });
     return m;
   },[filtered]);
-  const dates=React.useMemo(()=>Object.keys(byDate).sort(),[byDate]);
+
+  // 予約枠がある日付もカラムに含める
+  const dates=React.useMemo(()=>{
+    const dateSet=new Set(Object.keys(byDate));
+    if(showSlots&&slots?.length>0){
+      // 今日から60日分の日付を生成してスロット該当日を追加
+      for(let i=0;i<60;i++){
+        const d=new Date();d.setDate(d.getDate()+i);
+        const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+        if(slots.some(s=>slotMatchesDate(s,d)))dateSet.add(ds);
+      }
+    }
+    return [...dateSet].sort();
+  },[byDate,slots,showSlots]);
+
   const scrollRef=useRef(null);
   const todayColRef=useRef(null);
-  // マウント時・today変化時に今日列を左端に自動スクロール
   useEffect(()=>{
     if(!scrollRef.current||!todayColRef.current)return;
     const container=scrollRef.current;
     const col=todayColRef.current;
-    const offset=col.offsetLeft-18; // 18px = padding
-    container.scrollTo({left:Math.max(0,offset),behavior:"smooth"});
+    container.scrollTo({left:Math.max(0,col.offsetLeft-18),behavior:"smooth"});
   },[today,dates.join(",")]);
+
   return(
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 52px)",overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexShrink:0}}>
         {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
         <span style={{fontWeight:800,fontSize:14}}>{activeAcc?.name} の投稿</span>
         <span style={{fontSize:12,color:"#aaa"}}>{filtered.length}件</span>
+        {/* 予約枠トグル */}
+        <button onClick={()=>setShowSlots(v=>!v)}
+          style={{display:"flex",alignItems:"center",gap:5,border:`1.5px solid ${showSlots?"#f59e0b":"#e0d8ce"}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",background:showSlots?"#fef3c7":"#fff",color:showSlots?"#d97706":"#aaa",fontFamily:"inherit",transition:"all .15s"}}>
+          <span style={{fontSize:13}}>📅</span>
+          予約枠{showSlots?"表示中":"非表示"}
+        </button>
         <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
           style={{marginLeft:"auto",background:"#f8f4ef",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
           <option value="all">すべてのステータス</option>
@@ -1561,9 +1590,22 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
         {dates.length===0&&<div style={{color:"#ccc",fontSize:13,margin:"auto"}}>投稿がありません</div>}
         {dates.map(date=>{
           const isToday=date===today;
-          const dayPosts=byDate[date].sort((a,b)=>a.datetime.localeCompare(b.datetime));
-          const d=new Date(date);
+          const dayPosts=(byDate[date]||[]).sort((a,b)=>a.datetime.localeCompare(b.datetime));
+          const d=new Date(date+"T00:00:00");
           const dayLabel=["日","月","火","水","木","金","土"][d.getDay()];
+          // この日に該当する予約枠を時刻順で取得
+          const daySlots=showSlots&&slots?.length>0
+            ?slots.filter(s=>slotMatchesDate(s,d)).sort((a,b)=>a.hour-b.hour)
+            :[];
+          // 予約枠のうち実投稿が埋まっていない枠だけゴースト表示
+          const filledHours=new Set(dayPosts.map(p=>parseInt(p.datetime.slice(11,13))));
+          const ghostSlots=daySlots.filter(s=>!filledHours.has(s.hour));
+          // 実投稿とゴーストをまとめて時刻順に並べる
+          const allItems=[
+            ...dayPosts.map(p=>({type:"post",data:p,sortKey:p.datetime.slice(11,13)})),
+            ...ghostSlots.map(s=>({type:"ghost",data:s,sortKey:String(s.hour).padStart(2,"0")})),
+          ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
+
           return(
             <div key={date} ref={isToday?todayColRef:null} style={{flexShrink:0,width:200}}>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:7,borderBottom:`2px solid ${isToday?"#f59e0b":"#e8e0d6"}`}}>
@@ -1577,31 +1619,54 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                 <span style={{marginLeft:"auto",fontSize:10,color:"#ccc"}}>{dayPosts.length}件</span>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                {dayPosts.map(p=>{
-                  const pt2=POST_TYPE[p.postType||"x_post"];
-                  const st2=STATUS[p.status];
+                {allItems.map((item,idx)=>{
+                  if(item.type==="post"){
+                    const p=item.data;
+                    const pt2=POST_TYPE[p.postType||"x_post"];
+                    const st2=STATUS[p.status];
+                    return(
+                      <div key={p.id} onClick={()=>setPreview(p)}
+                        style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:9,padding:"9px 10px",cursor:"pointer",transition:"box-shadow .15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px #0000001a"}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                          <span style={{fontSize:10,color:"#888"}}>{p.datetime.slice(11,16)}</span>
+                          <span style={{fontSize:9,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 5px",borderRadius:6,marginLeft:2}}>{pt2.label}</span>
+                          {st2&&<span style={{fontSize:9,color:st2.text,background:st2.chip,border:`1px solid ${st2.border}`,padding:"0 5px",borderRadius:6,fontWeight:600,marginLeft:"auto"}}>{st2.label}</span>}
+                        </div>
+                        <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,22)}{(p.title||"").length>22?"…":""}</div>
+                        {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",borderRadius:4,padding:"2px 6px",marginBottom:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
+                        <div style={{display:"flex",gap:4,marginTop:4}}>
+                          <button onClick={e=>{e.stopPropagation();setEditing({...p});}}
+                            style={{background:"#f59e0b",border:"none",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>編集</button>
+                          <button onClick={e=>{e.stopPropagation();handleDuplicate(p);}}
+                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
+                          <button onClick={e=>{e.stopPropagation();setRepostTgt(p);}}
+                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                            onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // ゴースト枠
+                  const s=item.data;
+                  const gpt=POST_TYPE[s.postType||"x_post"];
                   return(
-                    <div key={p.id} onClick={()=>setPreview(p)}
-                      style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:9,padding:"9px 10px",cursor:"pointer",transition:"box-shadow .15s"}}
-                      onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px #0000001a"}
-                      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                      <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
-                        <span style={{fontSize:10,color:"#888"}}>{p.datetime.slice(11,16)}</span>
-                        <span style={{fontSize:9,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 5px",borderRadius:6,marginLeft:2}}>{pt2.label}</span>
-                        {st2&&<span style={{fontSize:9,color:st2.text,background:st2.chip,border:`1px solid ${st2.border}`,padding:"0 5px",borderRadius:6,fontWeight:600,marginLeft:"auto"}}>{st2.label}</span>}
+                    <div key={"g"+idx}
+                      onClick={()=>openNew(`${date}T${String(s.hour).padStart(2,"0")}:00`,{title:s.title||"",postType:s.postType||"x_post"})}
+                      style={{border:`1.5px dashed ${gpt.border}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:9,padding:"8px 10px",cursor:"pointer",opacity:0.55,transition:"opacity .15s,box-shadow .15s",background:"transparent"}}
+                      onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 2px 8px #0000001a";}}
+                      onMouseLeave={e=>{e.currentTarget.style.opacity="0.55";e.currentTarget.style.boxShadow="none";}}>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
+                        <span style={{width:5,height:5,borderRadius:"50%",border:`1.5px solid ${gpt.dot}`,flexShrink:0}}/>
+                        <span style={{fontSize:10,color:"#bbb"}}>{String(s.hour).padStart(2,"0")}:00</span>
+                        <span style={{fontSize:9,color:gpt.color,background:gpt.bg,border:`1px solid ${gpt.border}`,padding:"0 5px",borderRadius:6,fontWeight:700,marginLeft:"auto"}}>{gpt.label}</span>
                       </div>
-                      <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,22)}{(p.title||"").length>22?"…":""}</div>
-                      {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",borderRadius:4,padding:"2px 6px",marginBottom:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
-                      <div style={{display:"flex",gap:4,marginTop:4}}>
-                        <button onClick={e=>{e.stopPropagation();setEditing({...p});}}
-                          style={{background:"#f59e0b",border:"none",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>編集</button>
-                        <button onClick={e=>{e.stopPropagation();handleDuplicate(p);}}
-                          style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-                          onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
-                        <button onClick={e=>{e.stopPropagation();setRepostTgt(p);}}
-                          style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-                          onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
-                      </div>
+                      {s.title
+                        ?<div style={{fontSize:11,fontWeight:700,color:"#bbb",lineHeight:1.35,marginBottom:2}}>{s.title.slice(0,20)}{s.title.length>20?"…":""}</div>
+                        :<div style={{fontSize:10,color:"#ccc",fontWeight:600}}>予約枠 — クリックで作成</div>
+                      }
                     </div>
                   );
                 })}
@@ -1662,14 +1727,15 @@ function SlotAddForm({onAdd}){
   const [nth,setNth]=useState(1);
   const [hour,setHour]=useState(9);
   const [postType,setPostType]=useState("x_post");
-  // SLOT_DOWS / SLOT_NTHS / SLOT_TYPES はモジュールレベルで定義済み
+  const [title,setTitle]=useState("");
   const pt=POST_TYPE[postType];
 
-  const preview=(()=>{
-    if(type==="daily") return `毎日 ${String(hour).padStart(2,"0")}:00`;
-    if(type==="nth_weekday") return `毎月第${nth}${["","月","火","水","木","金","土","日"][dow]}曜 ${String(hour).padStart(2,"0")}:00`;
-    return `毎週${["","月","火","水","木","金","土","日"][dow]}曜 ${String(hour).padStart(2,"0")}:00`;
-  })();
+  const preview=React.useMemo(()=>{
+    const t=String(hour).padStart(2,"0")+":00";
+    if(type==="daily") return `毎日 ${t}`;
+    if(type==="nth_weekday") return `毎月第${nth}${["","月","火","水","木","金","土","日"][dow]}曜 ${t}`;
+    return `毎週${["","月","火","水","木","金","土","日"][dow]}曜 ${t}`;
+  },[type,dow,nth,hour]);
 
   return(
     <div style={{background:"#fffbeb",border:"1.5px dashed #fcd34d",borderRadius:10,padding:"14px 14px 12px",marginTop:8}}>
@@ -1722,7 +1788,7 @@ function SlotAddForm({onAdd}){
           <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
           <select value={hour} onChange={e=>setHour(Number(e.target.value))}
             style={{border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
-            {Array.from({length:24},(_,i)=>i).map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
+            {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
           </select>
         </div>
       </div>
@@ -1736,12 +1802,24 @@ function SlotAddForm({onAdd}){
         </select>
       </div>
 
-      {/* プレビュー */}
-      <div style={{background:"#fff",border:"1px solid #fcd34d",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#92400e",marginBottom:10,fontWeight:600}}>
-        📅 {preview}
+      {/* 仮タイトル */}
+      <div style={{marginBottom:10}}>
+        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>仮タイトル <span style={{color:"#bbb",fontWeight:400}}>(任意)</span></label>
+        <input value={title} onChange={e=>setTitle(e.target.value)}
+          placeholder="例：週次まとめ、商品紹介など"
+          style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"6px 9px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",background:"#fff"}}
+          onFocus={e=>e.target.style.borderColor="#f59e0b"}
+          onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
       </div>
 
-      <button onClick={()=>onAdd({type,dow,nth,hour,postType})}
+      {/* プレビュー */}
+      <div style={{background:"#fff",border:"1px solid #fcd34d",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#92400e",marginBottom:10,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
+        <span>📅 {preview}</span>
+        <span style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,borderRadius:10,padding:"0 7px",fontSize:10,fontWeight:700}}>{pt.label}</span>
+        {title&&<span style={{color:"#555",fontWeight:500,fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>「{title}」</span>}
+      </div>
+
+      <button onClick={()=>onAdd({type,dow,nth,hour,postType,title})}
         style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
@@ -1755,7 +1833,6 @@ function SlotAddForm({onAdd}){
 function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
   const [draft,setDraft]=useState({...settings});
   const [sending,setSending]=useState(false);
-  const HOURS=Array.from({length:24},(_,i)=>i);
   const changed=JSON.stringify(draft)!==JSON.stringify(settings);
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
