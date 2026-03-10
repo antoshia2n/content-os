@@ -1404,18 +1404,18 @@ export default function App(){
                         return(
                           <div key={"g"+gi}
                             onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
-                            style={{border:`1.5px dashed ${gpt.border}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"pointer",opacity:0.5,transition:"opacity .1s",background:"transparent"}}
-                            onMouseEnter={e=>e.currentTarget.style.opacity="0.9"}
-                            onMouseLeave={e=>e.currentTarget.style.opacity="0.5"}>
+                            style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"4px 6px",marginBottom:2,cursor:"pointer",opacity:0.65,transition:"all .15s",background:gpt.bg}}
+                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
+                            onMouseLeave={e=>{e.currentTarget.style.opacity="0.65";e.currentTarget.style.boxShadow="none";}}>
                             <div style={{display:"flex",alignItems:"center",gap:3}}>
-                              <span style={{width:4,height:4,borderRadius:"50%",border:`1.5px solid ${gpt.dot}`,flexShrink:0}}/>
-                              <span style={{fontSize:9,color:"#aaa"}}>{String(g.hour).padStart(2,"0")}:00</span>
+                              <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
+                              <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{String(g.hour).padStart(2,"0")}:00</span>
                             </div>
                             {g.title
-                              ?<div style={{fontSize:9,fontWeight:700,color:"#bbb",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
-                              :<div style={{fontSize:9,color:"#bbb",lineHeight:1.3}}>予約枠</div>
+                              ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
+                              :<div style={{fontSize:9,color:"#999",lineHeight:1.3}}>予約枠</div>
                             }
-                            <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:gpt.bg,padding:"0 4px",borderRadius:6,opacity:0.7}}>{gpt.label}</span>
+                            <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                           </div>
                         );
                       })}
