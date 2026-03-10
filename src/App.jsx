@@ -1083,7 +1083,7 @@ export default function App(){
   // 予約枠 — アカウントごとにlocalStorageで永続化
   useEffect(()=>{
     if(!activeAccId)return;
-    try{const saved=localStorage.getItem(`slots_${activeAccId}`);if(saved)setSlots(JSON.parse(saved));}catch(e){}
+    try{const saved=localStorage.getItem(`slots_${activeAccId}`);setSlots(saved?JSON.parse(saved):[]);}catch(e){setSlots([]);}
   },[activeAccId]);
 
   const saveSlots=React.useCallback((next)=>{
