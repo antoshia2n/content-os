@@ -131,24 +131,52 @@ export default async function handler(req, res) {
   if (!resendKey) return res.status(500).json({ error: "RESEND_API_KEY が未設定です" });
 
   try {
-    // 通知設定を全件取得（Cronは全アカウント、テストは指定アカウントのみ）
-    let settingsQuery = supabase.from("notification_settings").select("*").eq("enabled", true);
-    if (isTest && req.body?.accountId) {
-      settingsQuery = supabase.from("notification_settings").select("*").eq("account_id", req.body.accountId);
+    const jstHour = new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", hour: "numeric", hour12: false });
+    const results = [];
+
+    // テストモード：DBを参照せずbody.emailとbody.accountIdを直接使う
+    if (isTest) {
+      const email = req.body?.email;
+      const accountId = req.body?.accountId;
+      if (!email) return res.status(400).json({ error: "emailが指定されていません" });
+
+      const { data: posts } = await supabase.from("posts").select("*").eq("account_id", accountId);
+      const { data: acc } = await supabase.from("accounts").select("name").eq("id", accountId).single();
+      const accountName = acc?.name || accountId;
+      const nowJst = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Tokyo" }).slice(0, 16);
+      const todayJst = nowJst.slice(0, 10);
+      const overdueList = (posts||[]).filter(p => p.status === "reserved" && p.datetime <= nowJst.replace(" ", "T")).map(enrichPost);
+      const todayList   = (posts||[]).filter(p => p.datetime.slice(0,10) === todayJst).sort((a,b)=>a.datetime.localeCompare(b.datetime)).map(enrichPost);
+      const digest = {};
+      Object.entries(STATUS_LABELS).forEach(([k,label])=>{const cnt=(posts||[]).filter(p=>p.status===k).length;if(cnt>0)digest[label]=cnt;});
+
+      const html = buildEmailHtml({ accountName, overdueList, todayList, digest, notifyOverdue:true, notifyToday:true, notifyDaily:true });
+      const mailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
+        body: JSON.stringify({
+          from: "ContentOS <notify@notify.shia2n.jp>",
+          to: [email],
+          subject: `[ContentOS] ${accountName} — テスト送信`,
+          html,
+        }),
+      });
+      const mailData = await mailRes.json();
+      if (!mailRes.ok) return res.status(500).json({ error: `Resend error: ${mailData.message||JSON.stringify(mailData)}` });
+      return res.status(200).json({ sent: 1, results: [{ email, status: "sent" }] });
     }
-    const { data: settingsList, error: sErr } = await settingsQuery;
+
+    // Cron モード：DBから通知設定を取得
+    const { data: settingsList, error: sErr } = await supabase.from("notification_settings").select("*").eq("enabled", true);
     if (sErr) throw sErr;
     if (!settingsList || settingsList.length === 0) {
       return res.status(200).json({ message: "通知対象なし" });
     }
 
-    const jstHour = new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", hour: "numeric", hour12: false });
-    const results = [];
-
     for (const s of settingsList) {
       if (!s.email) continue;
-      // Cronの場合、send_hour が現在時刻と一致するもののみ送信
-      if (isCron && parseInt(jstHour) !== s.send_hour) continue;
+      // send_hour が現在時刻と一致するもののみ送信
+      if (parseInt(jstHour) !== s.send_hour) continue;
 
       // 当該アカウントの投稿を取得
       const { data: posts } = await supabase
