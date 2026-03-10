@@ -227,21 +227,37 @@ function InsertModal({onClose,savedRange,bodyRef}){
   const [uploading,setUploading]=useState(false);
   const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
-    // ファイルサイズ上限 5MB
-    if(file.size>5*1024*1024){alert("画像は5MB以下にしてください");return;}
+    if(file.size>50*1024*1024){alert("画像は50MB以下にしてください");return;}
     setUploading(true);
     try{
-      const ext=file.name.split(".").pop();
-      const path=`images/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const{error:upErr}=await supabase.storage.from("contentos").upload(path,file,{contentType:file.type,upsert:false});
-      if(upErr)throw upErr;
-      const{data}=supabase.storage.from("contentos").getPublicUrl(path);
-      insertAt(`<p><img src="${data.publicUrl}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);
+      const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
+      const safeName=`${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const path=`images/${safeName}`;
+      // ※ Supabase Dashboard → Storage → "contentos" バケットを Public で作成
+      // ※ バケットのRLSポリシーで INSERT を許可する必要があります
+      const{data:upData,error:upErr}=await supabase.storage
+        .from("contentos")
+        .upload(path,file,{contentType:file.type,cacheControl:"3600",upsert:false});
+      if(upErr){
+        // よくある原因別メッセージ
+        const msg=upErr.message||"";
+        if(msg.includes("not found")||msg.includes("bucket"))
+          throw new Error("バケット「contentos」が存在しないか非公開です。Supabase→Storageで作成してください");
+        if(msg.includes("policy")||msg.includes("violates"))
+          throw new Error("ストレージのRLSポリシーでアップロードが拒否されました。ポリシーを確認してください");
+        throw upErr;
+      }
+      const{data:urlData}=supabase.storage.from("contentos").getPublicUrl(path);
+      if(!urlData?.publicUrl)throw new Error("公開URLの取得に失敗しました");
+      insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="max-width:100%;border-radius:8px;display:block;"/></p>`);
       onClose();
     }catch(err){
-      alert("画像のアップロードに失敗しました: "+err.message);
+      alert("画像のアップロードに失敗しました:
+"+err.message);
     }finally{
       setUploading(false);
+      // inputをリセット（同じファイルを再選択できるよう）
+      if(fileRef.current)fileRef.current.value="";
     }
   };
   const handlePost=()=>{
@@ -1039,8 +1055,7 @@ export default function App(){
   const ghostBySlot=React.useMemo(()=>{
     const m={};
     weekDates.forEach(date=>{
-      const dow=date.getDay()===0?7:date.getDay();
-      slots.filter(s=>s.dow===dow).forEach(s=>{
+      slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
         const key=`${fmtDate(date)}_${String(s.hour).padStart(2,"0")}`;
         (m[key]=m[key]||[]).push(s);
       });
@@ -1288,12 +1303,10 @@ export default function App(){
               {slots.length===0&&<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"24px 0"}}>枠がまだありません</div>}
               {slots.map((s,i)=>{
                 const pt=POST_TYPE[s.postType||"x_post"];
-                const dowLabel=["","月","火","水","木","金","土","日"][s.dow];
                 return(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"9px 12px",marginBottom:8}}>
                     <span style={{width:8,height:8,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                    <span style={{fontWeight:700,fontSize:13,minWidth:24}}>{dowLabel}</span>
-                    <span style={{fontSize:13,color:"#555"}}>{String(s.hour).padStart(2,"0")}:00</span>
+                    <span style={{fontWeight:700,fontSize:12,flex:1,color:"#444"}}>{slotLabel(s)}</span>
                     <span style={{fontSize:11,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10,fontWeight:700}}>{pt.label}</span>
                     <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
                       style={{marginLeft:"auto",border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700}}>×</button>
@@ -1302,8 +1315,15 @@ export default function App(){
               })}
               {/* 新規追加フォーム */}
               <SlotAddForm onAdd={s=>{
-                if(slots.some(x=>x.dow===s.dow&&x.hour===s.hour)){
-                  alert(`${["","月","火","水","木","金","土","日"][s.dow]}曜 ${String(s.hour).padStart(2,"0")}:00 の枠はすでに存在します`);
+                const dup=slots.some(x=>{
+                  if(x.hour!==s.hour)return false;
+                  if(s.type==="daily"||x.type==="daily")return s.type===x.type;
+                  if(s.type==="nth_weekday"||x.type==="nth_weekday")
+                    return x.type===s.type&&x.dow===s.dow&&x.nth===s.nth;
+                  return x.dow===s.dow; // weekly
+                });
+                if(dup){
+                  alert(`「${slotLabel({...s,id:0})}」の枠はすでに存在します`);
                   return;
                 }
                 saveSlots([...slots,{...s,id:genId()}]);
@@ -1368,6 +1388,16 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
     (byDate[d]=byDate[d]||[]).push(p);
   });
   const dates=Object.keys(byDate).sort();
+  const scrollRef=useRef(null);
+  const todayColRef=useRef(null);
+  // マウント時・today変化時に今日列を左端に自動スクロール
+  useEffect(()=>{
+    if(!scrollRef.current||!todayColRef.current)return;
+    const container=scrollRef.current;
+    const col=todayColRef.current;
+    const offset=col.offsetLeft-18; // 18px = padding
+    container.scrollTo({left:Math.max(0,offset),behavior:"smooth"});
+  },[today,dates.join(",")]);
   return(
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 52px)",overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexShrink:0}}>
@@ -1380,7 +1410,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
           {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
-      <div style={{flex:1,overflowX:"auto",overflowY:"hidden",display:"flex",padding:"16px 18px",gap:14,alignItems:"flex-start"}}>
+      <div ref={scrollRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",display:"flex",padding:"16px 18px",gap:14,alignItems:"flex-start"}}>
         {dates.length===0&&<div style={{color:"#ccc",fontSize:13,margin:"auto"}}>投稿がありません</div>}
         {dates.map(date=>{
           const isToday=date===today;
@@ -1388,7 +1418,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
           const d=new Date(date);
           const dayLabel=["日","月","火","水","木","金","土"][d.getDay()];
           return(
-            <div key={date} style={{flexShrink:0,width:200}}>
+            <div key={date} ref={isToday?todayColRef:null} style={{flexShrink:0,width:200}}>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:7,borderBottom:`2px solid ${isToday?"#f59e0b":"#e8e0d6"}`}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:isToday?"#f59e0b":"#f2ede6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:isToday?"#fff":"#555",flexShrink:0}}>
                   {d.getDate()}
@@ -1451,29 +1481,97 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
   );
 }
 
+// ── 予約枠：スロットのラベル生成ヘルパー ──
+// type: "weekly"=毎週特定曜日, "daily"=毎日, "nth_weekday"=第N曜日（月次）
+function slotLabel(s){
+  const DOWL=["","月","火","水","木","金","土","日"];
+  const NTH=["","第1","第2","第3","第4","第5"];
+  const t=String(s.hour).padStart(2,"0")+":00";
+  if(s.type==="daily") return `毎日 ${t}`;
+  if(s.type==="nth_weekday") return `毎月${NTH[s.nth]||""}${DOWL[s.dow]||""}曜 ${t}`;
+  return `毎週${DOWL[s.dow]||""}曜 ${t}`;
+}
+
+// ── 日付がスロット条件に一致するか判定 ──
+function slotMatchesDate(s,date){
+  const dow=date.getDay()===0?7:date.getDay(); // 1=月〜7=日
+  if(s.type==="daily") return true;
+  if(s.type==="weekly") return s.dow===dow;
+  if(s.type==="nth_weekday"){
+    if(s.dow!==dow)return false;
+    // 何番目の該当曜日かを計算
+    const d=date.getDate();
+    const nth=Math.ceil(d/7);
+    return s.nth===nth;
+  }
+  // 後方互換：typeなし→weekly扱い
+  return s.dow===dow;
+}
+
 // ── 予約枠追加フォーム ──
 function SlotAddForm({onAdd}){
+  const [type,setType]=useState("weekly");
   const [dow,setDow]=useState(1);
+  const [nth,setNth]=useState(1);
   const [hour,setHour]=useState(9);
   const [postType,setPostType]=useState("x_post");
   const DOWS=[[1,"月"],[2,"火"],[3,"水"],[4,"木"],[5,"金"],[6,"土"],[7,"日"]];
+  const NTHS=[[1,"第1"],[2,"第2"],[3,"第3"],[4,"第4"]];
+  const TYPES=[["weekly","毎週"],["daily","毎日"],["nth_weekday","第N曜日"]];
   const pt=POST_TYPE[postType];
+
+  const preview=(()=>{
+    if(type==="daily") return `毎日 ${String(hour).padStart(2,"0")}:00`;
+    if(type==="nth_weekday") return `毎月第${nth}${["","月","火","水","木","金","土","日"][dow]}曜 ${String(hour).padStart(2,"0")}:00`;
+    return `毎週${["","月","火","水","木","金","土","日"][dow]}曜 ${String(hour).padStart(2,"0")}:00`;
+  })();
+
   return(
     <div style={{background:"#fffbeb",border:"1.5px dashed #fcd34d",borderRadius:10,padding:"14px 14px 12px",marginTop:8}}>
       <div style={{fontSize:11,fontWeight:700,color:"#92400e",marginBottom:10}}>＋ 新しい予約枠</div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-        {/* 曜日 */}
-        <div style={{flex:1,minWidth:120}}>
-          <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {DOWS.map(([v,l])=>(
-              <button key={v} onClick={()=>setDow(v)}
-                style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
-                {l}
-              </button>
-            ))}
-          </div>
+
+      {/* 繰り返しタイプ */}
+      <div style={{marginBottom:10}}>
+        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>繰り返し</label>
+        <div style={{display:"flex",gap:4}}>
+          {TYPES.map(([v,l])=>(
+            <button key={v} onClick={()=>setType(v)}
+              style={{padding:"4px 12px",borderRadius:6,border:type===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:type===v?"#fef3c7":"#fff",fontSize:11,fontWeight:type===v?700:500,color:type===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+              {l}
+            </button>
+          ))}
         </div>
+      </div>
+
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {/* 第N（nth_weekdayのみ） */}
+        {type==="nth_weekday"&&(
+          <div>
+            <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>第N</label>
+            <div style={{display:"flex",gap:4}}>
+              {NTHS.map(([v,l])=>(
+                <button key={v} onClick={()=>setNth(v)}
+                  style={{padding:"4px 8px",borderRadius:6,border:nth===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:nth===v?"#fef3c7":"#fff",fontSize:11,fontWeight:nth===v?700:500,color:nth===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {/* 曜日（毎日以外） */}
+        {type!=="daily"&&(
+          <div style={{flex:1,minWidth:120}}>
+            <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {DOWS.map(([v,l])=>(
+                <button key={v} onClick={()=>setDow(v)}
+                  style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* 時刻 */}
         <div style={{minWidth:80}}>
           <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
@@ -1483,15 +1581,22 @@ function SlotAddForm({onAdd}){
           </select>
         </div>
       </div>
+
       {/* 投稿種類 */}
-      <div style={{marginBottom:12}}>
+      <div style={{marginBottom:10}}>
         <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
         <select value={postType} onChange={e=>setPostType(e.target.value)}
           style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
           {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
-      <button onClick={()=>onAdd({dow,hour,postType})}
+
+      {/* プレビュー */}
+      <div style={{background:"#fff",border:"1px solid #fcd34d",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#92400e",marginBottom:10,fontWeight:600}}>
+        📅 {preview}
+      </div>
+
+      <button onClick={()=>onAdd({type,dow,nth,hour,postType})}
         style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
