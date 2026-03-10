@@ -1437,7 +1437,7 @@ export default function App(){
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:18,paddingBottom:32}}>
+            <div style={{flex:1,minHeight:0,overflowY:"auto",padding:18,paddingBottom:32}}>
               {/* 枠一覧 */}
               {slots.length===0&&<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"24px 0"}}>枠がまだありません</div>}
               {slots.map((s,i)=>{
