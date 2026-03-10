@@ -1081,8 +1081,17 @@ export default function App(){
   },[activeAccId]);
 
   const saveSlots=React.useCallback((next)=>{
-    setSlots(next);
-    if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
+    // nextが関数の場合はfunctional update形式で呼ぶ
+    if(typeof next==="function"){
+      setSlots(prev=>{
+        const resolved=next(prev);
+        if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(resolved));}catch(e){}
+        return resolved;
+      });
+    } else {
+      setSlots(next);
+      if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
+    }
   },[activeAccId]);
 
   // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
@@ -1453,7 +1462,7 @@ export default function App(){
                     </div>
                     <input
                       value={s.title||""}
-                      onChange={e=>saveSlots(slots.map((x,j)=>j===i?{...x,title:e.target.value}:x))}
+                      onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
                       placeholder="仮タイトルを入力（任意）"
                       style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:6,padding:"5px 8px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",background:"#fff"}}
                       onFocus={e=>e.target.style.borderColor="#f59e0b"}
