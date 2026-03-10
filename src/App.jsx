@@ -1177,6 +1177,8 @@ export default function App(){
     filtered.forEach(p=>{const d=p.datetime.slice(0,10);m[d]=(m[d]||0)+1;});
     return m;
   },[filtered]);
+
+  const postsBySlot=React.useMemo(()=>{
     const m={};
     filtered.forEach(p=>{
       const key=`${p.datetime.slice(0,10)}_${p.datetime.slice(11,13)}`;
