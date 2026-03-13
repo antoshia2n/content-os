@@ -54,12 +54,13 @@ function getWeekDates(base){
   return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});
 }
 function dbToPost(p){
+  const rawLinks=p.memo_links||[];
   return{...p,
     postType:p.post_type||"x_post",
     comments:p.comments||[],
     body:p.body||"",
     memo:p.memo||"",
-    memoLinks:p.memo_links||[],
+    memoLinks:rawLinks.map(l=>typeof l==="string"?{label:"",url:l}:l),
     history:p.history||[],
   };
 }
@@ -1182,7 +1183,7 @@ export default function App(){
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"list":"calendar");break;
+        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":"calendar");break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -1192,12 +1193,6 @@ export default function App(){
     };
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[view,preview,openNew]);
-
-  const cntByDate=React.useMemo(()=>{
-    const m={};
-    filtered.forEach(p=>{const d=p.datetime.slice(0,10);m[d]=(m[d]||0)+1;});
-    return m;
-  },[filtered]);
 
   const postsBySlot=React.useMemo(()=>{
     const m={};
@@ -1371,7 +1366,6 @@ export default function App(){
               const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
               const reservedCnt=dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length;
               const publishedCnt=dayPosts.filter(p=>p.status==="published"||p.status==="popular").length;
-              const slotCnt=(ghostBySlot[dateStr+"_"]||0); // ダミー、下で計算
               const ghostCnt=slots.filter(s=>slotMatchesDate(s,date)).length;
               return(
                 <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
