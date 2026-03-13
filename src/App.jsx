@@ -377,36 +377,52 @@ function fallbackCopy(plain,onDone){
 // ════════════════════════════════════════════════════════
 function MemoEditor({memo,memoLinks,onChange}){
   const [linkInput,setLinkInput]=useState("");
+  const [labelInput,setLabelInput]=useState("");
+  // 後方互換：文字列 or {label,url} オブジェクト
+  const links=(memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l);
+  const addLink=()=>{
+    const url=linkInput.trim();
+    if(!isUrl(url))return;
+    onChange({memo,memoLinks:[...links,{label:labelInput.trim(),url}]});
+    setLinkInput("");setLabelInput("");
+  };
   return(
     <div style={{display:"flex",flexDirection:"column",gap:7}}>
-      <textarea value={memo} onChange={e=>onChange({memo:e.target.value,memoLinks})} placeholder="執筆の意図・注意点など" rows={5}
+      <textarea value={memo} onChange={e=>onChange({memo:e.target.value,memoLinks:links})} placeholder="執筆の意図・注意点など" rows={4}
         style={{width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",lineHeight:1.7}}
         onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-      {(memoLinks||[]).length>0&&(
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          {memoLinks.map((l,i)=>(
+      {links.length>0&&(
+        <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:180,overflowY:"auto"}}>
+          {links.map((l,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 8px"}}>
-              <span style={{fontSize:"0.7em"}}>🔗</span>
-              <a href={l} target="_blank" rel="noreferrer" style={{flex:1,fontSize:"0.73em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l}</a>
-              <button onClick={()=>onChange({memo,memoLinks:memoLinks.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em"}}>×</button>
+              <span style={{fontSize:"0.7em",flexShrink:0}}>🔗</span>
+              <div style={{flex:1,minWidth:0}}>
+                {l.label&&<div style={{fontSize:"0.7em",fontWeight:700,color:"#0369a1",marginBottom:1}}>{l.label}</div>}
+                <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.7em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
+              </div>
+              <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
             </div>
           ))}
         </div>
       )}
-      <input value={linkInput} onChange={e=>setLinkInput(e.target.value)}
-        placeholder="URLをペースト → Enter で追加"
-        onKeyDown={e=>{
-          if(e.key==="Enter"&&!e.isComposing){
-            const v=linkInput.trim();
-            if(isUrl(v)){onChange({memo,memoLinks:[...(memoLinks||[]),v]});setLinkInput("");}
-          }
-        }}
-        onPaste={e=>{
-          const v=e.clipboardData.getData("text").trim();
-          if(isUrl(v)){e.preventDefault();onChange({memo,memoLinks:[...(memoLinks||[]),v]});setLinkInput("");}
-        }}
-        style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
-        onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <input value={labelInput} onChange={e=>setLabelInput(e.target.value)}
+          placeholder="ラベル（任意）"
+          style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+          onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+        <div style={{display:"flex",gap:4}}>
+          <input value={linkInput} onChange={e=>setLinkInput(e.target.value)}
+            placeholder="URLをペースト → 追加"
+            onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addLink();}}
+            onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
+            style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+            onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+          <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
+            style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .15s"}}>
+            ＋追加
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -774,12 +790,17 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
           <div style={{flex:1,overflowY:"auto",padding:"24px 32px"}}>
             {(post.memoLinks||[]).length>0&&(
               <div style={{marginBottom:14,display:"flex",flexDirection:"column",gap:4}}>
-                {post.memoLinks.map((l,i)=>(
-                  <a key={i} href={l} target="_blank" rel="noreferrer"
-                    style={{display:"flex",alignItems:"center",gap:5,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 10px",fontSize:"0.78em",color:"#0369a1",textDecoration:"none"}}>
-                    <span>🔗</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l}</span>
-                  </a>
-                ))}
+                {post.memoLinks.map((l,i)=>{
+                  const url=typeof l==="string"?l:l.url;
+                  const label=typeof l==="string"?"":l.label;
+                  return(
+                    <a key={i} href={url} target="_blank" rel="noreferrer"
+                      style={{display:"flex",alignItems:"center",gap:5,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 10px",fontSize:"0.78em",color:"#0369a1",textDecoration:"none"}}>
+                      <span style={{flexShrink:0}}>🔗</span>
+                      <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label||url}</span>
+                    </a>
+                  );
+                })}
               </div>
             )}
             {post.memo&&<div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:"0.8em",color:"#92400e",lineHeight:1.6,marginBottom:16}}>{post.memo}</div>}
@@ -1279,7 +1300,7 @@ export default function App(){
             🔍 検索<span style={{fontSize:10,color:"#ccc",background:"#fff",border:"1px solid #e0d8ce",borderRadius:4,padding:"1px 5px",marginLeft:2}}>⌘K</span>
           </button>
           <div style={{display:"flex",background:"#f2ede6",borderRadius:9,padding:3,gap:2,flexShrink:0}}>
-            {[["calendar","カレンダー"],["list","リスト"]].map(([v,l])=>(
+            {[["calendar","カレンダー"],["month","マンスリー"],["list","リスト"]].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"5px 11px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#1a1a1a":"#aaa",boxShadow:view===v?"0 1px 4px #0000001a":"none",whiteSpace:"nowrap",fontFamily:"inherit"}}>{l}</button>
             ))}
           </div>
@@ -1346,11 +1367,22 @@ export default function App(){
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];
               const isToday=dateStr===today;
+              const dayPosts=filtered.filter(p=>p.datetime.startsWith(dateStr));
+              const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
+              const reservedCnt=dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length;
+              const publishedCnt=dayPosts.filter(p=>p.status==="published"||p.status==="popular").length;
+              const slotCnt=(ghostBySlot[dateStr+"_"]||0); // ダミー、下で計算
+              const ghostCnt=slots.filter(s=>slotMatchesDate(s,date)).length;
               return(
-                <div key={i} style={{background:"#fff",padding:"7px 5px 5px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
+                <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
-                  <div style={{width:29,height:29,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:14,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
-                  {cntByDate[dateStr]>0&&<div style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>{cntByDate[dateStr]}件</div>}
+                  <div style={{width:28,height:28,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:13,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",minHeight:14}}>
+                    {draftCnt>0&&<span style={{fontSize:8,background:"#f3f4f6",color:"#6b7280",borderRadius:4,padding:"0 3px",fontWeight:700}}>下{draftCnt}</span>}
+                    {reservedCnt>0&&<span style={{fontSize:8,background:"#ede9fe",color:"#7c3aed",borderRadius:4,padding:"0 3px",fontWeight:700}}>予{reservedCnt}</span>}
+                    {publishedCnt>0&&<span style={{fontSize:8,background:"#d1fae5",color:"#059669",borderRadius:4,padding:"0 3px",fontWeight:700}}>済{publishedCnt}</span>}
+                    {ghostCnt>0&&<span style={{fontSize:8,background:"#fef3c7",color:"#d97706",borderRadius:4,padding:"0 3px",fontWeight:700}}>枠{ghostCnt}</span>}
+                  </div>
                 </div>
               );
             })}
@@ -1398,27 +1430,56 @@ export default function App(){
                           </div>
                         );
                       })}
-                      {/* ゴースト枠（実投稿がない場合のみ表示） */}
-                      {sp.length===0&&(ghostBySlot[key]||[]).map((g,gi)=>{
-                        const gpt=POST_TYPE[g.postType||"x_post"];
-                        return(
-                          <div key={"g"+gi}
-                            onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
-                            style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"4px 6px",marginBottom:2,cursor:"pointer",opacity:0.65,transition:"all .15s",background:gpt.bg}}
-                            onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
-                            onMouseLeave={e=>{e.currentTarget.style.opacity="0.65";e.currentTarget.style.boxShadow="none";}}>
-                            <div style={{display:"flex",alignItems:"center",gap:3}}>
-                              <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
-                              <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{String(g.hour).padStart(2,"0")}:00</span>
-                            </div>
-                            {g.title
-                              ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
-                              :<div style={{fontSize:9,color:"#999",lineHeight:1.3}}>予約枠</div>
-                            }
-                            <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
+                      {/* ゴースト枠（実投稿で埋まっていないもののみ表示） */}
+                      {(()=>{
+                        const filledTypes=new Set(sp.map(p=>p.postType||"x_post"));
+                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!filledTypes.has(g.postType||"x_post"));
+                        if(ghosts.length===0)return null;
+                        const multi=ghosts.length>1;
+                        return multi?(
+                          <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
+                            {ghosts.map((g,gi)=>{
+                              const gpt=POST_TYPE[g.postType||"x_post"];
+                              return(
+                                <div key={"g"+gi}
+                                  onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
+                                  style={{flex:"1 1 0",minWidth:0,border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:5,padding:"3px 4px",cursor:"pointer",opacity:0.7,transition:"all .15s",background:gpt.bg}}
+                                  onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
+                                  onMouseLeave={e=>{e.currentTarget.style.opacity="0.7";e.currentTarget.style.boxShadow="none";}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:2,marginBottom:1}}>
+                                    <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
+                                    <span style={{fontSize:8,color:gpt.color,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{gpt.label}</span>
+                                  </div>
+                                  <div style={{fontSize:8,color:"#666",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                    {g.title||"予約枠"}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
+                        ):(
+                          ghosts.map((g,gi)=>{
+                            const gpt=POST_TYPE[g.postType||"x_post"];
+                            return(
+                              <div key={"g"+gi}
+                                onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
+                                style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"4px 6px",marginBottom:2,cursor:"pointer",opacity:0.65,transition:"all .15s",background:gpt.bg}}
+                                onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
+                                onMouseLeave={e=>{e.currentTarget.style.opacity="0.65";e.currentTarget.style.boxShadow="none";}}>
+                                <div style={{display:"flex",alignItems:"center",gap:3}}>
+                                  <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
+                                  <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{String(g.hour).padStart(2,"0")}:00</span>
+                                </div>
+                                {g.title
+                                  ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
+                                  :<div style={{fontSize:9,color:"#999",lineHeight:1.3}}>予約枠</div>
+                                }
+                                <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
+                              </div>
+                            );
+                          })
                         );
-                      })}
+                      })()}
                     </div>
                   );
                 })}
@@ -1426,6 +1487,17 @@ export default function App(){
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── マンスリービュー ── */}
+      {view==="month"&&(
+        <MonthView
+          posts={filtered}
+          today={today}
+          slots={slots}
+          openNew={openNew}
+          setPreview={setPreview}
+        />
       )}
 
       {/* ── リストビュー ── */}
@@ -1460,17 +1532,6 @@ export default function App(){
             {/* フォーム（固定） */}
             <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6"}}>
               <SlotAddForm onAdd={s=>{
-                const dup=slots.some(x=>{
-                  if(x.hour!==s.hour)return false;
-                  if(s.type==="daily"||x.type==="daily")return s.type===x.type;
-                  if(s.type==="nth_weekday"||x.type==="nth_weekday")
-                    return x.type===s.type&&x.dow===s.dow&&x.nth===s.nth;
-                  return x.dow===s.dow;
-                });
-                if(dup){
-                  alert(`「${slotLabel({...s,id:0})}」の枠はすでに存在します`);
-                  return;
-                }
                 saveSlots([...slots,{...s,id:genId()}]);
               }}/>
             </div>
@@ -1563,6 +1624,108 @@ export default function App(){
 }
 
 // ── リストビュー ──
+// ════════════════════════════════════════════════════════
+// マンスリービュー
+// ════════════════════════════════════════════════════════
+function MonthView({posts,today,slots,openNew,setPreview}){
+  const [monthBase,setMonthBase]=useState(()=>new Date());
+  const year=monthBase.getFullYear(),month=monthBase.getMonth();
+  const firstDay=new Date(year,month,1);
+  const lastDay=new Date(year,month+1,0);
+  // 月曜始まりで週グリッドを構築
+  const startDow=(firstDay.getDay()+6)%7; // 0=月
+  const cells=[];
+  for(let i=0;i<startDow;i++)cells.push(null);
+  for(let d=1;d<=lastDay.getDate();d++)cells.push(new Date(year,month,d));
+  while(cells.length%7!==0)cells.push(null);
+  const weeks=[];
+  for(let i=0;i<cells.length;i+=7)weeks.push(cells.slice(i,i+7));
+
+  const postsByDate=React.useMemo(()=>{
+    const m={};
+    posts.forEach(p=>{const d=p.datetime.slice(0,10);(m[d]=m[d]||[]).push(p);});
+    return m;
+  },[posts]);
+
+  const fmtD=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`:"";
+
+  return(
+    <div style={{height:"calc(100vh - 100px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* ナビ */}
+      <div style={{background:"#fff",borderBottom:"1px solid #e8e0d6",padding:"6px 18px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <button onClick={()=>setMonthBase(new Date(year,month-1,1))} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>‹</button>
+        <span style={{fontWeight:800,fontSize:14,color:"#444",minWidth:100,textAlign:"center"}}>{year}年{month+1}月</span>
+        <button onClick={()=>setMonthBase(new Date(year,month+1,1))} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>›</button>
+        <button onClick={()=>setMonthBase(new Date())} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>今月</button>
+      </div>
+      {/* グリッド */}
+      <div style={{flex:1,overflow:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",minWidth:700}}>
+          {["月","火","水","木","金","土","日"].map((d,i)=>(
+            <div key={d} style={{padding:"6px 0",textAlign:"center",fontSize:11,fontWeight:700,color:i>=5?"#ef4444":"#9ca3af",background:"#fff",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:10}}>{d}</div>
+          ))}
+          {weeks.map((week,wi)=>week.map((date,di)=>{
+            const dateStr=fmtD(date);
+            const isToday=dateStr===today;
+            const isCurrentMonth=date&&date.getMonth()===month;
+            const dayPosts=date?(postsByDate[dateStr]||[]):[];
+            const daySlots=date?slots.filter(s=>slotMatchesDate(s,date)):[];
+            const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
+            const reservedCnt=dayPosts.filter(p=>["reserved","waiting"].includes(p.status)).length;
+            const publishedCnt=dayPosts.filter(p=>["published","popular"].includes(p.status)).length;
+            return(
+              <div key={`${wi}-${di}`}
+                style={{minHeight:100,borderRight:"1px solid #e8e0d6",borderBottom:"1px solid #e8e0d6",padding:"4px 5px",background:isToday?"#fffcf5":!isCurrentMonth?"#faf7f3":"#fff",verticalAlign:"top",cursor:date?"pointer":"default"}}
+                onClick={date?()=>openNew(`${dateStr}T09:00`):undefined}>
+                {date&&(
+                  <>
+                    {/* 日付 */}
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:3}}>
+                      <span style={{width:22,height:22,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:isToday?"#fff":!isCurrentMonth?"#ccc":di>=5?"#ef4444":"#1a1a1a",flexShrink:0}}>{date.getDate()}</span>
+                      <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
+                        {draftCnt>0&&<span style={{fontSize:8,background:"#f3f4f6",color:"#6b7280",borderRadius:4,padding:"0 3px",fontWeight:700}}>下{draftCnt}</span>}
+                        {reservedCnt>0&&<span style={{fontSize:8,background:"#ede9fe",color:"#7c3aed",borderRadius:4,padding:"0 3px",fontWeight:700}}>予{reservedCnt}</span>}
+                        {publishedCnt>0&&<span style={{fontSize:8,background:"#d1fae5",color:"#059669",borderRadius:4,padding:"0 3px",fontWeight:700}}>済{publishedCnt}</span>}
+                        {daySlots.length>0&&<span style={{fontSize:8,background:"#fef3c7",color:"#d97706",borderRadius:4,padding:"0 3px",fontWeight:700}}>枠{daySlots.length}</span>}
+                      </div>
+                    </div>
+                    {/* 投稿チップ（最大3件） */}
+                    {dayPosts.slice(0,3).map(p=>{
+                      const pt=POST_TYPE[p.postType||"x_post"];
+                      return(
+                        <div key={p.id} onClick={e=>{e.stopPropagation();setPreview(p);}}
+                          style={{display:"flex",alignItems:"center",gap:3,background:pt.bg,border:`1px solid ${pt.border}`,borderLeft:`3px solid ${pt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",overflow:"hidden"}}
+                          onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
+                          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                          <span style={{fontSize:8,color:pt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title||"（無題）"}</span>
+                        </div>
+                      );
+                    })}
+                    {dayPosts.length>3&&<div style={{fontSize:8,color:"#aaa",textAlign:"right"}}>+{dayPosts.length-3}件</div>}
+                    {/* 予約枠チップ */}
+                    {daySlots.slice(0,2).map((s,si)=>{
+                      const gpt=POST_TYPE[s.postType||"x_post"];
+                      return(
+                        <div key={"s"+si} onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(s.hour).padStart(2,"0")}:00`,{title:s.title||"",postType:s.postType||"x_post"});}}
+                          style={{display:"flex",alignItems:"center",gap:3,border:`1px dashed ${gpt.dot}`,borderLeft:`2px dashed ${gpt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",background:gpt.bg,opacity:0.7}}
+                          onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                          onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
+                          <span style={{fontSize:8,color:gpt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.title||`${String(s.hour).padStart(2,"0")}:00 予約枠`}</span>
+                        </div>
+                      );
+                    })}
+                    {daySlots.length>2&&<div style={{fontSize:8,color:"#d97706",textAlign:"right"}}>+{daySlots.length-2}枠</div>}
+                  </>
+                )}
+              </div>
+            );
+          }))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots}){
   const [showSlots,setShowSlots]=useState(true);
   const byDate=React.useMemo(()=>{
