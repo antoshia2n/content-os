@@ -556,6 +556,7 @@ function EditorModal({post,onSave,onClose}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
+  const [localState,setLocalState]=useState("idle");   // idle | done | error
   const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
   const [sidePanel,setSidePanel]=useState(null);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null);
@@ -578,6 +579,34 @@ function EditorModal({post,onSave,onClose}){
       if(target==="x"){setCopyX(true);setTimeout(()=>setCopyX(false),3500);}
       else{setCopyNote(true);setTimeout(()=>setCopyNote(false),3500);}
     });
+  };
+
+  const saveLocalFile=async()=>{
+    const content=postToMarkdown(draft);
+    const date=draft.datetime.slice(0,10);
+    const name=`${date}_${sanitizeFilename(draft.title||"untitled")}.md`;
+    try{
+      if(FS_SUPPORTED){
+        const fh=await window.showSaveFilePicker({
+          suggestedName:name,
+          types:[{description:"Markdown",accept:{"text/markdown":[".md"]}}],
+        });
+        const w=await fh.createWritable();
+        await w.write(content);
+        await w.close();
+      }else{
+        const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");a.href=url;a.download=name;a.click();
+        URL.revokeObjectURL(url);
+      }
+      setLocalState("done");
+      setTimeout(()=>setLocalState("idle"),3000);
+    }catch(e){
+      if(e.name==="AbortError")return; // キャンセルは無視
+      setLocalState("error");
+      setTimeout(()=>setLocalState("idle"),3000);
+    }
   };
 
   const saveToNotion=async()=>{
@@ -640,6 +669,15 @@ function EditorModal({post,onSave,onClose}){
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg>
               Notionに保存
             </>}
+          </button>
+          <button onClick={saveLocalFile}
+            style={{
+              background:localState==="done"?"#00ba7c":localState==="error"?"#ef4444":"#4b5563",
+              color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,
+              cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",
+              transition:"background .2s",display:"flex",alignItems:"center",gap:5,
+            }}>
+            {localState==="done"?"✅ 保存完了":localState==="error"?"❌ 失敗":"💾 ローカルに保存"}
           </button>
           <button onClick={()=>doCopy("note")} style={{background:copyNote?"#00ba7c":"#41c9b4",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyNote?"✅ 完了":"note にコピー"}</button>
           <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"✅ 完了":"𝕏 にコピー"}</button>
@@ -933,6 +971,7 @@ export default function App(){
   const [dragOver,           setDragOver]           = useState(null); // ⑧ ドラッグ中セルkey
   const [showNotifySettings, setShowNotifySettings] = useState(false); // メール通知設定
   const [notifySettings,     setNotifySettings]     = useState(null); // {email,notify_overdue,notify_today,notify_daily,send_hour,enabled}
+  const [showExport,         setShowExport]         = useState(false);
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -1311,6 +1350,7 @@ export default function App(){
               )}
               <Btn onClick={()=>setShowSlotSettings(true)}>予約枠</Btn>
               <Btn onClick={()=>setShowNotifySettings(true)}>🔔 通知</Btn>
+              <Btn onClick={()=>setShowExport(true)}>💾 保存</Btn>
               <Btn onClick={()=>setShowAccountSettings(true)}>設定</Btn>
               <div ref={shareRef} style={{position:"relative"}}>
                 <Btn onClick={()=>setShowShare(s=>!s)}>共有</Btn>
@@ -1567,6 +1607,15 @@ export default function App(){
           onSave={saveNotifySettings}
           onClose={()=>setShowNotifySettings(false)}
           onTestSend={handleTestSend}
+        />
+      )}
+
+      {/* ── エクスポートモーダル ── */}
+      {showExport&&isAdmin&&(
+        <ExportModal
+          posts={posts}
+          accountName={activeAcc?.name||""}
+          onClose={()=>setShowExport(false)}
         />
       )}
 
@@ -1996,6 +2045,202 @@ function SlotAddForm({onAdd}){
         style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// ローカル保存（エクスポート）モーダル
+// ════════════════════════════════════════════════════════
+const FS_SUPPORTED=typeof window!=="undefined"&&"showDirectoryPicker" in window;
+
+function postToMarkdown(p){
+  const links=(p.memoLinks||[]).map(l=>{
+    const url=typeof l==="string"?l:l.url;
+    const label=typeof l==="string"?"":l.label;
+    return label?`- [${label}](${url})`:`- ${url}`;
+  }).join("\n");
+  return [
+    "---",
+    `title: "${(p.title||"").replace(/"/g,'\\"')}"`,
+    `status: ${p.status}`,
+    `postType: ${p.postType||"x_post"}`,
+    `datetime: ${p.datetime}`,
+    p.memo?`memo: |\n  ${p.memo.replace(/\n/g,"\n  ")}`:"memo: \"\"",
+    links?`links:\n${links.split("\n").map(l=>"  "+l).join("\n")}`:"links: []",
+    "---",
+    "",
+    p.title?`# ${p.title}\n`:"",
+    (p.body||"").replace(/<[^>]+>/g,"").replace(/\n{3,}/g,"\n\n").trim(),
+  ].filter(l=>l!==null).join("\n");
+}
+
+function sanitizeFilename(s){
+  return (s||"untitled").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+}
+
+function ExportModal({posts,accountName,onClose}){
+  const [format,setFormat]=useState("md");
+  const [scope,setScope]=useState("all");
+  const [statusFilter,setStatusFilter]=useState("all");
+  const [folderHandle,setFolderHandle]=useState(null);
+  const [progress,setProgress]=useState(null); // null | {done,total,errors}
+  const [done,setDone]=useState(false);
+
+  const targetPosts=React.useMemo(()=>{
+    if(scope==="all")return posts;
+    return posts.filter(p=>p.status===statusFilter);
+  },[posts,scope,statusFilter]);
+
+  const pickFolder=async()=>{
+    try{
+      const h=await window.showDirectoryPicker({mode:"readwrite"});
+      setFolderHandle(h);
+    }catch(e){
+      if(e.name!=="AbortError")alert("フォルダの取得に失敗しました: "+e.message);
+    }
+  };
+
+  const runExport=async()=>{
+    setProgress({done:0,total:targetPosts.length,errors:[]});
+    setDone(false);
+
+    if(FS_SUPPORTED&&folderHandle){
+      // File System Access API — フォルダに直接書き込み
+      const errors=[];
+      for(let i=0;i<targetPosts.length;i++){
+        const p=targetPosts[i];
+        try{
+          const date=p.datetime.slice(0,10);
+          const name=`${date}_${sanitizeFilename(p.title)}.${format}`;
+          const content=format==="md"?postToMarkdown(p):JSON.stringify(p,null,2);
+          const fh=await folderHandle.getFileHandle(name,{create:true});
+          const w=await fh.createWritable();
+          await w.write(content);
+          await w.close();
+        }catch(e){
+          errors.push(p.title||"(無題)");
+        }
+        setProgress({done:i+1,total:targetPosts.length,errors});
+      }
+      setDone(true);
+    }else{
+      // フォールバック：ZIPダウンロード（JSZipなし → 単一JSONで代替）
+      const content=format==="md"
+        ?targetPosts.map(p=>`${"=".repeat(60)}\n${postToMarkdown(p)}`).join("\n\n")
+        :JSON.stringify(targetPosts,null,2);
+      const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download=`${sanitizeFilename(accountName)}_export.${format==="md"?"txt":"json"}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setProgress({done:targetPosts.length,total:targetPosts.length,errors:[]});
+      setDone(true);
+    }
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"88vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+        {/* ヘッダー */}
+        <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3",flexShrink:0}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:14}}>💾 ローカル保存</div>
+            <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{accountName} の投稿をファイルに書き出す</div>
+          </div>
+          <Btn onClick={onClose}>閉じる</Btn>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
+
+          {/* フォーマット */}
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>ファイル形式</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["md","Markdown (.md)"],["json","JSON (.json)"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setFormat(v)}
+                  style={{flex:1,border:`1.5px solid ${format===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 0",background:format===v?"#fef3c7":"#fff",color:format===v?"#d97706":"#555",fontWeight:format===v?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {format==="md"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>frontmatter付き。タイトル・本文・ステータス・リンクを含む</div>}
+            {format==="json"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>全フィールドをそのまま保存。インポート・バックアップ向け</div>}
+          </div>
+
+          {/* 対象 */}
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>対象</div>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[["all","すべて"],["filter","ステータス絞り込み"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setScope(v)}
+                  style={{flex:1,border:`1.5px solid ${scope===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"8px 0",background:scope===v?"#fef3c7":"#fff",color:scope===v?"#d97706":"#555",fontWeight:scope===v?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {scope==="filter"&&(
+              <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+                {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
+            )}
+            <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f7f9f9",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 10px"}}>
+              対象: <strong>{targetPosts.length}件</strong>
+            </div>
+          </div>
+
+          {/* フォルダ選択 */}
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>保存先フォルダ</div>
+            {FS_SUPPORTED?(
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button onClick={pickFolder}
+                  style={{flex:1,border:`1.5px solid ${folderHandle?"#10b981":"#e0d8ce"}`,borderRadius:9,padding:"10px 14px",background:folderHandle?"#d1fae5":"#fff",color:folderHandle?"#059669":"#555",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {folderHandle?`📁 ${folderHandle.name}`:"📁 フォルダを選択…"}
+                </button>
+                {folderHandle&&<button onClick={()=>setFolderHandle(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:16,padding:"4px"}}>×</button>}
+              </div>
+            ):(
+              <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.6}}>
+                このブラウザはフォルダ選択に対応していません。<br/>
+                代わりに全件をひとつのファイルとしてダウンロードします。<br/>
+                <span style={{fontSize:10,color:"#aaa"}}>(Chrome / Edge 推奨)</span>
+              </div>
+            )}
+          </div>
+
+          {/* 進捗 */}
+          {progress&&(
+            <div style={{background:"#f7f9f9",border:"1px solid #e8e0d6",borderRadius:9,padding:"12px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,marginBottom:6,color:done?"#059669":"#555"}}>
+                <span>{done?"✅ 完了":"⏳ 書き出し中…"}</span>
+                <span>{progress.done} / {progress.total}</span>
+              </div>
+              <div style={{height:6,background:"#e8e0d6",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",background:done?"#10b981":"#f59e0b",borderRadius:3,width:`${(progress.done/progress.total)*100}%`,transition:"width .2s"}}/>
+              </div>
+              {progress.errors.length>0&&(
+                <div style={{marginTop:8,fontSize:10,color:"#ef4444"}}>
+                  失敗: {progress.errors.join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* フッター */}
+        <div style={{padding:"12px 18px",borderTop:"1px solid #e8e0d6",display:"flex",gap:8,justifyContent:"flex-end",background:"#faf7f3",flexShrink:0}}>
+          <Btn onClick={onClose}>キャンセル</Btn>
+          <button onClick={runExport}
+            disabled={FS_SUPPORTED&&!folderHandle||targetPosts.length===0||!!progress&&!done}
+            style={{background:(FS_SUPPORTED&&!folderHandle)||targetPosts.length===0?"#d1d5db":"#f59e0b",border:"none",borderRadius:8,padding:"7px 20px",fontSize:12,fontWeight:800,color:"#fff",cursor:(FS_SUPPORTED&&!folderHandle)||targetPosts.length===0?"default":"pointer",fontFamily:"inherit",transition:"background .15s"}}>
+            {done?"もう一度":"書き出す"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
