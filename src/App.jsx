@@ -861,9 +861,12 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   const [metaDirty,setMetaDirty]=useState(false);
   const [sideW,setSideW]=useState(280);
   const dragging=useRef(false);
+  const titleRef=useRef(null);
   const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
   const st=STATUS[post.status];
   const sc=SCORE[post.score];
+
+  const getEditPost=()=>({...post,title:titleRef.current?.value??post.title});
 
   useEffect(()=>{
     setLocalComments(post.comments||[]);
@@ -951,7 +954,18 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                   style={{width:22,height:22,borderRadius:5,border:"none",background:"none",color:"#bbb",fontSize:10,cursor:"pointer"}}>×</button>}
               </div>
             </div>
-            <div style={{fontSize:18,fontWeight:800,color:"#0f1419",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{post.title||"（タイトルなし）"}</div>
+            <div style={{fontSize:18,fontWeight:800,color:"#0f1419",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {post._unsaved
+                ? <input
+                    ref={titleRef}
+                    autoFocus
+                    defaultValue={post.title||""}
+                    placeholder="タイトルを入力…"
+                    onKeyDown={e=>{ if(e.key==="Enter"&&!e.isComposing) onEdit(getEditPost()); }}
+                    style={{width:"100%",border:"none",borderBottom:"2px solid #f59e0b",outline:"none",fontSize:18,fontWeight:800,color:"#0f1419",background:"transparent",fontFamily:"inherit",padding:"2px 0"}}/>
+                : post.title||"（タイトルなし）"
+              }
+            </div>
           </div>
           <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
             {post._unsaved&&<span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:10,padding:"2px 8px"}}>新規</span>}
@@ -961,7 +975,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
             )}
-            <button onClick={()=>onEdit(post)} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ {post._unsaved?"編集して作成":"編集"}</button>
+            <button onClick={()=>onEdit(getEditPost())} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ {post._unsaved?"編集して作成":"編集"}</button>
             {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>}
             {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
