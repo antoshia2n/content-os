@@ -37,7 +37,7 @@ const SCORE={
 const DAYS   = ["月","火","水","木","金","土","日"];
 const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
-const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const XFONT  = "'Geist','Hiragino Sans','Noto Sans JP',sans-serif";
 const STORAGE_BUCKET = "contentos"; // Supabase Storageバケット名
 // 通知対象：予約済みのまま過ぎた投稿を検出するステータス
 const OVERDUE_STATUS = "reserved";
@@ -181,7 +181,7 @@ function ToolbarBtn({title,onClick,active,ch}){
     </button>
   );
 }
-function ToolbarSep(){return <div style={{width:1,height:16,background:"#e8e0d6",margin:"0 2px"}}/>;}
+function ToolbarSep(){return <div style={{width:1,height:16,background:"#e6dfd6",margin:"0 2px"}}/>;}
 
 function Toolbar({onInsertOpen}){
   const exec=React.useCallback((cmd,val)=>document.execCommand(cmd,false,val??null),[]);
@@ -213,11 +213,11 @@ function Toolbar({onInsertOpen}){
   const blockLabel=TOOLBAR_BLOCK_LABELS[fmt.block]||"本文";
 
   return(
-    <div style={{display:"flex",alignItems:"center",gap:1,padding:"5px 14px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexWrap:"wrap",flexShrink:0}}>
+    <div style={{display:"flex",alignItems:"center",gap:1,padding:"5px 14px",borderBottom:"1px solid #e6dfd6",background:"#fff",flexWrap:"wrap",flexShrink:0}}>
       {/* 形式セレクト（現在の形式を表示） */}
       <select value={["p","h1","h2","blockquote"].includes(fmt.block)?fmt.block:"p"}
         onChange={e=>{exec("formatBlock",e.target.value);}}
-        style={{border:"1px solid #e8e0d6",borderRadius:5,padding:"2px 7px",fontSize:"0.77em",color:"#1a1a1a",background:"#fff",cursor:"pointer",fontFamily:"inherit",height:28,fontWeight:600}}>
+        style={{border:"1px solid #e6dfd6",borderRadius:5,padding:"2px 7px",fontSize:"0.77em",color:"#1a1a1a",background:"#fff",cursor:"pointer",fontFamily:"inherit",height:28,fontWeight:600}}>
         <option value="p">本文</option>
         <option value="h1">見出し</option>
         <option value="h2">小見出し</option>
@@ -239,7 +239,7 @@ function Toolbar({onInsertOpen}){
       <ToolbarBtn title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
       <ToolbarBtn title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
       <button onMouseDown={e=>e.preventDefault()} onClick={onInsertOpen}
-        style={{border:"1px solid #e8e0d6",background:"none",color:"#536471",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:600,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
+        style={{border:"1px solid #e6dfd6",background:"none",color:"#536471",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:600,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
         onMouseEnter={e=>{e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}
         onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}>
         ＋挿入
@@ -305,14 +305,14 @@ function InsertModal({onClose,savedRange,bodyRef}){
     if(!url.trim())return;
     const isNote=/note\.com/.test(url);
     const icon=isNote?"📄":"𝕏";
-    insertAt(`<div style="border:1.5px solid #e8e0d6;border-radius:10px;padding:10px 14px;margin:.6em 0;background:#f7f9f9;display:flex;align-items:center;gap:10px;" contenteditable="false"><span>${icon}</span><a href="${url}" target="_blank" style="color:#1d9bf0;text-decoration:none;font-size:13px;word-break:break-all;">${url}</a></div><p><br></p>`);
+    insertAt(`<div style="border:1px solid #e6dfd6;border-radius:10px;padding:10px 14px;margin:.6em 0;background:#f7f9f9;display:flex;align-items:center;gap:10px;" contenteditable="false"><span>${icon}</span><a href="${url}" target="_blank" style="color:#1d9bf0;text-decoration:none;font-size:13px;word-break:break-all;">${url}</a></div><p><br></p>`);
     onClose();
   };
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:700,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",border:"1.5px solid #e8e0d6",borderRadius:14,width:"100%",maxWidth:360,overflow:"hidden",boxShadow:"0 20px 60px #00000025"}}>
-        <div style={{display:"flex",borderBottom:"1px solid #e8e0d6"}}>
+      <div style={{background:"#fff",border:"1px solid #e6dfd6",borderRadius:14,width:"100%",maxWidth:360,overflow:"hidden",boxShadow:"0 20px 60px #00000025"}}>
+        <div style={{display:"flex",borderBottom:"1px solid #e6dfd6"}}>
           {[["image","🖼 画像"],["post","リンク挿入"]].map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t)} style={{flex:1,border:"none",background:"none",padding:"11px 0",fontWeight:tab===t?700:500,color:tab===t?"#f59e0b":"#999",borderBottom:tab===t?"2px solid #f59e0b":"2px solid transparent",cursor:"pointer",fontSize:"0.82em",fontFamily:"inherit"}}>{l}</button>
           ))}
@@ -325,7 +325,7 @@ function InsertModal({onClose,savedRange,bodyRef}){
               <div style={{display:"flex",gap:4}}>
                 {IMG_SIZES_OPTS.map(([v,l])=>(
                   <button key={v} onClick={()=>setImgSize(v)}
-                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgSize===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:imgSize===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgSize===v?700:500,color:imgSize===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgSize===v?"2px solid #f59e0b":"1px solid #e0d8ce",background:imgSize===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgSize===v?700:500,color:imgSize===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                     {l}
                   </button>
                 ))}
@@ -337,20 +337,20 @@ function InsertModal({onClose,savedRange,bodyRef}){
               <div style={{display:"flex",gap:4}}>
                 {IMG_ALIGNS_OPTS.map(([v,l])=>(
                   <button key={v} onClick={()=>setImgAlign(v)}
-                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgAlign===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:imgAlign===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgAlign===v?700:500,color:imgAlign===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                    style={{flex:1,padding:"4px 0",borderRadius:6,border:imgAlign===v?"2px solid #f59e0b":"1px solid #e0d8ce",background:imgAlign===v?"#fef3c7":"#fff",fontSize:10,fontWeight:imgAlign===v?700:500,color:imgAlign===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                     {l}
                   </button>
                 ))}
               </div>
             </div>
-            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f7f9f9",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e8e0d6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
+            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f8f5f1",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600,fontFamily:"inherit"}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e6dfd6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
           {tab==="post"&&(<><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."
-            style={{width:"100%",border:"1.5px solid #e8e0d6",borderRadius:8,padding:"9px 11px",fontSize:"0.82em",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
-            onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e8e0d6"}
+            style={{width:"100%",border:"1px solid #e6dfd6",borderRadius:8,padding:"9px 11px",fontSize:"0.82em",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
+            onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e6dfd6"}
             onKeyDown={e=>{if(e.key==="Enter")handlePost();}}/>
           <button onClick={handlePost} disabled={!url.trim()} style={{width:"100%",background:url.trim()?"#f59e0b":"#eff3f4",color:url.trim()?"#fff":"#aaa",border:"none",borderRadius:20,padding:"9px 0",fontWeight:700,fontSize:"0.82em",cursor:url.trim()?"pointer":"default",fontFamily:"inherit"}}>挿入</button></>)}
         </div>
-        <div style={{padding:"8px 16px 14px"}}><button onClick={onClose} style={{width:"100%",border:"1px solid #e8e0d6",background:"none",color:"#536471",borderRadius:7,padding:"7px",fontWeight:500,fontSize:"0.8em",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button></div>
+        <div style={{padding:"8px 16px 14px"}}><button onClick={onClose} style={{width:"100%",border:"1px solid #e6dfd6",background:"none",color:"#536471",borderRadius:7,padding:"7px",fontWeight:500,fontSize:"0.8em",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button></div>
       </div>
     </div>
   );
@@ -468,7 +468,7 @@ function MemoEditor({memo,memoLinks,onChange}){
           }
         }}
         placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"} rows={4}
-        style={{width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",lineHeight:1.7}}
+        style={{width:"100%",background:"#fff",border:"1px solid #e0d8ce",borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",lineHeight:1.7}}
         onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
       {links.length>0&&(
         <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:180,overflowY:"auto"}}>
@@ -487,14 +487,14 @@ function MemoEditor({memo,memoLinks,onChange}){
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
         <input value={labelInput} onChange={e=>setLabelInput(e.target.value)}
           placeholder="ラベル（任意）"
-          style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+          style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
           onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
         <div style={{display:"flex",gap:4}}>
           <input value={linkInput} onChange={e=>setLinkInput(e.target.value)}
             placeholder="URLをペースト → 追加"
             onKeyDown={e=>{if(!composing.current&&e.key==="Enter")addLink();}}
             onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
-            style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+            style={{flex:1,border:"1px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
           <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
             style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .15s"}}>
@@ -522,7 +522,7 @@ function RepostModal({post,onClose,onRepost}){
         <div style={{marginBottom:14}}>
           <label style={{fontSize:"0.73em",fontWeight:700,color:"#888",display:"block",marginBottom:4}}>投稿日時</label>
           <input type="datetime-local" value={dt} onChange={e=>setDt(e.target.value)}
-            style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"8px 10px",fontSize:"0.84em",fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}
+            style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:8,padding:"8px 10px",fontSize:"0.84em",fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
         </div>
         <div style={{marginBottom:20}}>
@@ -539,7 +539,7 @@ function RepostModal({post,onClose,onRepost}){
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>onRepost(dt,repeat)} style={{flex:1,background:"#f59e0b",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"0.85em",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>再投稿を作成</button>
-          <button onClick={onClose} style={{border:"1.5px solid #e0d8ce",background:"none",borderRadius:20,padding:"10px 14px",fontWeight:600,fontSize:"0.85em",color:"#888",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button>
+          <button onClick={onClose} style={{border:"1px solid #e0d8ce",background:"none",borderRadius:20,padding:"10px 14px",fontWeight:600,fontSize:"0.85em",color:"#888",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button>
         </div>
       </div>
     </div>
@@ -565,7 +565,7 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"56px 20px 20px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"72vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #e8e0d6",display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #e6dfd6",display:"flex",gap:8,alignItems:"center"}}>
           <span style={{color:"#aaa"}}>🔍</span>
           <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="タイトル・本文・メモで検索…"
             style={{flex:1,border:"none",outline:"none",fontSize:"0.95em",fontFamily:"inherit",color:"#0f1419"}}/>
@@ -582,7 +582,7 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
             const pt2=POST_TYPE[p.postType||"x_post"],st=STATUS[p.status];
             return(
               <div key={p.id} style={{padding:"11px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer"}}
-                onMouseEnter={e=>e.currentTarget.style.background="#f7f9f9"}
+                onMouseEnter={e=>e.currentTarget.style.background="#f8f5f1"}
                 onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:pt2.dot,flexShrink:0,marginTop:5}}/>
                 <div style={{flex:1}} onClick={()=>onSelect(p)}>
@@ -604,7 +604,7 @@ function SearchModal({posts,onClose,onSelect,onRepost}){
             );
           })}
         </div>
-        <div style={{padding:"9px 16px",borderTop:"1px solid #e8e0d6",fontSize:"0.72em",color:"#aaa",display:"flex",justifyContent:"space-between"}}>
+        <div style={{padding:"9px 16px",borderTop:"1px solid #e6dfd6",fontSize:"0.72em",color:"#aaa",display:"flex",justifyContent:"space-between"}}>
           <span>{results.length}件</span>
           <button onClick={onClose} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>閉じる (Esc)</button>
         </div>
@@ -619,7 +619,7 @@ function SideIcon({id,icon,label,sidePanel,setSidePanel}){
   return(
     <button onClick={()=>setSidePanel(active?null:id)} title={label}
       style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 0",border:"none",background:active?"#fef3c7":"none",color:active?"#d97706":"#bbb",cursor:"pointer",width:"100%",borderLeft:active?"3px solid #f59e0b":"3px solid transparent",transition:"all .1s",fontFamily:"inherit"}}
-      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#faf7f3";e.currentTarget.style.color="#666";}}}
+      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#f5f0eb";e.currentTarget.style.color="#666";}}}
       onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#bbb";}}}>
       <span style={{fontSize:"1.1em"}}>{icon}</span>
       <span style={{fontSize:"0.52em",fontWeight:600}}>{label}</span>
@@ -724,7 +724,7 @@ function EditorModal({post,onSave,onClose}){
       <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:1100,height:"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
 
         {/* ヘッダー */}
-        <div style={{display:"flex",alignItems:"center",padding:"0 14px",borderBottom:"1px solid #e8e0d6",background:"#fff",height:50,gap:7,flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",padding:"0 14px",borderBottom:"1px solid #e6dfd6",background:"#fff",height:50,gap:7,flexShrink:0}}>
           <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
             style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -734,7 +734,7 @@ function EditorModal({post,onSave,onClose}){
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
           <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
-            style={{border:"1.5px solid #e0d8ce",borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
+            style={{border:"1px solid #e0d8ce",borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
           <div style={{flex:1}}/>
           {/* Notion連携はCloudflare移行に伴い一時無効化
           <button onClick={saveToNotion} disabled={notionState==="saving"}
@@ -761,9 +761,9 @@ function EditorModal({post,onSave,onClose}){
           </button>
           <button onClick={()=>doCopy("note")} style={{background:copyNote?"#00ba7c":"#41c9b4",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyNote?"✅ 完了":"note にコピー"}</button>
           <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"✅ 完了":"𝕏 にコピー"}</button>
-          <div style={{width:1,height:20,background:"#e8e0d6"}}/>
+          <div style={{width:1,height:20,background:"#e6dfd6"}}/>
           <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>保存</button>
-          <button onClick={onClose} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:20,padding:"6px 11px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+          <button onClick={onClose} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:20,padding:"6px 11px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
         </div>
 
         {/* 本体 */}
@@ -775,17 +775,17 @@ function EditorModal({post,onSave,onClose}){
               <div ref={articleAreaRef} style={{padding:"28px 32px 100px"}}>
                 <input type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
-                  style={{width:"100%",border:"none",outline:"none",fontSize:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:18,paddingBottom:18,borderBottom:"1px solid #e8e0d6",background:"transparent",display:"block",boxSizing:"border-box"}}/>
+                  style={{width:"100%",border:"none",outline:"none",fontSize:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:18,paddingBottom:18,borderBottom:"1px solid #e6dfd6",background:"transparent",display:"block",boxSizing:"border-box"}}/>
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
               </div>
             </div>
-            <div style={{padding:"4px 50px",borderTop:"1px solid #e8e0d6",background:"#faf7f3",fontSize:"0.67em",color:"#aaa",flexShrink:0}}>
+            <div style={{padding:"4px 50px",borderTop:"1px solid #e6dfd6",background:"#f5f0eb",fontSize:"0.67em",color:"#aaa",flexShrink:0}}>
               {((draft.title||"")+(draft.body||"").replace(/<[^>]+>/g,"")).length.toLocaleString()} 文字
             </div>
           </div>
 
           {/* アイコン列 */}
-          <div style={{width:50,borderLeft:"1px solid #e8e0d6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+          <div style={{width:50,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
             <SideIcon id="meta" icon="⚙️" label="設定" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="history" icon="📋" label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="share" icon="🔗" label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
@@ -793,8 +793,8 @@ function EditorModal({post,onSave,onClose}){
 
           {/* サイドパネル展開 */}
           {sidePanel&&(
-            <div style={{width:248,borderLeft:"1px solid #e8e0d6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-              <div style={{padding:"11px 13px 9px",borderBottom:"1px solid #e8e0d6",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
+            <div style={{width:248,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+              <div style={{padding:"11px 13px 9px",borderBottom:"1px solid #e6dfd6",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>{sidePanel==="meta"?"設定":sidePanel==="history"?"編集履歴":"共有"}</span>
                 <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>✕</button>
               </div>
@@ -809,7 +809,7 @@ function EditorModal({post,onSave,onClose}){
                       <div>
                         <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
                         {draft.comments.map((c,i)=>(
-                          <div key={i} style={{background:"#fff",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 9px",fontSize:"0.77em",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
+                          <div key={i} style={{background:"#fff",border:"1px solid #e6dfd6",borderRadius:7,padding:"6px 9px",fontSize:"0.77em",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
                         ))}
                       </div>
                     )}
@@ -822,7 +822,7 @@ function EditorModal({post,onSave,onClose}){
                       <div key={i} style={{display:"flex",gap:9,marginBottom:11}}>
                         <div style={{display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,paddingTop:3}}>
                           <div style={{width:8,height:8,borderRadius:"50%",background:i===0?"#f59e0b":"#d1d5db"}}/>
-                          {i<arr.length-1&&<div style={{width:1,height:20,background:"#e8e0d6",margin:"3px 0"}}/>}
+                          {i<arr.length-1&&<div style={{width:1,height:20,background:"#e6dfd6",margin:"3px 0"}}/>}
                         </div>
                         <div style={{flex:1}}>
                           <div style={{fontSize:"0.77em",fontWeight:i===0?700:400,color:i===0?"#0f1419":"#536471"}}>{h.note}</div>
@@ -850,7 +850,7 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
   const [showComments,setShowComments]=useState(false);
@@ -866,7 +866,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   const st=STATUS[post.status];
   const sc=SCORE[post.score];
 
-  const getEditPost=()=>({...post,title:titleRef.current?.value??post.title});
+  const getEditPost=()=>({...post,title:titleRef.current?.value??post.title,memo,memoLinks});
 
   useEffect(()=>{
     setLocalComments(post.comments||[]);
@@ -932,7 +932,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
       <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:900,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
 
         {/* ヘッダー */}
-        <div style={{padding:"12px 18px",borderBottom:"1px solid #e8e0d6",background:pt.bg,display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
+        <div style={{padding:"12px 18px",borderBottom:"1px solid #e6dfd6",background:pt.bg,display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
               {/* 投稿種類変更 */}
@@ -946,7 +946,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
               <div style={{display:"flex",gap:3}}>
                 {Object.entries(SCORE).map(([k,v])=>(
                   <button key={k} onClick={()=>onChangeStatus(post.id,post.status,k)}
-                    style={{width:22,height:22,borderRadius:5,border:"none",background:post.score===k?v.bg:"#e8e0d6",color:post.score===k?v.color:"#999",fontSize:10,fontWeight:800,cursor:"pointer",transition:"all .1s"}}>
+                    style={{width:22,height:22,borderRadius:5,border:"none",background:post.score===k?v.bg:"#e6dfd6",color:post.score===k?v.color:"#999",fontSize:10,fontWeight:800,cursor:"pointer",transition:"all .1s"}}>
                     {v.label}
                   </button>
                 ))}
@@ -975,14 +975,20 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
             )}
+            {post._unsaved&&(
+              <button onClick={()=>onSaveNew(getEditPost())}
+                style={{background:"#10b981",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+                💾 保存
+              </button>
+            )}
             <button onClick={()=>onEdit(getEditPost())} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ {post._unsaved?"編集して作成":"編集"}</button>
-            {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+            {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>}
-            {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+            {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>}
             {!post._unsaved&&<button onClick={()=>onDelete(post)} style={{background:"none",border:"1.5px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️</button>}
-            <button onClick={onClose} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+            <button onClick={onClose} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
           </div>
         </div>
 
@@ -1000,10 +1006,10 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
             onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
 
           {/* 右サイドパネル */}
-          <div style={{width:sideW,borderLeft:"1px solid #e8e0d6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
+          <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
 
             {/* メモ */}
-            <div style={{padding:"12px 14px",borderBottom:"1px solid #e8e0d6"}}>
+            <div style={{padding:"12px 14px",borderBottom:"1px solid #e6dfd6"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontSize:11,fontWeight:700,color:"#888"}}>📝 メモ</span>
                 <button onClick={insertBullet} title="箇条書きを挿入"
@@ -1052,12 +1058,12 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                     }
                   }
                 }}
-                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.7,background:"#fff"}}
+                style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.7,background:"#fff"}}
                 onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
             </div>
 
             {/* リンク */}
-            <div style={{padding:"12px 14px",borderBottom:"1px solid #e8e0d6"}}>
+            <div style={{padding:"12px 14px",borderBottom:"1px solid #e6dfd6"}}>
               <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>🔗 リンク</div>
               {memoLinks.length>0&&(
                 <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
@@ -1074,13 +1080,13 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 </div>
               )}
               <input value={labelInput} onChange={e=>setLabelInput(e.target.value)} placeholder="ラベル（任意）"
-                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:4,background:"#fff"}}
+                style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:4,background:"#fff"}}
                 onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
               <div style={{display:"flex",gap:4}}>
                 <input value={linkInput} onChange={e=>setLinkInput(e.target.value)} placeholder="URLを貼り付け"
                   onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addLink();}}
                   onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
-                  style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff"}}
+                  style={{flex:1,border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff"}}
                   onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
                 <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
                   style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",flexShrink:0}}>＋</button>
@@ -1089,7 +1095,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
 
             {/* 保存ボタン */}
             {metaDirty&&!post._unsaved&&(
-              <div style={{padding:"10px 14px",borderBottom:"1px solid #e8e0d6"}}>
+              <div style={{padding:"10px 14px",borderBottom:"1px solid #e6dfd6"}}>
                 <button onClick={handleSaveMeta}
                   style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
                   メモ・リンクを保存
@@ -1108,7 +1114,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 <div style={{marginTop:8}}>
                   {localComments.length===0&&<div style={{fontSize:"0.75em",color:"#ccc",textAlign:"center",padding:"10px 0"}}>コメントなし</div>}
                   {localComments.map((c,i)=>(
-                    <div key={i} style={{background:"#fff",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 9px",marginBottom:5}}>
+                    <div key={i} style={{background:"#fff",border:"1px solid #e6dfd6",borderRadius:7,padding:"6px 9px",marginBottom:5}}>
                       <div style={{fontSize:"0.75em",color:"#444",lineHeight:1.5}}>{typeof c==="string"?c:c.text}</div>
                       {c.at&&<div style={{fontSize:"0.65em",color:"#aaa",marginTop:2}}>{new Date(c.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>}
                     </div>
@@ -1117,7 +1123,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                     <input value={cmt} onChange={e=>setCmt(e.target.value)}
                       onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addComment();}}
                       placeholder="コメントを追加…"
-                      style={{flex:1,background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"6px 8px",fontSize:"0.73em",outline:"none",fontFamily:"inherit"}}
+                      style={{flex:1,background:"#fff",border:"1px solid #e0d8ce",borderRadius:7,padding:"6px 8px",fontSize:"0.73em",outline:"none",fontFamily:"inherit"}}
                       onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
                     <button onClick={addComment} style={{background:"#f59e0b",border:"none",borderRadius:7,padding:"6px 9px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>追加</button>
                   </div>
@@ -1140,8 +1146,8 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
   function commitEdit(){onUpdate(editingId,draft);setEditingId(null);}
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#fff",border:"2px solid #e8e0d6",borderRadius:17,width:"100%",maxWidth:520,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000025"}}>
-        <div style={{padding:"15px 20px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
+      <div style={{background:"#fff",border:"1px solid #e6dfd6",borderRadius:17,width:"100%",maxWidth:520,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000025"}}>
+        <div style={{padding:"15px 20px",borderBottom:"1px solid #e6dfd6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
           <div>
             <div style={{fontSize:15,fontWeight:900}}>クライアント管理</div>
             <div style={{fontSize:11,color:"#aaa",marginTop:2}}>名前・カラーを編集できます</div>
@@ -1150,7 +1156,7 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
         </div>
         <div style={{flex:1,overflowY:"auto",padding:20}}>
           {accounts.map(acc=>(
-            <div key={acc.id} style={{background:"#faf7f3",border:"1.5px solid #e8e0d6",borderRadius:12,padding:"14px 16px",marginBottom:10}}>
+            <div key={acc.id} style={{background:"#f5f0eb",border:"1px solid #e6dfd6",borderRadius:12,padding:"14px 16px",marginBottom:10}}>
               {editingId===acc.id?(
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <div style={{display:"flex",gap:8}}>
@@ -1172,7 +1178,7 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
                     <span style={{fontWeight:800,fontSize:14}}>{acc.name}</span>
                     <span style={{fontSize:12,color:"#bbb"}}>{acc.handle}</span>
                   </div>
-                  <div style={{background:"#fff",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#bbb",fontFamily:"monospace",marginBottom:10,wordBreak:"break-all"}}>
+                  <div style={{background:"#fff",border:"1px solid #e6dfd6",borderRadius:7,padding:"6px 10px",fontSize:11,color:"#bbb",fontFamily:"monospace",marginBottom:10,wordBreak:"break-all"}}>
                     {typeof window!=="undefined"?window.location.href.split("?")[0]:"https://your-app.vercel.app/"}?account={acc.id}
                   </div>
                   <div style={{display:"flex",gap:6}}>
@@ -1534,56 +1540,91 @@ function App({uid}){
   },[weekDates,weekDateStrs,slots]);
 
   if(loading)return(
-    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans', sans-serif"}}>
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:20,fontWeight:900,color:"#1a1a1a",marginBottom:8}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
-        <div style={{fontSize:13,color:"#aaa"}}>読み込み中…</div>
+        <div style={{fontSize:22,fontWeight:900,color:"#111",marginBottom:10,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{width:32,height:2,background:"#e6dfd6",borderRadius:99,margin:"0 auto",overflow:"hidden"}}>
+          <div style={{width:"60%",height:"100%",background:"#f59e0b",borderRadius:99,animation:"slide 1s infinite"}}/>
+        </div>
+        <style>{`@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
       </div>
     </div>
   );
 
   return(
-    <div style={{fontFamily:`'Hiragino Sans','Noto Sans JP',${XFONT}`,background:"#f2ede6",minHeight:"100vh",color:"#1a1a1a"}}>
+    <div style={{fontFamily:`'Geist','Hiragino Sans','Noto Sans JP',sans-serif`,background:"#f5f0eb",minHeight:"100vh",color:"#1a1a1a"}}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:2px;}
+        :root{
+          --bg:#f5f0eb;
+          --surface:#fff;
+          --border:#e6dfd6;
+          --border-strong:#d4cbbf;
+          --text-primary:#111;
+          --text-secondary:#6b6560;
+          --text-muted:#a8a09a;
+          --accent:#f59e0b;
+          --accent-hover:#e08c00;
+          --accent-light:#fef3c7;
+          --radius-sm:6px;
+          --radius-md:10px;
+          --radius-lg:14px;
+          --radius-xl:20px;
+          --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+          --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+          --shadow-lg:0 20px 48px rgba(0,0,0,.12),0 8px 16px rgba(0,0,0,.06);
+        }
+        ::-webkit-scrollbar{width:4px;height:4px;}
+        ::-webkit-scrollbar-thumb{background:#d4cbbf;border-radius:99px;}
+        ::-webkit-scrollbar-track{background:transparent;}
+        button,select,input,textarea{font-family:inherit;}
+        button{transition:opacity .12s,background .12s,box-shadow .12s,transform .08s;}
+        button:active{transform:scale(.97);}
+        input:focus,textarea:focus,select:focus{outline:none;}
         .xb{outline:none;}
-        .xb:empty:before,.xb[data-ph]:empty:before{content:attr(data-ph);color:#8b98a5;pointer-events:none;}
-        .xb p,.xb div{font-size:17px;line-height:1.75;color:#0f1419;margin:0 0 1.3em;}
+        .xb:empty:before,.xb[data-ph]:empty:before{content:attr(data-ph);color:#a8a09a;pointer-events:none;}
+        .xb p,.xb div{font-size:17px;line-height:1.8;color:#111;margin:0 0 1.2em;}
         .xb p:last-child,.xb div:last-child{margin-bottom:0;}
         .xb br{display:block;height:0;}
-        .xb h1{font-size:28px;font-weight:800;line-height:1.3;margin:1.2em 0 .5em;color:#0f1419;}
-        .xb h2{font-size:20px;font-weight:700;line-height:1.4;margin:1em 0 .4em;color:#0f1419;}
+        .xb h1{font-size:26px;font-weight:800;line-height:1.3;margin:1.4em 0 .5em;color:#111;letter-spacing:-.3px;}
+        .xb h2{font-size:19px;font-weight:700;line-height:1.4;margin:1.1em 0 .4em;color:#111;}
         .xb ul{list-style:disc;padding-left:1.5em;margin:.6em 0 1.2em;}
         .xb ol{list-style:decimal;padding-left:1.5em;margin:.6em 0 1.2em;}
-        .xb li{font-size:17px;line-height:1.75;color:#0f1419;margin:.15em 0;}
+        .xb li{font-size:17px;line-height:1.75;color:#111;margin:.15em 0;}
         .xb ul ul,.xb ol ul{list-style:circle;padding-left:1.5em;margin:.2em 0;}
-        .xb ul ul ul,.xb ol ul ul{list-style:square;}
-        .xb blockquote{border-left:3px solid #cfd9de;padding:4px 0 4px 16px;margin:.8em 0 1.2em;color:#536471;font-style:italic;font-size:17px;line-height:1.75;}
-        .xb a{color:#1d9bf0;text-decoration:underline;}
-        .xb hr{border:none;border-top:1px solid #eff3f4;margin:1.5em 0;}
+        .xb blockquote{border-left:3px solid #e6dfd6;padding:6px 0 6px 16px;margin:.8em 0 1.2em;color:#6b6560;font-style:italic;font-size:17px;line-height:1.75;}
+        .xb a{color:#2563eb;text-decoration:underline;}
+        .xb hr{border:none;border-top:1px solid #e6dfd6;margin:1.5em 0;}
         .xb strong,.xb b{font-weight:700;}
         .xb em,.xb i{font-style:italic;}
         .xb s{text-decoration:line-through;}
         .xb img{max-width:100%;border-radius:8px;margin:.6em 0;display:block;}
+        .chip{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.2px;}
+        .btn-ghost{background:none;border:1.5px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-md);padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;}
+        .btn-ghost:hover{background:#f5f0eb;border-color:var(--border-strong);color:var(--text-primary);}
+        .btn-primary{background:var(--accent);border:none;color:#fff;border-radius:var(--radius-md);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;}
+        .btn-primary:hover{background:var(--accent-hover);}
       `}</style>
 
       {/* ── ヘッダー ── */}
-      <div style={{background:"#fff",borderBottom:"2px solid #e8e0d6",padding:"0 14px",display:"flex",alignItems:"center",gap:8,height:52,boxShadow:"0 1px 4px #0000000a",flexShrink:0,position:"relative",zIndex:50}}>
-        <span style={{fontWeight:900,fontSize:17,letterSpacing:"-0.5px",flexShrink:0}}>Content<span style={{color:"#f59e0b"}}>OS</span></span>
+      <div style={{background:"#fff",borderBottom:"1px solid #e6dfd6",padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
+        <span style={{fontWeight:900,fontSize:16,letterSpacing:"-0.6px",flexShrink:0,color:"#111"}}>Content<span style={{color:"#f59e0b"}}>OS</span></span>
+        <div style={{width:1,height:18,background:"#e6dfd6",flexShrink:0,marginLeft:2}}/>
 
         {/* 管理者：アカウントタブ */}
         {isAdmin&&(
-          <div style={{display:"flex",gap:3,background:"#f2ede6",borderRadius:10,padding:3,maxWidth:420,overflow:"auto",flexShrink:0}}>
+          <div style={{display:"flex",gap:2,background:"#f5f0eb",borderRadius:8,padding:2,maxWidth:400,overflow:"auto",flexShrink:0}}>
             {accounts.map(acc=>(
               <button key={acc.id} onClick={()=>{setActiveAccId(acc.id);setPreview(null);}}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:7,border:"none",cursor:"pointer",fontWeight:700,fontSize:12,background:activeAccId===acc.id?"#fff":"transparent",color:activeAccId===acc.id?"#1a1a1a":"#aaa",boxShadow:activeAccId===acc.id?"0 1px 4px #0000001a":"none",whiteSpace:"nowrap",fontFamily:"inherit"}}>
-                <span style={{width:7,height:7,borderRadius:"50%",background:activeAccId===acc.id?acc.color:"#ddd",display:"inline-block"}}/>
+                style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:activeAccId===acc.id?"#fff":"transparent",color:activeAccId===acc.id?"#111":"#a8a09a",boxShadow:activeAccId===acc.id?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
+                <span style={{width:6,height:6,borderRadius:"50%",background:activeAccId===acc.id?acc.color:"#ccc",display:"inline-block",flexShrink:0}}/>
                 {acc.name}
               </button>
             ))}
             <button onClick={addAccount}
-              style={{padding:"5px 9px",borderRadius:7,border:"1px dashed #ccc",cursor:"pointer",fontSize:12,background:"transparent",color:"#bbb",whiteSpace:"nowrap",fontFamily:"inherit"}}
+              style={{padding:"4px 8px",borderRadius:6,border:"1px dashed #ccc",cursor:"pointer",fontSize:11,background:"transparent",color:"#bbb",whiteSpace:"nowrap",fontFamily:"inherit"}}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#bbb";}}>
               + 追加
@@ -1594,64 +1635,66 @@ function App({uid}){
         {/* 共有リンクバッジ */}
         {isClient&&(
           <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-            <span style={{width:8,height:8,borderRadius:"50%",background:activeAcc?.color,display:"inline-block"}}/>
-            <span style={{fontWeight:700,fontSize:14}}>{activeAcc?.name}</span>
-            <span style={{fontSize:11,color:"#3ea8ff",background:"#e8f4ff",border:"1px solid #93c9fc",padding:"2px 8px",borderRadius:10}}>共有リンク</span>
+            <span style={{width:7,height:7,borderRadius:"50%",background:activeAcc?.color,display:"inline-block"}}/>
+            <span style={{fontWeight:700,fontSize:13}}>{activeAcc?.name}</span>
+            <span style={{fontSize:10,color:"#2563eb",background:"#eff6ff",border:"1px solid #bfdbfe",padding:"2px 7px",borderRadius:99,fontWeight:600}}>共有</span>
           </div>
         )}
 
-        {/* 種類凡例（ドットのみ） */}
-        <div style={{display:"flex",alignItems:"center",gap:5,marginLeft:4,background:"#f7f9f9",border:"1px solid #e8e0d6",borderRadius:20,padding:"5px 10px",flexShrink:0}}>
-          {Object.entries(POST_TYPE).map(([k,v])=>(
-            <span key={k} title={v.label} style={{width:9,height:9,borderRadius:"50%",background:v.dot,cursor:"default",display:"block",flexShrink:0}}/>
-          ))}
-        </div>
-
         {/* 右側コントロール */}
-        <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+        <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
           <button onClick={()=>setShowSearch(true)}
-            style={{display:"flex",alignItems:"center",gap:4,border:"1.5px solid #e0d8ce",background:"#f7f9f9",borderRadius:20,padding:"5px 11px",fontSize:12,color:"#888",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-            🔍<span style={{fontSize:10,color:"#ccc",background:"#fff",border:"1px solid #e0d8ce",borderRadius:4,padding:"1px 5px",marginLeft:2}}>⌘K</span>
+            style={{display:"flex",alignItems:"center",gap:5,border:"1px solid #e6dfd6",background:"#f5f0eb",borderRadius:8,padding:"5px 10px",fontSize:11.5,color:"#6b6560",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+            検索
+            <span style={{fontSize:9.5,color:"#bbb",background:"#fff",border:"1px solid #e6dfd6",borderRadius:4,padding:"1px 4px"}}>⌘K</span>
           </button>
-          <div style={{display:"flex",background:"#f2ede6",borderRadius:9,padding:3,gap:2,flexShrink:0}}>
+          <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:1,flexShrink:0,border:"1px solid #e6dfd6"}}>
             {[["calendar","週"],["month","月"],["list","リスト"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setView(v)} style={{padding:"5px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#1a1a1a":"#aaa",boxShadow:view===v?"0 1px 4px #0000001a":"none",whiteSpace:"nowrap",fontFamily:"inherit"}}>{l}</button>
+              <button key={v} onClick={()=>setView(v)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#111":"#a8a09a",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>{l}</button>
             ))}
           </div>
           {isAdmin&&(
             <>
               {overdueCount>0&&(
-                <div style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0}}
-                  title={`予約済みで期限切れの投稿が${overdueCount}件あります`}
-                  onClick={()=>setFilter("reserved")}>
-                  ⚠️ {overdueCount}件
-                </div>
+                <button onClick={()=>setFilter("reserved")}
+                  style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"4px 9px",fontSize:11,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" opacity=".8"><path d="M8 1.5L1.5 13.5h13L8 1.5zM8 6v4m0 2v1"/><rect x="7.25" y="6" width="1.5" height="4" rx=".75"/><rect x="7.25" y="11" width="1.5" height="1.5" rx=".75"/></svg>
+                  {overdueCount}件
+                </button>
               )}
-              {/* 設定まとめドロップダウン */}
               <div ref={shareRef} style={{position:"relative"}}>
-                <Btn onClick={()=>setShowShare(s=>!s)}>⚙️ 設定 ▾</Btn>
+                <button onClick={()=>setShowShare(s=>!s)}
+                  style={{display:"flex",alignItems:"center",gap:5,border:"1px solid #e6dfd6",background:showShare?"#f5f0eb":"#fff",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="3" cy="8" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="13" cy="13" r="1.5"/><path d="m4.5 7.1 7-3.2M4.5 8.9l7 3.2"/></svg>
+                  設定
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+                </button>
                 {showShare&&(
-                  <div style={{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",border:"1.5px solid #e8e0d6",borderRadius:12,padding:8,zIndex:100,width:220,boxShadow:"0 8px 24px #0000001a",display:"flex",flexDirection:"column",gap:2}}>
+                  <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:"1px solid #e6dfd6",borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
                     {[
-                      ["📅 予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
-                      ["🔔 通知",()=>{setShowNotifySettings(true);setShowShare(false);}],
-                      ["💾 ローカル保存",()=>{setShowExport(true);setShowShare(false);}],
-                      ["👥 クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
+                      ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
+                      ["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}],
+                      ["ローカル保存",()=>{setShowExport(true);setShowShare(false);}],
+                      ["クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
                       <button key={label} onClick={fn}
-                        style={{border:"none",background:"none",borderRadius:8,padding:"9px 12px",fontSize:12,fontWeight:600,color:"#333",cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"background .1s"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f7f9f9"}
+                        style={{border:"none",background:"none",borderRadius:7,padding:"8px 11px",fontSize:12,fontWeight:500,color:"#333",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"}
                         onMouseLeave={e=>e.currentTarget.style.background="none"}>
                         {label}
                       </button>
                     ))}
-                    <div style={{borderTop:"1px solid #e8e0d6",marginTop:4,paddingTop:6}}>
-                      <div style={{fontSize:11,color:"#aaa",fontWeight:700,padding:"2px 12px 6px"}}>共有リンク</div>
+                    <div style={{borderTop:"1px solid #e6dfd6",marginTop:2,paddingTop:6}}>
+                      <div style={{fontSize:10,color:"#a8a09a",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
                       {accounts.map(acc=>(
-                        <div key={acc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px"}}>
-                          <span style={{width:7,height:7,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
-                          <span style={{fontSize:12,fontWeight:700,flex:1}}>{acc.name}</span>
-                          <button onClick={()=>{copyShareLink(acc.id);setShowShare(false);}} style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>コピー</button>
+                        <div key={acc.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 11px"}}>
+                          <span style={{width:6,height:6,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
+                          <span style={{fontSize:12,fontWeight:600,flex:1,color:"#333"}}>{acc.name}</span>
+                          <button onClick={()=>{copyShareLink(acc.id);setShowShare(false);}}
+                            style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>
+                            コピー
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1660,23 +1703,31 @@ function App({uid}){
               </div>
             </>
           )}
-          <button onClick={()=>openNew()} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"7px 15px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>＋ 新規</button>
+          <button onClick={()=>openNew()}
+            style={{background:"#111",border:"none",borderRadius:8,padding:"6px 13px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0,letterSpacing:"-.1px"}}>
+            + 新規
+          </button>
         </div>
       </div>
 
       {/* ── カレンダーナビ ── */}
       {view==="calendar"&&(
-        <div style={{background:"#fff",borderBottom:"1px solid #e8e0d6",padding:"6px 18px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
-          <span style={{fontWeight:800,fontSize:13,color:"#444"}}>{activeAcc?.name}</span>
-          <Btn onClick={()=>{const d=new Date(week);d.setDate(d.getDate()-7);setWeek(d);}}>‹</Btn>
-          <span style={{fontWeight:700,fontSize:13,minWidth:175,textAlign:"center",color:"#555"}}>
-            {weekDates[0].getMonth()+1}月{weekDates[0].getDate()}日 〜 {weekDates[6].getMonth()+1}月{weekDates[6].getDate()}日
-          </span>
-          <Btn onClick={()=>{const d=new Date(week);d.setDate(d.getDate()+7);setWeek(d);}}>›</Btn>
-          <Btn onClick={()=>setWeek(new Date())}>今週</Btn>
+        <div style={{background:"#fff",borderBottom:"1px solid #e6dfd6",padding:"5px 16px",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+          {activeAcc&&<span style={{width:7,height:7,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
+          <span style={{fontWeight:700,fontSize:12.5,color:"#555"}}>{activeAcc?.name}</span>
+          <div style={{display:"flex",alignItems:"center",gap:4,marginLeft:4}}>
+            <button onClick={()=>{const d=new Date(week);d.setDate(d.getDate()-7);setWeek(d);}}
+              style={{border:"1px solid #e6dfd6",background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+            <span style={{fontWeight:600,fontSize:12.5,minWidth:165,textAlign:"center",color:"#333"}}>
+              {weekDates[0].getMonth()+1}月{weekDates[0].getDate()}日 〜 {weekDates[6].getMonth()+1}月{weekDates[6].getDate()}日
+            </span>
+            <button onClick={()=>{const d=new Date(week);d.setDate(d.getDate()+7);setWeek(d);}}
+              style={{border:"1px solid #e6dfd6",background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+            <button onClick={()=>setWeek(new Date())}
+              style={{border:"1px solid #e6dfd6",background:"#fff",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:11,color:"#555",fontFamily:"inherit"}}>今週</button>
+          </div>
           <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
-            style={{background:"#f8f4ef",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"4px 8px",fontSize:11,color:"#666",outline:"none",cursor:"pointer",marginLeft:"auto"}}>
+            style={{background:"#f5f0eb",border:"1px solid #e6dfd6",borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer",marginLeft:"auto"}}>
             <option value="all">すべて</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -1687,7 +1738,7 @@ function App({uid}){
       {view==="calendar"&&(
         <div style={{height:"calc(100vh - 100px)",overflow:"auto"}}>
           <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860}}>
-            <div style={{background:"#fff",position:"sticky",top:0,zIndex:20,borderRight:"1px solid #e8e0d6",borderBottom:"2px solid #e8e0d6"}}/>
+            <div style={{background:"#fff",position:"sticky",top:0,zIndex:20,borderRight:"1px solid #e6dfd6",borderBottom:"1px solid #e6dfd6"}}/>
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];
               const isToday=dateStr===today;
@@ -1697,7 +1748,7 @@ function App({uid}){
               const publishedCnt=dayPosts.filter(p=>p.status==="published"||p.status==="popular").length;
               const ghostCnt=slots.filter(s=>slotMatchesDate(s,date)).length;
               return(
-                <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:20}}>
+                <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:"1px solid #e6dfd6",borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
                   <div style={{width:28,height:28,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:13,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",minHeight:14}}>
@@ -1711,7 +1762,7 @@ function App({uid}){
             })}
             {HOURS.map(hour=>(
               <React.Fragment key={hour}>
-                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#faf7f3",borderRight:"1px solid #e8e0d6"}}>{hour}:00</div>
+                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
                   const dateStr=weekDateStrs[di];
                   const key=dateStr+"_"+String(hour).padStart(2,"0");
@@ -1723,11 +1774,11 @@ function App({uid}){
                       onDragOver={dragId?e=>{e.preventDefault();setDragOver(key);}:undefined}
                       onDragLeave={dragId?()=>setDragOver(null):undefined}
                       onDrop={dragId?e=>{e.preventDefault();handleDrop(dragId,dateStr,hour);}:undefined}
-                      style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e8e0d6",padding:"3px",minHeight:42,
+                      style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e6dfd6",padding:"3px",minHeight:42,
                         background:dragOver===key?"#fef9e7":dragId?"#fffdf5":dateStr===today?"#fffcf5":"#fff",
                         cursor:dragId?"copy":isEmpty?"pointer":"default",transition:"background .1s",
                         outline:dragOver===key?"2px dashed #f59e0b":"none",outlineOffset:-2}}
-                      onMouseEnter={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fff8e8":"#faf7f3";}:undefined}
+                      onMouseEnter={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fff8e8":"#f5f0eb";}:undefined}
                       onMouseLeave={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
                       {/* 実投稿 */}
                       {sp.map(p=>{
@@ -1847,7 +1898,7 @@ function App({uid}){
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={e=>{if(e.target===e.currentTarget)setShowSlotSettings(false);}}>
           <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
-            <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
+            <div style={{padding:"14px 18px",borderBottom:"1px solid #e6dfd6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
               <div>
                 <div style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
                 <div style={{fontSize:11,color:"#aaa",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
@@ -1855,7 +1906,7 @@ function App({uid}){
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
             {/* フォーム（固定） */}
-            <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6"}}>
+            <div style={{padding:"14px 18px",borderBottom:"1px solid #e6dfd6"}}>
               <SlotAddForm onAdd={s=>{
                 saveSlots([...slots,{...s,id:genId()}]);
               }}/>
@@ -1867,14 +1918,14 @@ function App({uid}){
                 :slots.map((s,i)=>{
                   const pt=POST_TYPE[s.postType||"x_post"];
                   return(
-                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f7f9f9",border:"1.5px solid #e8e0d6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
+                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f8f5f1",border:"1px solid #e6dfd6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
                       <span style={{fontSize:11,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
                       <input
                         value={s.title||""}
                         onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
                         placeholder="仮タイトル"
-                        style={{flex:1,minWidth:0,border:"none",borderBottom:"1.5px solid #e0d8ce",borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
+                        style={{flex:1,minWidth:0,border:"none",borderBottom:"1px solid #e0d8ce",borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
                         onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
                         onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
                       />
@@ -1912,7 +1963,26 @@ function App({uid}){
 
       {/* ── モーダル群 ── */}
       {preview&&<PreviewOverlay post={preview} onClose={()=>setPreview(null)}
-        onEdit={p=>{setPreview(null);setEditing({...p});}}
+        onEdit={async p=>{
+          setPreview(null);
+          if(p._unsaved){
+            const {_unsaved,...postToSave}=p;
+            const title=postToSave.title||"";
+            const memo=postToSave.memo||"";
+            const clean={...postToSave,title,memo};
+            await saveToDb(clean);
+            setEditing({...clean});
+          } else {
+            setEditing({...p});
+          }
+        }}
+        onSaveNew={async p=>{
+          const {_unsaved,...postToSave}=p;
+          const clean={...postToSave,title:postToSave.title||"",memo:postToSave.memo||""};
+          await saveToDb(clean);
+          setPreview({...clean});
+          showToast("保存しました ✅");
+        }}
         onRepost={p=>{setPreview(null);setRepostTgt(p);}}
         onDuplicate={handleDuplicate}
         onDelete={p=>setDeleteConfirm(p)}
@@ -1943,7 +2013,7 @@ function App({uid}){
             <div style={{fontSize:"0.84em",color:"#536471",marginBottom:6,lineHeight:1.5}}>「{deleteConfirm.title||"（タイトルなし）"}」</div>
             <div style={{fontSize:"0.76em",color:"#ef4444",marginBottom:22}}>この操作は取り消せません。</div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:20,padding:"10px 0",fontWeight:600,fontSize:"0.88em",color:"#536471",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button>
+              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,border:"1px solid #e0d8ce",background:"#fff",borderRadius:20,padding:"10px 0",fontWeight:600,fontSize:"0.88em",color:"#536471",cursor:"pointer",fontFamily:"inherit"}}>キャンセル</button>
               <button onClick={()=>del(deleteConfirm.id)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"0.88em",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>削除する</button>
             </div>
           </div>
@@ -1951,7 +2021,7 @@ function App({uid}){
       )}
 
       {toast&&(
-        <div style={{position:"fixed",bottom:22,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"9px 20px",borderRadius:24,fontSize:13,fontWeight:600,zIndex:999,boxShadow:"0 4px 16px #00000033",whiteSpace:"nowrap"}}>
+        <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#111",color:"#fff",padding:"10px 20px",borderRadius:10,fontSize:12.5,fontWeight:600,zIndex:999,boxShadow:"0 4px 20px rgba(0,0,0,.2)",whiteSpace:"nowrap",letterSpacing:"-.1px"}}>
           {toast}
         </div>
       )}
@@ -1988,17 +2058,17 @@ function MonthView({posts,today,slots,openNew,setPreview}){
   return(
     <div style={{height:"calc(100vh - 100px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* ナビ */}
-      <div style={{background:"#fff",borderBottom:"1px solid #e8e0d6",padding:"6px 18px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-        <button onClick={()=>setMonthBase(new Date(year,month-1,1))} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>‹</button>
+      <div style={{background:"#fff",borderBottom:"1px solid #e6dfd6",padding:"6px 18px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+        <button onClick={()=>setMonthBase(new Date(year,month-1,1))} style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>‹</button>
         <span style={{fontWeight:800,fontSize:14,color:"#444",minWidth:100,textAlign:"center"}}>{year}年{month+1}月</span>
-        <button onClick={()=>setMonthBase(new Date(year,month+1,1))} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>›</button>
-        <button onClick={()=>setMonthBase(new Date())} style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>今月</button>
+        <button onClick={()=>setMonthBase(new Date(year,month+1,1))} style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>›</button>
+        <button onClick={()=>setMonthBase(new Date())} style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>今月</button>
       </div>
       {/* グリッド */}
       <div style={{flex:1,overflow:"auto"}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",minWidth:700}}>
           {["月","火","水","木","金","土","日"].map((d,i)=>(
-            <div key={d} style={{padding:"6px 0",textAlign:"center",fontSize:11,fontWeight:700,color:i>=5?"#ef4444":"#9ca3af",background:"#fff",borderBottom:"2px solid #e8e0d6",borderRight:"1px solid #e8e0d6",position:"sticky",top:0,zIndex:10}}>{d}</div>
+            <div key={d} style={{padding:"6px 0",textAlign:"center",fontSize:11,fontWeight:700,color:i>=5?"#ef4444":"#9ca3af",background:"#fff",borderBottom:"1px solid #e6dfd6",borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:10}}>{d}</div>
           ))}
           {weeks.map((week,wi)=>week.map((date,di)=>{
             const dateStr=fmtD(date);
@@ -2011,7 +2081,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
             const publishedCnt=dayPosts.filter(p=>["published","popular"].includes(p.status)).length;
             return(
               <div key={`${wi}-${di}`}
-                style={{minHeight:100,borderRight:"1px solid #e8e0d6",borderBottom:"1px solid #e8e0d6",padding:"4px 5px",background:isToday?"#fffcf5":!isCurrentMonth?"#faf7f3":"#fff",verticalAlign:"top",cursor:date?"pointer":"default"}}
+                style={{minHeight:100,borderRight:"1px solid #e6dfd6",borderBottom:"1px solid #e6dfd6",padding:"4px 5px",background:isToday?"#fffcf5":!isCurrentMonth?"#f5f0eb":"#fff",verticalAlign:"top",cursor:date?"pointer":"default"}}
                 onClick={date?()=>openNew(`${dateStr}T09:00`):undefined}>
                 {date&&(
                   <>
@@ -2099,7 +2169,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
 
   return(
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 52px)",overflow:"hidden"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:"1px solid #e8e0d6",background:"#fff",flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderBottom:"1px solid #e6dfd6",background:"#fff",flexShrink:0}}>
         {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
         <span style={{fontWeight:800,fontSize:14}}>{activeAcc?.name} の投稿</span>
         <span style={{fontSize:12,color:"#aaa"}}>{filtered.length}件</span>
@@ -2110,7 +2180,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
           予約枠{showSlots?"表示中":"非表示"}
         </button>
         <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
-          style={{marginLeft:"auto",background:"#f8f4ef",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
+          style={{marginLeft:"auto",background:"#f8f4ef",border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
           <option value="all">すべてのステータス</option>
           {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -2137,8 +2207,8 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
 
           return(
             <div key={date} ref={isToday?todayColRef:null} style={{flexShrink:0,width:200}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:7,borderBottom:`2px solid ${isToday?"#f59e0b":"#e8e0d6"}`}}>
-                <div style={{width:30,height:30,borderRadius:"50%",background:isToday?"#f59e0b":"#f2ede6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:isToday?"#fff":"#555",flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,paddingBottom:7,borderBottom:`2px solid ${isToday?"#f59e0b":"#e6dfd6"}`}}>
+                <div style={{width:30,height:30,borderRadius:"50%",background:isToday?"#f59e0b":"#f5f0eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:isToday?"#fff":"#555",flexShrink:0}}>
                   {d.getDate()}
                 </div>
                 <div>
@@ -2173,10 +2243,10 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                           <button onClick={e=>{e.stopPropagation();setEditing({...p});}}
                             style={{background:"#f59e0b",border:"none",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>編集</button>
                           <button onClick={e=>{e.stopPropagation();handleDuplicate(p);}}
-                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                            style={{background:"none",border:"1px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
                             onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
                           <button onClick={e=>{e.stopPropagation();setRepostTgt(p);}}
-                            style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+                            style={{background:"none",border:"1px solid #e0d8ce",borderRadius:5,padding:"3px 6px",fontSize:9,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
                             onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
                         </div>
                       </div>
@@ -2279,7 +2349,7 @@ function SlotAddForm({onAdd}){
         <div style={{display:"flex",gap:4}}>
           {SLOT_TYPES.map(([v,l])=>(
             <button key={v} onClick={()=>setType(v)}
-              style={{padding:"4px 12px",borderRadius:6,border:type===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:type===v?"#fef3c7":"#fff",fontSize:11,fontWeight:type===v?700:500,color:type===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+              style={{padding:"4px 12px",borderRadius:6,border:type===v?"2px solid #f59e0b":"1px solid #e0d8ce",background:type===v?"#fef3c7":"#fff",fontSize:11,fontWeight:type===v?700:500,color:type===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
               {l}
             </button>
           ))}
@@ -2294,7 +2364,7 @@ function SlotAddForm({onAdd}){
             <div style={{display:"flex",gap:4}}>
               {SLOT_NTHS.map(([v,l])=>(
                 <button key={v} onClick={()=>setNth(v)}
-                  style={{padding:"4px 8px",borderRadius:6,border:nth===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:nth===v?"#fef3c7":"#fff",fontSize:11,fontWeight:nth===v?700:500,color:nth===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                  style={{padding:"4px 8px",borderRadius:6,border:nth===v?"2px solid #f59e0b":"1px solid #e0d8ce",background:nth===v?"#fef3c7":"#fff",fontSize:11,fontWeight:nth===v?700:500,color:nth===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                   {l}
                 </button>
               ))}
@@ -2308,7 +2378,7 @@ function SlotAddForm({onAdd}){
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {SLOT_DOWS.map(([v,l])=>(
                 <button key={v} onClick={()=>setDow(v)}
-                  style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1.5px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                  style={{padding:"4px 9px",borderRadius:6,border:dow===v?"2px solid #f59e0b":"1px solid #e0d8ce",background:dow===v?"#fef3c7":"#fff",fontSize:11,fontWeight:dow===v?700:500,color:dow===v?"#d97706":"#555",cursor:"pointer",fontFamily:"inherit"}}>
                   {l}
                 </button>
               ))}
@@ -2319,7 +2389,7 @@ function SlotAddForm({onAdd}){
         <div style={{minWidth:80}}>
           <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
           <select value={hour} onChange={e=>setHour(Number(e.target.value))}
-            style={{border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+            style={{border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
             {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
           </select>
         </div>
@@ -2444,7 +2514,7 @@ function ExportModal({posts,accountName,onClose}){
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"88vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
         {/* ヘッダー */}
-        <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3",flexShrink:0}}>
+        <div style={{padding:"14px 18px",borderBottom:"1px solid #e6dfd6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb",flexShrink:0}}>
           <div>
             <div style={{fontWeight:800,fontSize:14}}>💾 ローカル保存</div>
             <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{accountName} の投稿をファイルに書き出す</div>
@@ -2481,11 +2551,11 @@ function ExportModal({posts,accountName,onClose}){
             </div>
             {scope==="filter"&&(
               <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
-                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+                style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
             )}
-            <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f7f9f9",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 10px"}}>
+            <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f8f5f1",border:"1px solid #e6dfd6",borderRadius:7,padding:"6px 10px"}}>
               対象: <strong>{targetPosts.length}件</strong>
             </div>
           </div>
@@ -2512,12 +2582,12 @@ function ExportModal({posts,accountName,onClose}){
 
           {/* 進捗 */}
           {progress&&(
-            <div style={{background:"#f7f9f9",border:"1px solid #e8e0d6",borderRadius:9,padding:"12px 14px"}}>
+            <div style={{background:"#f8f5f1",border:"1px solid #e6dfd6",borderRadius:9,padding:"12px 14px"}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,marginBottom:6,color:done?"#059669":"#555"}}>
                 <span>{done?"✅ 完了":"⏳ 書き出し中…"}</span>
                 <span>{progress.done} / {progress.total}</span>
               </div>
-              <div style={{height:6,background:"#e8e0d6",borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:6,background:"#e6dfd6",borderRadius:3,overflow:"hidden"}}>
                 <div style={{height:"100%",background:done?"#10b981":"#f59e0b",borderRadius:3,width:`${(progress.done/progress.total)*100}%`,transition:"width .2s"}}/>
               </div>
               {progress.errors.length>0&&(
@@ -2530,7 +2600,7 @@ function ExportModal({posts,accountName,onClose}){
         </div>
 
         {/* フッター */}
-        <div style={{padding:"12px 18px",borderTop:"1px solid #e8e0d6",display:"flex",gap:8,justifyContent:"flex-end",background:"#faf7f3",flexShrink:0}}>
+        <div style={{padding:"12px 18px",borderTop:"1px solid #e6dfd6",display:"flex",gap:8,justifyContent:"flex-end",background:"#f5f0eb",flexShrink:0}}>
           <Btn onClick={onClose}>キャンセル</Btn>
           <button onClick={runExport}
             disabled={FS_SUPPORTED&&!folderHandle||targetPosts.length===0||!!progress&&!done}
@@ -2555,7 +2625,7 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
         {/* ヘッダー */}
-        <div style={{padding:"14px 18px",borderBottom:"1px solid #e8e0d6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#faf7f3"}}>
+        <div style={{padding:"14px 18px",borderBottom:"1px solid #e6dfd6",display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
           <div>
             <div style={{fontWeight:800,fontSize:14}}>🔔 メール通知設定</div>
             <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{accountName} — Vercel Cronで毎日自動送信</div>
@@ -2586,7 +2656,7 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
           <div>
             <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:5}}>送信時刻</label>
             <select value={draft.send_hour} onChange={e=>setDraft(d=>({...d,send_hour:Number(e.target.value)}))}
-              style={{border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:13,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
+              style={{border:"1px solid #e0d8ce",borderRadius:8,padding:"7px 10px",fontSize:13,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
               {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
             </select>
             <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>（JST）毎日この時刻に送信</span>
@@ -2600,7 +2670,7 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
                 ["notify_today","📅 本日の予定","当日の予約済み投稿一覧を朝に通知"],
                 ["notify_daily","📊 日次ダイジェスト","全ステータスの進捗サマリーを通知"],
               ].map(([key,label,desc])=>(
-                <label key={key} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",background:"#f7f9f9",border:`1.5px solid ${draft[key]?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 12px"}}>
+                <label key={key} style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",background:"#f8f5f1",border:`1.5px solid ${draft[key]?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 12px"}}>
                   <input type="checkbox" checked={!!draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.checked}))} style={{marginTop:2,accentColor:"#f59e0b",width:15,height:15}}/>
                   <div>
                     <div style={{fontSize:12,fontWeight:700,color:"#0f1419"}}>{label}</div>
@@ -2619,10 +2689,10 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
           </div>
         </div>
         {/* フッター */}
-        <div style={{padding:"12px 18px",borderTop:"1px solid #e8e0d6",display:"flex",gap:8,background:"#faf7f3"}}>
+        <div style={{padding:"12px 18px",borderTop:"1px solid #e6dfd6",display:"flex",gap:8,background:"#f5f0eb"}}>
           <button onClick={async()=>{setSending(true);await onTestSend(draft.email);setSending(false);}}
             disabled={!draft.email||sending}
-            style={{border:"1.5px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:600,color:draft.email?"#555":"#bbb",cursor:draft.email?"pointer":"default",fontFamily:"inherit"}}>
+            style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:600,color:draft.email?"#555":"#bbb",cursor:draft.email?"pointer":"default",fontFamily:"inherit"}}>
             {sending?"送信中…":"📨 テスト送信"}
           </button>
           <div style={{flex:1}}/>
@@ -2640,10 +2710,17 @@ function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
 
 // ── 共通UIコンポーネント ──
 function Btn({children,onClick,primary,danger,style}){
-  const t=primary?{background:"#f59e0b",borderColor:"#f59e0b",color:"#fff"}:danger?{background:"#fff",borderColor:"#fca5a5",color:"#ef4444"}:{background:"#fff",borderColor:"#e0d8ce",color:"#555"};
-  return<button onClick={onClick} style={{border:"1.5px solid",borderRadius:8,padding:"6px 13px",cursor:"pointer",fontSize:12,fontWeight:700,transition:"opacity 0.1s",...t,...style,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.opacity=".82"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
+  const base={border:"1px solid",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .12s",fontFamily:"inherit"};
+  const t=primary
+    ?{background:"#f59e0b",borderColor:"#f59e0b",color:"#fff"}
+    :danger
+    ?{background:"#fff",borderColor:"#fca5a5",color:"#ef4444"}
+    :{background:"#fff",borderColor:"#e6dfd6",color:"#555"};
+  return<button onClick={onClick} style={{...base,...t,...style}}
+    onMouseEnter={e=>e.currentTarget.style.opacity=".78"}
+    onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
 }
-const INP={width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",color:"#1a1a1a",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
+const INP={width:"100%",background:"#fff",border:"1px solid #e6dfd6",borderRadius:8,padding:"7px 10px",color:"#111",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color .12s"};
 // ════════════════════════════════════════════════════════
 // PortalAuthWrapper — Firebase認証 + Firestore権限チェック
 // ════════════════════════════════════════════════════════
@@ -2671,26 +2748,35 @@ function PortalAuthWrapper({children}){
   },[]);
 
   if(state==="loading") return(
-    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans',sans-serif"}}>
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:20,fontWeight:900,marginBottom:8}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
-        <div style={{fontSize:13,color:"#aaa"}}>認証情報を確認中…</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:12,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{width:32,height:2,background:"#e6dfd6",borderRadius:99,margin:"0 auto",overflow:"hidden"}}>
+          <div style={{width:"60%",height:"100%",background:"#f59e0b",borderRadius:99,animation:"slide 1s infinite"}}/>
+        </div>
+        <style>{`@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
       </div>
     </div>
   );
 
   if(state==="unauthed") return(
-    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans',sans-serif"}}>
-      <div style={{background:"#fff",borderRadius:18,padding:"40px 48px",textAlign:"center",boxShadow:"0 8px 32px #0002",maxWidth:360,width:"100%"}}>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:6}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
-        <div style={{fontSize:13,color:"#aaa",marginBottom:28}}>ログインが必要です</div>
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"44px 48px",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.08)",maxWidth:360,width:"100%",border:"1px solid #e6dfd6"}}>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:12.5,color:"#a8a09a",marginBottom:32}}>コンテンツ管理ツール</div>
         <button
           onClick={()=>signInWithPopup(auth,googleProvider).catch(console.error)}
-          style={{display:"flex",alignItems:"center",gap:10,margin:"0 auto",border:"1.5px solid #e0d8ce",borderRadius:12,padding:"11px 22px",fontSize:14,fontWeight:700,cursor:"pointer",background:"#fff",fontFamily:"inherit",color:"#1a1a1a"}}>
-          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          style={{display:"flex",alignItems:"center",gap:10,margin:"0 auto",border:"1px solid #e6dfd6",borderRadius:10,padding:"11px 22px",fontSize:13.5,fontWeight:600,cursor:"pointer",background:"#fff",fontFamily:"inherit",color:"#333",boxShadow:"0 1px 4px rgba(0,0,0,.06)",transition:"all .12s"}}
+          onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 12px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+          onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.06)";e.currentTarget.style.transform="none";}}>
+          <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Googleでログイン
         </button>
-        <a href={PORTAL_URL} style={{display:"block",marginTop:20,fontSize:11,color:"#aaa",textDecoration:"none"}}>ポータルサイトへ戻る →</a>
+        <a href={PORTAL_URL} style={{display:"block",marginTop:24,fontSize:11,color:"#c4b8ad",textDecoration:"none",letterSpacing:".2px"}}
+          onMouseEnter={e=>e.currentTarget.style.color="#888"}
+          onMouseLeave={e=>e.currentTarget.style.color="#c4b8ad"}>
+          ポータルサイトへ戻る →
+        </a>
       </div>
     </div>
   );
