@@ -840,6 +840,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
 
   // メモ箇条書き挿入
   const memoRef=useRef(null);
+  const memoComposing=useRef(false);
   const insertBullet=()=>{
     const el=memoRef.current;if(!el)return;
     const start=el.selectionStart,end=el.selectionEnd;
@@ -927,10 +928,15 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                   ・ 箇条書き
                 </button>
               </div>
-              <textarea ref={memoRef} value={memo} onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}} rows={5}
+              <textarea ref={memoRef} value={memo}
+                onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}}
+                onCompositionStart={()=>{memoComposing.current=true;}}
+                onCompositionEnd={()=>{memoComposing.current=false;}}
+                rows={5}
                 placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"}
                 onKeyDown={e=>{
-                  if(e.key==="Enter"&&!e.isComposing){
+                  if(memoComposing.current)return;
+                  if(e.key==="Enter"){
                     const el=e.currentTarget;
                     const start=el.selectionStart;
                     const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
@@ -1458,7 +1464,7 @@ function App({uid}){
       `}</style>
 
       {/* ── ヘッダー ── */}
-      <div style={{background:"#fff",borderBottom:"2px solid #e8e0d6",padding:"0 14px",display:"flex",alignItems:"center",gap:8,height:52,boxShadow:"0 1px 4px #0000000a",flexShrink:0,overflow:"hidden"}}>
+      <div style={{background:"#fff",borderBottom:"2px solid #e8e0d6",padding:"0 14px",display:"flex",alignItems:"center",gap:8,height:52,boxShadow:"0 1px 4px #0000000a",flexShrink:0,position:"relative",zIndex:50}}>
         <span style={{fontWeight:900,fontSize:17,letterSpacing:"-0.5px",flexShrink:0}}>Content<span style={{color:"#f59e0b"}}>OS</span></span>
 
         {/* 管理者：アカウントタブ */}
