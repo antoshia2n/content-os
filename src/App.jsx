@@ -953,7 +953,7 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
 // ════════════════════════════════════════════════════════
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 
-function App(){
+function App({uid}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
@@ -1148,25 +1148,29 @@ function App(){
     setEditing({id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
   },[today]);
 
-  // 予約枠 — アカウントごとにlocalStorageで永続化
+  // 予約枠 — Supabaseで user_id + account_id ごとに管理
   useEffect(()=>{
-    if(!activeAccId)return;
-    try{const saved=localStorage.getItem(`slots_${activeAccId}`);setSlots(saved?JSON.parse(saved):[]);}catch(e){setSlots([]);}
-  },[activeAccId]);
+    if(!activeAccId||!uid)return;
+    supabase.from("slots").select("*")
+      .eq("account_id",activeAccId).eq("user_id",uid)
+      .then(({data})=>setSlots(data||[]));
+  },[activeAccId,uid]);
 
-  const saveSlots=React.useCallback((next)=>{
-    // nextが関数の場合はfunctional update形式で呼ぶ
-    if(typeof next==="function"){
-      setSlots(prev=>{
-        const resolved=next(prev);
-        if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(resolved));}catch(e){}
-        return resolved;
-      });
-    } else {
-      setSlots(next);
-      if(activeAccId)try{localStorage.setItem(`slots_${activeAccId}`,JSON.stringify(next));}catch(e){}
-    }
-  },[activeAccId]);
+  const saveSlots=React.useCallback(async(next)=>{
+    const resolved=typeof next==="function"?next(slots):next;
+    setSlots(resolved);
+    if(!activeAccId||!uid)return;
+    // 差分計算：削除分をdelete、追加・更新分をupsert
+    const prevIds=new Set(slots.map(s=>s.id));
+    const nextIds=new Set(resolved.map(s=>s.id));
+    const deleted=[...prevIds].filter(id=>!nextIds.has(id));
+    if(deleted.length>0)
+      await supabase.from("slots").delete().in("id",deleted);
+    if(resolved.length>0)
+      await supabase.from("slots").upsert(
+        resolved.map(s=>({...s,account_id:activeAccId,user_id:uid}))
+      );
+  },[activeAccId,uid,slots]);
 
   // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
   const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
@@ -2357,7 +2361,8 @@ const INP={width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRad
 // PortalAuthWrapper — Firebase認証 + Firestore権限チェック
 // ════════════════════════════════════════════════════════
 function PortalAuthWrapper({children}){
-  const [state,setState]=useState("loading"); // loading | allowed | denied | unauthed
+  const [state,setState]=useState("loading");
+  const [uid,setUid]=useState(null);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,async user=>{
@@ -2368,7 +2373,8 @@ function PortalAuthWrapper({children}){
         const d=snap.data();
         const isAdmin=d.role==="admin";
         const isPaid =d.paymentStatus==="paid"&&(d.allowedApps||[]).includes(PORTAL_APP_ID);
-        setState(isAdmin||isPaid?"allowed":"denied");
+        if(isAdmin||isPaid){setUid(user.uid);setState("allowed");}
+        else setState("denied");
       }catch(e){
         console.error(e);
         setState("denied");
@@ -2407,14 +2413,14 @@ function PortalAuthWrapper({children}){
     return null;
   }
 
-  return children;
+  return children(uid);
 }
 
 // ── ポータル認証付きエクスポート ──
 export default function AppWithAuth(){
   return(
     <PortalAuthWrapper>
-      <App/>
+      {uid=><App uid={uid}/>}
     </PortalAuthWrapper>
   );
 }
