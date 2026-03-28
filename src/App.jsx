@@ -961,7 +961,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                     autoFocus
                     defaultValue={post.title||""}
                     placeholder="タイトルを入力…"
-                    onKeyDown={e=>{ if(e.key==="Enter"&&!e.isComposing) onEdit(getEditPost()); }}
+                    onKeyDown={e=>{ if(e.key==="Enter") e.preventDefault(); }}
                     style={{width:"100%",border:"none",borderBottom:"2px solid #f59e0b",outline:"none",fontSize:18,fontWeight:800,color:"#0f1419",background:"transparent",fontFamily:"inherit",padding:"2px 0"}}/>
                 : post.title||"（タイトルなし）"
               }
