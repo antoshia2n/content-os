@@ -27,7 +27,13 @@ const STATUS = {
   popular:   { label:"好評",        chip:"#ffedd5", text:"#ea580c", border:"#fdba74" },
   flop:      { label:"不評",        chip:"#fee2e2", text:"#dc2626", border:"#fca5a5" },
 };
-const DAYS   = ["月","火","水","木","金","土","日"];
+const SCORE={
+  S:{label:"S",color:"#fff",bg:"#7c3aed",border:"#7c3aed"},
+  A:{label:"A",color:"#fff",bg:"#2563eb",border:"#2563eb"},
+  B:{label:"B",color:"#fff",bg:"#059669",border:"#059669"},
+  C:{label:"C",color:"#fff",bg:"#d97706",border:"#d97706"},
+  D:{label:"D",color:"#fff",bg:"#dc2626",border:"#dc2626"},
+};
 const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const XFONT  = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -69,6 +75,7 @@ function dbToPost(p){
     memo:p.memo||"",
     memoLinks:rawLinks.map(l=>typeof l==="string"?{label:"",url:l}:l),
     history:p.history||[],
+    score:p.score||null,
   };
 }
 function getUrlParams(){
@@ -777,13 +784,25 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
+  const [showComments,setShowComments]=useState(false);
+  const [memo,setMemo]=useState(post.memo||"");
+  const [memoLinks,setMemoLinks]=useState((post.memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l));
+  const [linkInput,setLinkInput]=useState("");
+  const [labelInput,setLabelInput]=useState("");
+  const [metaDirty,setMetaDirty]=useState(false);
   const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
   const st=STATUS[post.status];
+  const sc=SCORE[post.score];
 
-  useEffect(()=>{setLocalComments(post.comments||[]);},[post]);
+  useEffect(()=>{
+    setLocalComments(post.comments||[]);
+    setMemo(post.memo||"");
+    setMemoLinks((post.memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l));
+    setMetaDirty(false);
+  },[post]);
   useEffect(()=>{
     const h=e=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
@@ -798,34 +817,56 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
     setCmt("");
   };
 
+  const addLink=()=>{
+    const url=linkInput.trim();
+    if(!isUrl(url))return;
+    setMemoLinks(prev=>[...prev,{label:labelInput.trim(),url}]);
+    setLinkInput("");setLabelInput("");setMetaDirty(true);
+  };
+
+  const saveMeta=()=>{
+    onSaveMeta(post.id,{memo,memoLinks});
+    setMetaDirty(false);
+  };
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:820,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
+      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:860,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
 
         {/* ヘッダー */}
         <div style={{padding:"12px 18px",borderBottom:"1px solid #e8e0d6",background:pt.bg,display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
               <span style={{fontSize:11,color:pt.color,fontWeight:700,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10}}>{pt.label}</span>
-              {/* ステータスはヘッダー右のセレクトで変更可 */}
               <span style={{fontSize:11,color:"#888"}}>{post.datetime.replace("T"," ")}</span>
+              {/* スコア */}
+              <div style={{display:"flex",gap:3,marginLeft:4}}>
+                {Object.entries(SCORE).map(([k,v])=>(
+                  <button key={k} onClick={()=>onChangeStatus(post.id,post.status,k)}
+                    style={{width:22,height:22,borderRadius:5,border:"none",background:post.score===k?v.bg:"#e8e0d6",color:post.score===k?v.color:"#999",fontSize:10,fontWeight:800,cursor:"pointer",transition:"all .1s"}}>
+                    {v.label}
+                  </button>
+                ))}
+                {post.score&&<button onClick={()=>onChangeStatus(post.id,post.status,null)}
+                  style={{width:22,height:22,borderRadius:5,border:"none",background:"none",color:"#bbb",fontSize:10,cursor:"pointer"}}>×</button>}
+              </div>
             </div>
             <div style={{fontSize:20,fontWeight:800,color:"#0f1419",lineHeight:1.3}}>{post.title||"（タイトルなし）"}</div>
           </div>
           <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
-            {/* ステータスをその場で変更 */}
-            <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value)}
+            {/* ステータス変更 */}
+            <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value,post.score)}
               style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
               {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
             </select>
             <button onClick={()=>onEdit(post)} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ 編集</button>
             <button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋 複製</button>
+              onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
             <button onClick={()=>onRepost(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁 再投稿</button>
+              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
             <button onClick={()=>onDelete(post)} style={{background:"none",border:"1.5px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️ 削除</button>
+              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️</button>
             <button onClick={onClose} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
           </div>
         </div>
@@ -833,48 +874,91 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
         {/* コンテンツ */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 本文 */}
-          <div style={{flex:1,overflowY:"auto",padding:"24px 32px"}}>
-            {(post.memoLinks||[]).length>0&&(
-              <div style={{marginBottom:14,display:"flex",flexDirection:"column",gap:4}}>
-                {post.memoLinks.map((l,i)=>{
-                  const url=typeof l==="string"?l:l.url;
-                  const label=typeof l==="string"?"":l.label;
-                  return(
-                    <a key={i} href={url} target="_blank" rel="noreferrer"
-                      style={{display:"flex",alignItems:"center",gap:5,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 10px",fontSize:"0.78em",color:"#0369a1",textDecoration:"none"}}>
-                      <span style={{flexShrink:0}}>🔗</span>
-                      <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{label||url}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            )}
-            {post.memo&&<div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"8px 12px",fontSize:"0.8em",color:"#92400e",lineHeight:1.6,marginBottom:16}}>{post.memo}</div>}
-            {/* ⚠️ XSS: 信頼済みユーザーのみ。不特定多数が使う場合はDOMPurifyでサニタイズ */}
+          <div style={{flex:1,overflowY:"auto",padding:"20px 28px"}}>
             <div className="xb" dangerouslySetInnerHTML={{__html:post.body||"<p style='color:#aaa'>本文はまだありません</p>"}}/>
           </div>
 
-          {/* コメント */}
-          <div style={{width:260,borderLeft:"1px solid #e8e0d6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa"}}>
-            <div style={{padding:"12px 13px 9px",borderBottom:"1px solid #e8e0d6",fontWeight:700,fontSize:"0.8em",color:"#0f1419"}}>コメント ({localComments.length})</div>
-            <div style={{flex:1,overflowY:"auto",padding:"10px 12px"}}>
-              {localComments.length===0&&<div style={{fontSize:"0.78em",color:"#ccc",textAlign:"center",paddingTop:20}}>コメントなし</div>}
-              {localComments.map((c,i)=>(
-                <div key={i} style={{background:"#fff",border:"1px solid #e8e0d6",borderRadius:8,padding:"7px 10px",marginBottom:7}}>
-                  <div style={{fontSize:"0.8em",color:"#444",lineHeight:1.5}}>{typeof c==="string"?c:c.text}</div>
-                  {c.at&&<div style={{fontSize:"0.68em",color:"#aaa",marginTop:3}}>{new Date(c.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>}
-                </div>
-              ))}
+          {/* 右サイドパネル：メモ・リンク・コメント */}
+          <div style={{width:280,borderLeft:"1px solid #e8e0d6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
+
+            {/* メモ */}
+            <div style={{padding:"12px 14px",borderBottom:"1px solid #e8e0d6"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>📝 メモ</div>
+              <textarea value={memo} onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}} rows={4}
+                placeholder="執筆の意図・注意点など"
+                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.6,background:"#fff"}}
+                onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
             </div>
-            <div style={{padding:"10px 12px",borderTop:"1px solid #e8e0d6",flexShrink:0}}>
-              <div style={{display:"flex",gap:5}}>
-                <input value={cmt} onChange={e=>setCmt(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addComment();}}
-                  placeholder="コメントを追加…"
-                  style={{flex:1,background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.78em",outline:"none",fontFamily:"inherit"}}
+
+            {/* リンク */}
+            <div style={{padding:"12px 14px",borderBottom:"1px solid #e8e0d6"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>🔗 リンク</div>
+              {memoLinks.length>0&&(
+                <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:8}}>
+                  {memoLinks.map((l,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:5,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"4px 8px"}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        {l.label&&<div style={{fontSize:"0.68em",fontWeight:700,color:"#0369a1"}}>{l.label}</div>}
+                        <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.68em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
+                      </div>
+                      <button onClick={()=>{setMemoLinks(prev=>prev.filter((_,j)=>j!==i));setMetaDirty(true);}}
+                        style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input value={labelInput} onChange={e=>setLabelInput(e.target.value)} placeholder="ラベル（任意）"
+                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:4,background:"#fff"}}
+                onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+              <div style={{display:"flex",gap:4}}>
+                <input value={linkInput} onChange={e=>setLinkInput(e.target.value)} placeholder="URLを貼り付け"
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addLink();}}
+                  onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
+                  style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff"}}
                   onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-                <button onClick={addComment} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 10px",fontSize:"0.78em",fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>追加</button>
+                <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
+                  style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",flexShrink:0}}>
+                  ＋
+                </button>
               </div>
+            </div>
+
+            {/* 保存ボタン */}
+            {metaDirty&&(
+              <div style={{padding:"10px 14px",borderBottom:"1px solid #e8e0d6"}}>
+                <button onClick={saveMeta}
+                  style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+                  メモ・リンクを保存
+                </button>
+              </div>
+            )}
+
+            {/* コメント（折りたたみ） */}
+            <div style={{padding:"10px 14px"}}>
+              <button onClick={()=>setShowComments(v=>!v)}
+                style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",border:"none",background:"none",cursor:"pointer",fontFamily:"inherit",padding:0}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#888"}}>💬 コメント ({localComments.length})</span>
+                <span style={{fontSize:10,color:"#bbb"}}>{showComments?"▲":"▼"}</span>
+              </button>
+              {showComments&&(
+                <div style={{marginTop:8}}>
+                  {localComments.length===0&&<div style={{fontSize:"0.75em",color:"#ccc",textAlign:"center",padding:"10px 0"}}>コメントなし</div>}
+                  {localComments.map((c,i)=>(
+                    <div key={i} style={{background:"#fff",border:"1px solid #e8e0d6",borderRadius:7,padding:"6px 9px",marginBottom:5}}>
+                      <div style={{fontSize:"0.75em",color:"#444",lineHeight:1.5}}>{typeof c==="string"?c:c.text}</div>
+                      {c.at&&<div style={{fontSize:"0.65em",color:"#aaa",marginTop:2}}>{new Date(c.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>}
+                    </div>
+                  ))}
+                  <div style={{display:"flex",gap:5,marginTop:6}}>
+                    <input value={cmt} onChange={e=>setCmt(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addComment();}}
+                      placeholder="コメントを追加…"
+                      style={{flex:1,background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:7,padding:"6px 8px",fontSize:"0.73em",outline:"none",fontFamily:"inherit"}}
+                      onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+                    <button onClick={addComment} style={{background:"#f59e0b",border:"none",borderRadius:7,padding:"6px 9px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>追加</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1064,11 +1148,21 @@ function App({uid}){
     showToast("削除しました 🗑️");
   },[activeAccId,showToast]);
 
-  const changeStatus=React.useCallback(async(id,s)=>{
-    const{error}=await supabase.from("posts").update({status:s}).eq("id",id);
+  const changeStatus=React.useCallback(async(id,s,score)=>{
+    const update={status:s};
+    if(score!==undefined)update.score=score;
+    const{error}=await supabase.from("posts").update(update).eq("id",id);
     if(error){showToast("更新に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,status:s}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,status:s}:prev);
+    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...update}:p)}));
+    setPreview(prev=>prev&&prev.id===id?{...prev,...update}:prev);
+  },[activeAccId,showToast]);
+
+  const saveMeta=React.useCallback(async(id,{memo,memoLinks})=>{
+    const{error}=await supabase.from("posts").update({memo,memo_links:memoLinks}).eq("id",id);
+    if(error){showToast("保存に失敗しました");return;}
+    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,memo,memoLinks}:p)}));
+    setPreview(prev=>prev&&prev.id===id?{...prev,memo,memoLinks}:prev);
+    showToast("メモ・リンクを保存しました ✅");
   },[activeAccId,showToast]);
 
   const saveComment=React.useCallback(async(id,comments)=>{
@@ -1466,12 +1560,13 @@ function App({uid}){
                             <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:1}}>
                               <span style={{width:5,height:5,borderRadius:"50%",background:pt2.dot,flexShrink:0}}/>
                               <span style={{fontSize:9,color:"#888"}}>{fmtTime(p.datetime)}</span>
+                              {p.score&&<span style={{fontSize:8,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
                             </div>
                             <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3}}>{(p.title||"（タイトルなし）").slice(0,12)}{(p.title||"").length>12?"…":""}</div>
-                            <div style={{display:"flex",gap:3,marginTop:1,flexWrap:"wrap"}}>
-                              <span style={{fontSize:8,color:pt2.color,fontWeight:700,background:pt2.bg,padding:"0 4px",borderRadius:6}}>{pt2.label}</span>
-                              {st2&&<span style={{fontSize:8,color:st2.text,background:st2.chip,border:`1px solid ${st2.border}`,padding:"0 4px",borderRadius:6,fontWeight:600}}>{st2.label}</span>}
-                            </div>
+                            <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
+                              style={{marginTop:2,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:4,padding:"1px 3px",fontSize:8,fontWeight:600,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                            </select>
                           </div>
                         );
                       })}
@@ -1637,7 +1732,8 @@ function App({uid}){
         onDuplicate={handleDuplicate}
         onDelete={p=>setDeleteConfirm(p)}
         onSaveComment={saveComment}
-        onChangeStatus={changeStatus}/>}
+        onChangeStatus={changeStatus}
+        onSaveMeta={saveMeta}/>}
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
@@ -1878,7 +1974,11 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                         <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
                           <span style={{fontSize:10,color:"#888"}}>{p.datetime.slice(11,16)}</span>
                           <span style={{fontSize:9,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 5px",borderRadius:6,marginLeft:2}}>{pt2.label}</span>
-                          {st2&&<span style={{fontSize:9,color:st2.text,background:st2.chip,border:`1px solid ${st2.border}`,padding:"0 5px",borderRadius:6,fontWeight:600,marginLeft:"auto"}}>{st2.label}</span>}
+                          {p.score&&<span style={{fontSize:9,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:4,padding:"0 5px"}}>{p.score}</span>}
+                          <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
+                            style={{marginLeft:"auto",border:`1px solid ${st2?.border}`,borderRadius:6,padding:"1px 4px",fontSize:9,fontWeight:600,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                            {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                          </select>
                         </div>
                         <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,22)}{(p.title||"").length>22?"…":""}</div>
                         {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",borderRadius:4,padding:"2px 6px",marginBottom:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
