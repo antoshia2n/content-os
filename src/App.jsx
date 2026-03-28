@@ -432,6 +432,29 @@ function MemoEditor({memo,memoLinks,onChange}){
         onCompositionEnd={()=>{composing.current=false;}}
         onKeyDown={e=>{
           if(composing.current)return;
+          if(e.key==="Tab"){
+            e.preventDefault();
+            const el=e.currentTarget;
+            const start=el.selectionStart,end=el.selectionEnd;
+            const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
+            const lineEnd=memo.indexOf("\n",start);
+            const line=memo.slice(lineStart,lineEnd===-1?undefined:lineEnd);
+            if(line.trimStart().startsWith("・")){
+              // 行頭に全角スペースを追加（インデント）
+              const indent=e.shiftKey?"":"　";
+              const dedent=e.shiftKey&&line.startsWith("　");
+              const newLine=dedent?line.slice(1):indent+line;
+              const next=memo.slice(0,lineStart)+newLine+memo.slice(lineEnd===-1?memo.length:lineEnd);
+              onChange({memo:next,memoLinks:links});
+              const diff=dedent?-1:indent.length;
+              setTimeout(()=>{el.focus();el.setSelectionRange(start+diff,start+diff);},0);
+            } else {
+              const next=memo.slice(0,start)+"　"+memo.slice(end);
+              onChange({memo:next,memoLinks:links});
+              setTimeout(()=>{el.focus();el.setSelectionRange(start+1,start+1);},0);
+            }
+            return;
+          }
           if(e.key==="Enter"){
             const el=e.currentTarget;
             const start=el.selectionStart;
@@ -980,6 +1003,27 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"}
                 onKeyDown={e=>{
                   if(memoComposing.current)return;
+                  if(e.key==="Tab"){
+                    e.preventDefault();
+                    const el=e.currentTarget;
+                    const start=el.selectionStart,end=el.selectionEnd;
+                    const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
+                    const lineEnd=memo.indexOf("\n",start);
+                    const line=memo.slice(lineStart,lineEnd===-1?undefined:lineEnd);
+                    if(line.trimStart().startsWith("・")){
+                      const dedent=e.shiftKey&&line.startsWith("　");
+                      const newLine=dedent?line.slice(1):"　"+line;
+                      const next=memo.slice(0,lineStart)+newLine+memo.slice(lineEnd===-1?memo.length:lineEnd);
+                      setMemo(next);setMetaDirty(true);
+                      const diff=dedent?-1:1;
+                      setTimeout(()=>{el.focus();el.setSelectionRange(start+diff,start+diff);},0);
+                    } else {
+                      const next=memo.slice(0,start)+"　"+memo.slice(end);
+                      setMemo(next);setMetaDirty(true);
+                      setTimeout(()=>{el.focus();el.setSelectionRange(start+1,start+1);},0);
+                    }
+                    return;
+                  }
                   if(e.key==="Enter"){
                     const el=e.currentTarget;
                     const start=el.selectionStart;
