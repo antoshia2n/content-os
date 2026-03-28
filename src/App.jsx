@@ -785,7 +785,7 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
   const [showComments,setShowComments]=useState(false);
@@ -794,6 +794,8 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   const [linkInput,setLinkInput]=useState("");
   const [labelInput,setLabelInput]=useState("");
   const [metaDirty,setMetaDirty]=useState(false);
+  const [sideW,setSideW]=useState(280);
+  const dragging=useRef(false);
   const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
   const st=STATUS[post.status];
   const sc=SCORE[post.score];
@@ -808,6 +810,17 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
     const h=e=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[]);
+
+  // サイドバーリサイズ
+  const startResize=e=>{
+    e.preventDefault();
+    dragging.current=true;
+    const startX=e.clientX,startW=sideW;
+    const onMove=e=>{if(dragging.current)setSideW(Math.max(200,Math.min(520,startW+(startX-e.clientX))));};
+    const onUp=()=>{dragging.current=false;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);};
+    window.addEventListener("mousemove",onMove);
+    window.addEventListener("mouseup",onUp);
+  };
 
   const addComment=()=>{
     if(!cmt.trim())return;
@@ -825,6 +838,20 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
     setLinkInput("");setLabelInput("");setMetaDirty(true);
   };
 
+  // メモ箇条書き挿入
+  const memoRef=useRef(null);
+  const insertBullet=()=>{
+    const el=memoRef.current;if(!el)return;
+    const start=el.selectionStart,end=el.selectionEnd;
+    const before=memo.slice(0,start),after=memo.slice(end);
+    const lineStart=before.lastIndexOf("\n")+1;
+    const linePrefix=before.slice(lineStart);
+    const insert=linePrefix.startsWith("・")?"":"\n・";
+    const next=before+(start===0?"・":insert)+after;
+    setMemo(next);setMetaDirty(true);
+    setTimeout(()=>{el.focus();const pos=start+(start===0?1:insert.length);el.setSelectionRange(pos,pos);},0);
+  };
+
   const handleSaveMeta=()=>{
     onSaveMeta(post.id,{memo,memoLinks});
     setMetaDirty(false);
@@ -833,16 +860,20 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:860,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
+      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:900,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
 
         {/* ヘッダー */}
         <div style={{padding:"12px 18px",borderBottom:"1px solid #e8e0d6",background:pt.bg,display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
-          <div style={{flex:1}}>
+          <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-              <span style={{fontSize:11,color:pt.color,fontWeight:700,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 8px",borderRadius:10}}>{pt.label}</span>
+              {/* 投稿種類変更 */}
+              <select value={post.postType||"x_post"} onChange={e=>onChangePostType(post.id,e.target.value)}
+                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
               <span style={{fontSize:11,color:"#888"}}>{post.datetime.replace("T"," ")}</span>
               {/* スコア */}
-              <div style={{display:"flex",gap:3,marginLeft:4}}>
+              <div style={{display:"flex",gap:3}}>
                 {Object.entries(SCORE).map(([k,v])=>(
                   <button key={k} onClick={()=>onChangeStatus(post.id,post.status,k)}
                     style={{width:22,height:22,borderRadius:5,border:"none",background:post.score===k?v.bg:"#e8e0d6",color:post.score===k?v.color:"#999",fontSize:10,fontWeight:800,cursor:"pointer",transition:"all .1s"}}>
@@ -853,10 +884,9 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                   style={{width:22,height:22,borderRadius:5,border:"none",background:"none",color:"#bbb",fontSize:10,cursor:"pointer"}}>×</button>}
               </div>
             </div>
-            <div style={{fontSize:20,fontWeight:800,color:"#0f1419",lineHeight:1.3}}>{post.title||"（タイトルなし）"}</div>
+            <div style={{fontSize:18,fontWeight:800,color:"#0f1419",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{post.title||"（タイトルなし）"}</div>
           </div>
           <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
-            {/* ステータス変更 */}
             <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value,post.score)}
               style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
               {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -879,15 +909,40 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
             <div className="xb" dangerouslySetInnerHTML={{__html:post.body||"<p style='color:#aaa'>本文はまだありません</p>"}}/>
           </div>
 
-          {/* 右サイドパネル：メモ・リンク・コメント */}
-          <div style={{width:280,borderLeft:"1px solid #e8e0d6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
+          {/* リサイズハンドル */}
+          <div onMouseDown={startResize}
+            style={{width:5,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .1s"}}
+            onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
+
+          {/* 右サイドパネル */}
+          <div style={{width:sideW,borderLeft:"1px solid #e8e0d6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
 
             {/* メモ */}
             <div style={{padding:"12px 14px",borderBottom:"1px solid #e8e0d6"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>📝 メモ</div>
-              <textarea value={memo} onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}} rows={4}
-                placeholder="執筆の意図・注意点など"
-                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.6,background:"#fff"}}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#888"}}>📝 メモ</span>
+                <button onClick={insertBullet} title="箇条書きを挿入"
+                  style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:"#555",cursor:"pointer",fontFamily:"inherit"}}>
+                  ・ 箇条書き
+                </button>
+              </div>
+              <textarea ref={memoRef} value={memo} onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}} rows={5}
+                placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"}
+                onKeyDown={e=>{
+                  if(e.key==="Enter"&&!e.isComposing){
+                    const el=e.currentTarget;
+                    const start=el.selectionStart;
+                    const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
+                    if(memo.slice(lineStart,lineStart+1)==="・"){
+                      e.preventDefault();
+                      const next=memo.slice(0,start)+"\n・"+memo.slice(start);
+                      setMemo(next);setMetaDirty(true);
+                      setTimeout(()=>{el.focus();el.setSelectionRange(start+2,start+2);},0);
+                    }
+                  }
+                }}
+                style={{width:"100%",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.7,background:"#fff"}}
                 onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
             </div>
 
@@ -918,9 +973,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                   style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontFamily:"inherit",outline:"none",boxSizing:"border-box",background:"#fff"}}
                   onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
                 <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
-                  style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",flexShrink:0}}>
-                  ＋
-                </button>
+                  style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 8px",fontSize:"0.73em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",fontFamily:"inherit",flexShrink:0}}>＋</button>
               </div>
             </div>
 
@@ -1156,6 +1209,13 @@ function App({uid}){
     if(error){showToast("更新に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...update}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,...update}:prev);
+  },[activeAccId,showToast]);
+
+  const changePostType=React.useCallback(async(id,postType)=>{
+    const{error}=await supabase.from("posts").update({post_type:postType}).eq("id",id);
+    if(error){showToast("更新に失敗しました");return;}
+    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,postType}:p)}));
+    setPreview(prev=>prev&&prev.id===id?{...prev,postType}:prev);
   },[activeAccId,showToast]);
 
   const saveMeta=React.useCallback(async(id,{memo,memoLinks})=>{
@@ -1440,47 +1500,56 @@ function App({uid}){
         <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
           <button onClick={()=>setShowSearch(true)}
             style={{display:"flex",alignItems:"center",gap:4,border:"1.5px solid #e0d8ce",background:"#f7f9f9",borderRadius:20,padding:"5px 11px",fontSize:12,color:"#888",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-            🔍 検索<span style={{fontSize:10,color:"#ccc",background:"#fff",border:"1px solid #e0d8ce",borderRadius:4,padding:"1px 5px",marginLeft:2}}>⌘K</span>
+            🔍<span style={{fontSize:10,color:"#ccc",background:"#fff",border:"1px solid #e0d8ce",borderRadius:4,padding:"1px 5px",marginLeft:2}}>⌘K</span>
           </button>
           <div style={{display:"flex",background:"#f2ede6",borderRadius:9,padding:3,gap:2,flexShrink:0}}>
-            {[["calendar","カレンダー"],["month","マンスリー"],["list","リスト"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setView(v)} style={{padding:"5px 11px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#1a1a1a":"#aaa",boxShadow:view===v?"0 1px 4px #0000001a":"none",whiteSpace:"nowrap",fontFamily:"inherit"}}>{l}</button>
+            {[["calendar","週"],["month","月"],["list","リスト"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setView(v)} style={{padding:"5px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#1a1a1a":"#aaa",boxShadow:view===v?"0 1px 4px #0000001a":"none",whiteSpace:"nowrap",fontFamily:"inherit"}}>{l}</button>
             ))}
           </div>
           {isAdmin&&(
             <>
-              {/* ⑨ 未投稿アラートバッジ */}
               {overdueCount>0&&(
                 <div style={{display:"flex",alignItems:"center",gap:4,background:"#fef2f2",border:"1.5px solid #fca5a5",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0}}
                   title={`予約済みで期限切れの投稿が${overdueCount}件あります`}
                   onClick={()=>setFilter("reserved")}>
-                  ⚠️ {overdueCount}件 未投稿
+                  ⚠️ {overdueCount}件
                 </div>
               )}
-              <Btn onClick={()=>setShowSlotSettings(true)}>予約枠</Btn>
-              <Btn onClick={()=>setShowNotifySettings(true)}>🔔 通知</Btn>
-              <Btn onClick={()=>setShowExport(true)}>💾 保存</Btn>
-              <Btn onClick={()=>setShowAccountSettings(true)}>設定</Btn>
+              {/* 設定まとめドロップダウン */}
               <div ref={shareRef} style={{position:"relative"}}>
-                <Btn onClick={()=>setShowShare(s=>!s)}>共有</Btn>
+                <Btn onClick={()=>setShowShare(s=>!s)}>⚙️ 設定 ▾</Btn>
                 {showShare&&(
-                  <div style={{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",border:"1.5px solid #e8e0d6",borderRadius:12,padding:16,zIndex:100,width:300,boxShadow:"0 8px 24px #0000001a"}}>
-                    <div style={{fontSize:13,fontWeight:800,marginBottom:6}}>クライアント共有リンク</div>
-                    <div style={{fontSize:12,color:"#888",marginBottom:12,lineHeight:1.6}}>リンクを送ると編集・コメント・投稿が可能です。</div>
-                    {accounts.map(acc=>(
-                      <div key={acc.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 10px",background:"#faf7f3",borderRadius:8,border:"1px solid #e8e0d6"}}>
-                        <span style={{width:7,height:7,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
-                        <span style={{fontSize:13,fontWeight:700,flex:1}}>{acc.name}</span>
-                        <button onClick={()=>copyShareLink(acc.id)} style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer"}}>コピー</button>
-                      </div>
+                  <div style={{position:"absolute",right:0,top:"calc(100% + 8px)",background:"#fff",border:"1.5px solid #e8e0d6",borderRadius:12,padding:8,zIndex:100,width:220,boxShadow:"0 8px 24px #0000001a",display:"flex",flexDirection:"column",gap:2}}>
+                    {[
+                      ["📅 予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
+                      ["🔔 通知",()=>{setShowNotifySettings(true);setShowShare(false);}],
+                      ["💾 ローカル保存",()=>{setShowExport(true);setShowShare(false);}],
+                      ["👥 クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
+                    ].map(([label,fn])=>(
+                      <button key={label} onClick={fn}
+                        style={{border:"none",background:"none",borderRadius:8,padding:"9px 12px",fontSize:12,fontWeight:600,color:"#333",cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"background .1s"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f7f9f9"}
+                        onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                        {label}
+                      </button>
                     ))}
-                    <Btn onClick={()=>setShowShare(false)} style={{width:"100%",marginTop:4}}>閉じる</Btn>
+                    <div style={{borderTop:"1px solid #e8e0d6",marginTop:4,paddingTop:6}}>
+                      <div style={{fontSize:11,color:"#aaa",fontWeight:700,padding:"2px 12px 6px"}}>共有リンク</div>
+                      {accounts.map(acc=>(
+                        <div key={acc.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px"}}>
+                          <span style={{width:7,height:7,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
+                          <span style={{fontSize:12,fontWeight:700,flex:1}}>{acc.name}</span>
+                          <button onClick={()=>{copyShareLink(acc.id);setShowShare(false);}} style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>コピー</button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             </>
           )}
-          <button onClick={()=>openNew()} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"7px 15px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>＋ 新規作成</button>
+          <button onClick={()=>openNew()} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"7px 15px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>＋ 新規</button>
         </div>
       </div>
 
@@ -1568,7 +1637,7 @@ function App({uid}){
                             </div>
                             <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3}}>{(p.title||"（タイトルなし）").slice(0,12)}{(p.title||"").length>12?"…":""}</div>
                             <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
-                              style={{marginTop:2,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:4,padding:"1px 3px",fontSize:8,fontWeight:600,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                              style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:10,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                               {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                             </select>
                           </div>
@@ -1738,7 +1807,8 @@ function App({uid}){
         onDelete={p=>setDeleteConfirm(p)}
         onSaveComment={saveComment}
         onChangeStatus={changeStatus}
-        onSaveMeta={saveMeta}/>}
+        onSaveMeta={saveMeta}
+        onChangePostType={changePostType}/>}
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
