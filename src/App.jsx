@@ -736,6 +736,7 @@ function EditorModal({post,onSave,onClose}){
           <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
             style={{border:"1.5px solid #e0d8ce",borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
           <div style={{flex:1}}/>
+          {/* Notion連携はCloudflare移行に伴い一時無効化
           <button onClick={saveToNotion} disabled={notionState==="saving"}
             style={{
               background:notionState==="done"?"#00ba7c":notionState==="error"?"#ef4444":notionState==="saving"?"#9ca3af":"#000",
@@ -748,6 +749,7 @@ function EditorModal({post,onSave,onClose}){
               Notionに保存
             </>}
           </button>
+          */}
           <button onClick={saveLocalFile}
             style={{
               background:localState==="done"?"#00ba7c":localState==="error"?"#ef4444":"#4b5563",
