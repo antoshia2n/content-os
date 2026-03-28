@@ -824,7 +824,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
     setLinkInput("");setLabelInput("");setMetaDirty(true);
   };
 
-  const saveMeta=()=>{
+  const handleSaveMeta=()=>{
     onSaveMeta(post.id,{memo,memoLinks});
     setMetaDirty(false);
   };
@@ -926,7 +926,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
             {/* 保存ボタン */}
             {metaDirty&&(
               <div style={{padding:"10px 14px",borderBottom:"1px solid #e8e0d6"}}>
-                <button onClick={saveMeta}
+                <button onClick={handleSaveMeta}
                   style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
                   メモ・リンクを保存
                 </button>
@@ -1122,6 +1122,7 @@ function App({uid}){
       memo_links:p.memoLinks||[],
       comments:p.comments||[],
       history:p.history||[],
+      score:p.score||null,
     };
     const{error}=await supabase.from("posts").upsert(record);
     if(error){showToast("保存に失敗しました");return false;}
@@ -1149,8 +1150,7 @@ function App({uid}){
   },[activeAccId,showToast]);
 
   const changeStatus=React.useCallback(async(id,s,score)=>{
-    const update={status:s};
-    if(score!==undefined)update.score=score;
+    const update={status:s,score:score!==undefined?score:null};
     const{error}=await supabase.from("posts").update(update).eq("id",id);
     if(error){showToast("更新に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...update}:p)}));
@@ -1250,12 +1250,15 @@ function App({uid}){
       .then(({data})=>setSlots(data||[]));
   },[activeAccId,uid]);
 
+  const slotsRef=useRef(slots);
+  useEffect(()=>{slotsRef.current=slots;},[slots]);
+
   const saveSlots=React.useCallback(async(next)=>{
-    const resolved=typeof next==="function"?next(slots):next;
+    const prev=slotsRef.current;
+    const resolved=typeof next==="function"?next(prev):next;
     setSlots(resolved);
     if(!activeAccId||!uid)return;
-    // 差分計算：削除分をdelete、追加・更新分をupsert
-    const prevIds=new Set(slots.map(s=>s.id));
+    const prevIds=new Set(prev.map(s=>s.id));
     const nextIds=new Set(resolved.map(s=>s.id));
     const deleted=[...prevIds].filter(id=>!nextIds.has(id));
     if(deleted.length>0)
@@ -1264,7 +1267,7 @@ function App({uid}){
       await supabase.from("slots").upsert(
         resolved.map(s=>({...s,account_id:activeAccId,user_id:uid}))
       );
-  },[activeAccId,uid,slots]);
+  },[activeAccId,uid]);
 
   // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
   const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
@@ -1654,6 +1657,7 @@ function App({uid}){
           setRepostTgt={setRepostTgt}
           openNew={openNew}
           slots={slots}
+          changeStatus={changeStatus}
         />
       )}
 
@@ -1847,7 +1851,8 @@ function MonthView({posts,today,slots,openNew,setPreview}){
                           style={{display:"flex",alignItems:"center",gap:3,background:pt.bg,border:`1px solid ${pt.border}`,borderLeft:`3px solid ${pt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",overflow:"hidden"}}
                           onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
                           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                          <span style={{fontSize:8,color:pt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.title||"（無題）"}</span>
+                          <span style={{fontSize:8,color:pt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{p.title||"（無題）"}</span>
+                          {p.score&&<span style={{fontSize:7,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",flexShrink:0}}>{p.score}</span>}
                         </div>
                       );
                     })}
@@ -1876,7 +1881,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
   );
 }
 
-function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots}){
+function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus}){
   const [showSlots,setShowSlots]=useState(true);
   const byDate=React.useMemo(()=>{
     const m={};
