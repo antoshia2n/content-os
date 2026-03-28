@@ -394,17 +394,57 @@ function fallbackCopy(plain,onDone){
 function MemoEditor({memo,memoLinks,onChange}){
   const [linkInput,setLinkInput]=useState("");
   const [labelInput,setLabelInput]=useState("");
-  // 後方互換：文字列 or {label,url} オブジェクト
+  const textareaRef=useRef(null);
+  const composing=useRef(false);
   const links=(memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l);
+
   const addLink=()=>{
     const url=linkInput.trim();
     if(!isUrl(url))return;
     onChange({memo,memoLinks:[...links,{label:labelInput.trim(),url}]});
     setLinkInput("");setLabelInput("");
   };
+
+  const insertBullet=()=>{
+    const el=textareaRef.current;if(!el)return;
+    const start=el.selectionStart,end=el.selectionEnd;
+    const before=memo.slice(0,start),after=memo.slice(end);
+    const lineStart=before.lastIndexOf("\n")+1;
+    const linePrefix=before.slice(lineStart);
+    const insert=linePrefix.startsWith("・")?"":"\n・";
+    const next=before+(start===0?"・":insert)+after;
+    onChange({memo:next,memoLinks:links});
+    setTimeout(()=>{el.focus();const pos=start+(start===0?1:insert.length);el.setSelectionRange(pos,pos);},0);
+  };
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:7}}>
-      <textarea value={memo} onChange={e=>onChange({memo:e.target.value,memoLinks:links})} placeholder="執筆の意図・注意点など" rows={4}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+        <span style={{fontSize:"0.7em",fontWeight:700,color:"#888"}}>メモ</span>
+        <button onClick={insertBullet}
+          style={{border:"1px solid #e0d8ce",background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:"0.68em",fontWeight:700,color:"#555",cursor:"pointer",fontFamily:"inherit"}}>
+          ・ 箇条書き
+        </button>
+      </div>
+      <textarea ref={textareaRef} value={memo}
+        onChange={e=>onChange({memo:e.target.value,memoLinks:links})}
+        onCompositionStart={()=>{composing.current=true;}}
+        onCompositionEnd={()=>{composing.current=false;}}
+        onKeyDown={e=>{
+          if(composing.current)return;
+          if(e.key==="Enter"){
+            const el=e.currentTarget;
+            const start=el.selectionStart;
+            const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
+            if(memo.slice(lineStart,lineStart+1)==="・"){
+              e.preventDefault();
+              const next=memo.slice(0,start)+"\n・"+memo.slice(start);
+              onChange({memo:next,memoLinks:links});
+              setTimeout(()=>{el.focus();el.setSelectionRange(start+2,start+2);},0);
+            }
+          }
+        }}
+        placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"} rows={4}
         style={{width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",lineHeight:1.7}}
         onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
       {links.length>0&&(
@@ -429,7 +469,7 @@ function MemoEditor({memo,memoLinks,onChange}){
         <div style={{display:"flex",gap:4}}>
           <input value={linkInput} onChange={e=>setLinkInput(e.target.value)}
             placeholder="URLをペースト → 追加"
-            onKeyDown={e=>{if(e.key==="Enter"&&!e.isComposing)addLink();}}
+            onKeyDown={e=>{if(!composing.current&&e.key==="Enter")addLink();}}
             onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
             style={{flex:1,border:"1.5px solid #e0d8ce",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
