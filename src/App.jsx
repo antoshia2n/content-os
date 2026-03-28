@@ -908,8 +908,9 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
               {/* 投稿種類変更 */}
-              <select value={post.postType||"x_post"} onChange={e=>onChangePostType(post.id,e.target.value)}
-                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+              <select value={post.postType||"x_post"} onChange={e=>!post._unsaved&&onChangePostType(post.id,e.target.value)}
+                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:post._unsaved?"default":"pointer",fontFamily:"inherit",outline:"none",opacity:post._unsaved?0.6:1}}
+                disabled={!!post._unsaved}>
                 {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
               <span style={{fontSize:11,color:"#888"}}>{post.datetime.replace("T"," ")}</span>
@@ -928,17 +929,20 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
             <div style={{fontSize:18,fontWeight:800,color:"#0f1419",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{post.title||"（タイトルなし）"}</div>
           </div>
           <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
-            <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value,post.score)}
-              style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <button onClick={()=>onEdit(post)} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ 編集</button>
-            <button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>
-            <button onClick={()=>onRepost(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>
-            <button onClick={()=>onDelete(post)} style={{background:"none",border:"1.5px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️</button>
+            {post._unsaved&&<span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:10,padding:"2px 8px"}}>新規</span>}
+            {!post._unsaved&&(
+              <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value,post.score)}
+                style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
+            )}
+            <button onClick={()=>onEdit(post)} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ {post._unsaved?"編集して作成":"編集"}</button>
+            {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>}
+            {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>}
+            {!post._unsaved&&<button onClick={()=>onDelete(post)} style={{background:"none",border:"1.5px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️</button>}
             <button onClick={onClose} style={{background:"none",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
           </div>
         </div>
@@ -1024,7 +1028,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
             </div>
 
             {/* 保存ボタン */}
-            {metaDirty&&(
+            {metaDirty&&!post._unsaved&&(
               <div style={{padding:"10px 14px",borderBottom:"1px solid #e8e0d6"}}>
                 <button onClick={handleSaveMeta}
                   style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
@@ -1346,7 +1350,8 @@ function App({uid}){
       .catch(()=>showToast("コピー完了"));
   },[showToast]);
   const openNew=React.useCallback((datetime,{title="",postType="x_post"}={})=>{
-    setEditing({id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[]});
+    const newPost={id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[],_unsaved:true};
+    setPreview(newPost);
   },[today]);
 
   // 予約枠 — Supabaseで user_id + account_id ごとに管理
