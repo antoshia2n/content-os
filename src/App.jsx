@@ -1,5 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "./supabase.js";
+import { auth, db, googleProvider } from "./firebase.js";
+import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+
+// ── ポータル連携設定 ──────────────────────────────────
+const PORTAL_APP_ID  = "content-os";
+const PORTAL_URL     = "https://portal.shia2n.jp";
 
 // ── 定数 ──────────────────────────────────────────────
 const POST_TYPE = {
@@ -946,7 +953,7 @@ function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
 // ════════════════════════════════════════════════════════
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 
-export default function App(){
+function App(){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
@@ -2346,3 +2353,68 @@ function Btn({children,onClick,primary,danger,style}){
   return<button onClick={onClick} style={{border:"1.5px solid",borderRadius:8,padding:"6px 13px",cursor:"pointer",fontSize:12,fontWeight:700,transition:"opacity 0.1s",...t,...style,fontFamily:"inherit"}} onMouseEnter={e=>e.currentTarget.style.opacity=".82"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
 }
 const INP={width:"100%",background:"#fff",border:"1.5px solid #e0d8ce",borderRadius:8,padding:"7px 10px",color:"#1a1a1a",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"};
+// ════════════════════════════════════════════════════════
+// PortalAuthWrapper — Firebase認証 + Firestore権限チェック
+// ════════════════════════════════════════════════════════
+function PortalAuthWrapper({children}){
+  const [state,setState]=useState("loading"); // loading | allowed | denied | unauthed
+
+  useEffect(()=>{
+    const unsub=onAuthStateChanged(auth,async user=>{
+      if(!user){setState("unauthed");return;}
+      try{
+        const snap=await getDoc(doc(db,"users",user.uid));
+        if(!snap.exists()){setState("denied");return;}
+        const d=snap.data();
+        const isAdmin=d.role==="admin";
+        const isPaid =d.paymentStatus==="paid"&&(d.allowedApps||[]).includes(PORTAL_APP_ID);
+        setState(isAdmin||isPaid?"allowed":"denied");
+      }catch(e){
+        console.error(e);
+        setState("denied");
+      }
+    });
+    return()=>unsub();
+  },[]);
+
+  if(state==="loading") return(
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans',sans-serif"}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:20,fontWeight:900,marginBottom:8}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:13,color:"#aaa"}}>認証情報を確認中…</div>
+      </div>
+    </div>
+  );
+
+  if(state==="unauthed") return(
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f2ede6",fontFamily:"'Hiragino Sans',sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:18,padding:"40px 48px",textAlign:"center",boxShadow:"0 8px 32px #0002",maxWidth:360,width:"100%"}}>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:6}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:13,color:"#aaa",marginBottom:28}}>ログインが必要です</div>
+        <button
+          onClick={()=>signInWithPopup(auth,googleProvider).catch(console.error)}
+          style={{display:"flex",alignItems:"center",gap:10,margin:"0 auto",border:"1.5px solid #e0d8ce",borderRadius:12,padding:"11px 22px",fontSize:14,fontWeight:700,cursor:"pointer",background:"#fff",fontFamily:"inherit",color:"#1a1a1a"}}>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Googleでログイン
+        </button>
+        <a href={PORTAL_URL} style={{display:"block",marginTop:20,fontSize:11,color:"#aaa",textDecoration:"none"}}>ポータルサイトへ戻る →</a>
+      </div>
+    </div>
+  );
+
+  if(state==="denied"){
+    window.location.href=PORTAL_URL;
+    return null;
+  }
+
+  return children;
+}
+
+// ── ポータル認証付きエクスポート ──
+export default function AppWithAuth(){
+  return(
+    <PortalAuthWrapper>
+      <App/>
+    </PortalAuthWrapper>
+  );
+}
