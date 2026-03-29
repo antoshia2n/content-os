@@ -637,7 +637,19 @@ function EditorModal({post,onSave,onClose}){
   const [localState,setLocalState]=useState("idle");   // idle | done | error
   const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
   const [sidePanel,setSidePanel]=useState(null);
+  const [sideW,setSideW]=useState(248);
+  const dragging=useRef(false);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null);
+
+  const startResize=e=>{
+    e.preventDefault();
+    dragging.current=true;
+    const startX=e.clientX,startW=sideW;
+    const onMove=e=>{if(dragging.current)setSideW(Math.max(180,Math.min(520,startW+(startX-e.clientX))));};
+    const onUp=()=>{dragging.current=false;window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);};
+    window.addEventListener("mousemove",onMove);
+    window.addEventListener("mouseup",onUp);
+  };
 
   useEffect(()=>{
     const h=e=>{if(e.key==="Escape"&&!insertOpen)onClose();};
@@ -793,7 +805,13 @@ function EditorModal({post,onSave,onClose}){
 
           {/* サイドパネル展開 */}
           {sidePanel&&(
-            <div style={{width:248,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+            <>
+              {/* リサイズハンドル */}
+              <div onMouseDown={startResize}
+                style={{width:5,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .1s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
+              <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               <div style={{padding:"11px 13px 9px",borderBottom:"1px solid #e6dfd6",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>{sidePanel==="meta"?"設定":sidePanel==="history"?"編集履歴":"共有"}</span>
                 <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>✕</button>
@@ -840,6 +858,7 @@ function EditorModal({post,onSave,onClose}){
                 )}
               </div>
             </div>
+            </>
           )}
         </div>
       </div>
