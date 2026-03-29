@@ -806,9 +806,9 @@ function EditorModal({post,onSave,onClose}){
           {/* サイドパネル展開 */}
           {sidePanel&&(
             <>
-              {/* リサイズハンドル */}
+              {/* リサイズハンドル（アイコン列とパネルの境界） */}
               <div onMouseDown={startResize}
-                style={{width:5,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .1s"}}
+                style={{width:4,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .15s"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
               <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
@@ -1301,24 +1301,25 @@ function App({uid}){
 
   // ── DB保存（内部共通） ──
   const saveToDb=React.useCallback(async(p)=>{
+    const {_unsaved,...cleanP}=p; // _unsavedフラグをstate・DBから除去
     const record={
-      id:p.id,account_id:activeAccId,
-      title:p.title,status:p.status,
-      post_type:p.postType||"x_post",
-      datetime:p.datetime,
-      body:p.body||"",
-      memo:p.memo||"",
-      memo_links:p.memoLinks||[],
-      comments:p.comments||[],
-      history:p.history||[],
-      score:p.score||null,
+      id:cleanP.id,account_id:activeAccId,
+      title:cleanP.title,status:cleanP.status,
+      post_type:cleanP.postType||"x_post",
+      datetime:cleanP.datetime,
+      body:cleanP.body||"",
+      memo:cleanP.memo||"",
+      memo_links:cleanP.memoLinks||[],
+      comments:cleanP.comments||[],
+      history:cleanP.history||[],
+      score:cleanP.score||null,
     };
     const{error}=await supabase.from("posts").upsert(record);
     if(error){showToast("保存に失敗しました");return false;}
     setAllPosts(prev=>{
       const cur=prev[activeAccId]||[];
-      const exists=cur.find(x=>x.id===p.id);
-      return{...prev,[activeAccId]:exists?cur.map(x=>x.id===p.id?p:x):[...cur,p]};
+      const exists=cur.find(x=>x.id===cleanP.id);
+      return{...prev,[activeAccId]:exists?cur.map(x=>x.id===cleanP.id?cleanP:x):[...cur,cleanP]};
     });
     return true;
   },[activeAccId,showToast]);
