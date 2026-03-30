@@ -1489,7 +1489,14 @@ function App({uid}){
     if(!activeAccId||!uid)return;
     supabase.from("slots").select("*")
       .eq("account_id",activeAccId).eq("user_id",uid)
-      .then(({data})=>setSlots(data||[]));
+      .then(({data,error})=>{
+        if(error){console.error("slots load error:",error);return;}
+        setSlots((data||[]).map(s=>({
+          ...s,
+          postType:s.post_type||s.postType||"x_post",
+          time:s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":null),
+        })));
+      });
   },[activeAccId,uid]);
 
   const slotsRef=useRef(slots);
@@ -1503,13 +1510,29 @@ function App({uid}){
     const prevIds=new Set(prev.map(s=>s.id));
     const nextIds=new Set(resolved.map(s=>s.id));
     const deleted=[...prevIds].filter(id=>!nextIds.has(id));
-    if(deleted.length>0)
-      await supabase.from("slots").delete().in("id",deleted);
-    if(resolved.length>0)
-      await supabase.from("slots").upsert(
-        resolved.map(s=>({...s,account_id:activeAccId,user_id:uid}))
-      );
-  },[activeAccId,uid]);
+    if(deleted.length>0){
+      const{error:delErr}=await supabase.from("slots").delete().in("id",deleted);
+      if(delErr)console.error("slots delete error:",delErr);
+    }
+    if(resolved.length>0){
+      const records=resolved.map(s=>({
+        id:s.id,
+        account_id:activeAccId,
+        user_id:uid,
+        type:s.type||"weekly",
+        dow:s.dow??null,
+        nth:s.nth??null,
+        time:s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":null),
+        post_type:s.postType||s.post_type||"x_post",
+        title:s.title||"",
+      }));
+      const{error:upsErr}=await supabase.from("slots").upsert(records);
+      if(upsErr){
+        console.error("slots upsert error:",upsErr);
+        showToast("予約枠の保存に失敗しました");
+      }
+    }
+  },[activeAccId,uid,showToast]);
 
   // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
   const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
