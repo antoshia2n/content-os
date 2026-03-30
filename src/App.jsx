@@ -53,6 +53,9 @@ const TOOLBAR_BLOCK_LABELS={"p":"本文","h1":"見出し","h2":"小見出し","b
 
 function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function fmtTime(s){return s?s.slice(11,16):"";}
+
+// 予約枠のtime取得（後方互換：hourのみの旧データはHH:00に変換）
+function slotTime(s){return s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");}
 function genId(){return typeof crypto!=="undefined"&&crypto.randomUUID?parseInt(crypto.randomUUID().replace(/-/g,"").slice(0,15),16):Date.now()+Math.floor(Math.random()*10000);}
 function nowStr(){return new Date().toISOString();}
 function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
@@ -238,6 +241,16 @@ function Toolbar({onInsertOpen}){
       <ToolbarSep/>
       <ToolbarBtn title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
       <ToolbarBtn title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
+      <button onMouseDown={e=>e.preventDefault()}
+        onClick={()=>{
+          // スレッド区切り専用のhr（class="thread-sep"）を挿入
+          document.execCommand("insertHTML",false,'<hr class="thread-sep" data-thread="true"><p><br></p>');
+        }}
+        style={{border:"1px solid #1d9bf0",background:"#e8f5fe",color:"#1d9bf0",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:700,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
+        onMouseEnter={e=>{e.currentTarget.style.background="#1d9bf0";e.currentTarget.style.color="#fff";}}
+        onMouseLeave={e=>{e.currentTarget.style.background="#e8f5fe";e.currentTarget.style.color="#1d9bf0";}}>
+        𝕏 スレッド↓
+      </button>
       <button onMouseDown={e=>e.preventDefault()} onClick={onInsertOpen}
         style={{border:"1px solid #e6dfd6",background:"none",color:"#536471",borderRadius:5,padding:"3px 8px",cursor:"pointer",fontSize:"0.73em",fontWeight:600,height:28,display:"flex",alignItems:"center",gap:2,fontFamily:"inherit",marginLeft:3}}
         onMouseEnter={e=>{e.currentTarget.style.background="#eff3f4";e.currentTarget.style.color="#0f1419";}}
@@ -356,11 +369,39 @@ function InsertModal({onClose,savedRange,bodyRef}){
   );
 }
 
-// ── copy helpers ──
-// HTMLを読みやすいプレーンテキストに変換
-function htmlToPlain(html){
+// HTMLを読みやすいプレーンテキストに変換（スレッド対応）
+function htmlToPlain(html, threadMode=false){
   const div=document.createElement("div");
   div.innerHTML=html;
+
+  if(threadMode){
+    // スレッドモード：thread-sepで分割して番号付きに変換
+    const parts=[];
+    let current=document.createElement("div");
+    div.childNodes.forEach(node=>{
+      const isThreadSep=node.nodeType===1&&
+        (node.classList?.contains("thread-sep")||node.getAttribute?.("data-thread")==="true");
+      if(isThreadSep){
+        parts.push(current);
+        current=document.createElement("div");
+      } else {
+        current.appendChild(node.cloneNode(true));
+      }
+    });
+    parts.push(current);
+    const total=parts.length;
+    return parts
+      .map((part,i)=>{
+        const text=htmlToPlain(part.innerHTML||"").trim();
+        if(!text)return null;
+        return total>1
+          ? `【ツイート ${i+1}/${total}】\n${text}`
+          : text;
+      })
+      .filter(Boolean)
+      .join("\n\n---\n\n");
+  }
+
   function walk(node){
     if(node.nodeType===3)return node.textContent;
     const tag=node.tagName?.toLowerCase();
@@ -371,7 +412,7 @@ function htmlToPlain(html){
     if(tag==="blockquote")return children.split("\n").map(l=>"　"+l).join("\n")+"\n\n";
     if(tag==="li")return "・"+children+"\n";
     if(tag==="ul"||tag==="ol")return children+"\n";
-    if(tag==="hr")return "───────────\n\n";
+    if(tag==="hr")return node.classList?.contains("thread-sep")?"[スレッド区切り]\n\n":"───────────\n\n";
     if(tag==="div"&&node.getAttribute("contenteditable")==="false")return "[リンク]\n";
     return children;
   }
@@ -664,7 +705,9 @@ function EditorModal({post,onSave,onClose}){
   };
   const handleSave=()=>onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});
   const doCopy=target=>{
-    const html=draft.body||"",plain=articleAreaRef.current?.innerText||"";
+    const html=draft.body||"";
+    const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
+    const plain=htmlToPlain(html, isThread);
     copyRichText(html,plain,()=>{
       if(target==="x"){setCopyX(true);setTimeout(()=>setCopyX(false),3500);}
       else{setCopyNote(true);setTimeout(()=>setCopyNote(false),3500);}
@@ -1252,6 +1295,7 @@ function App({uid}){
   const [showNotifySettings, setShowNotifySettings] = useState(false); // メール通知設定
   const [notifySettings,     setNotifySettings]     = useState(null); // {email,notify_overdue,notify_today,notify_daily,send_hour,enabled}
   const [showExport,         setShowExport]         = useState(false);
+  const [showAIExport,       setShowAIExport]       = useState(false);
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -1552,7 +1596,7 @@ function App({uid}){
     const m={};
     weekDates.forEach((date,i)=>{
       slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
-        const key=`${weekDateStrs[i]}_${String(s.hour).padStart(2,"0")}`;
+        const key=`${weekDateStrs[i]}_${slotTime(s).slice(0,2)}`;
         (m[key]=m[key]||[]).push(s);
       });
     });
@@ -1617,6 +1661,9 @@ function App({uid}){
         .xb blockquote{border-left:3px solid #e6dfd6;padding:6px 0 6px 16px;margin:.8em 0 1.2em;color:#6b6560;font-style:italic;font-size:17px;line-height:1.75;}
         .xb a{color:#2563eb;text-decoration:underline;}
         .xb hr{border:none;border-top:1px solid #e6dfd6;margin:1.5em 0;}
+        .xb hr.thread-sep{border:none;border-top:none;margin:1.4em 0;display:flex;align-items:center;gap:8px;}
+        .xb hr.thread-sep::before{content:"";flex:1;height:1.5px;background:linear-gradient(90deg,#1d9bf030,#1d9bf080);}
+        .xb hr.thread-sep::after{content:"𝕏 スレッド続き";font-size:10px;font-weight:700;color:#1d9bf0;background:#e8f5fe;padding:2px 8px;border-radius:99px;border:1px solid #93d3fc;white-space:nowrap;flex-shrink:0;}
         .xb strong,.xb b{font-weight:700;}
         .xb em,.xb i{font-style:italic;}
         .xb s{text-decoration:line-through;}
@@ -1695,6 +1742,7 @@ function App({uid}){
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}],
+                      ["AIコンテキスト出力",()=>{setShowAIExport(true);setShowShare(false);}],
                       ["ローカル保存",()=>{setShowExport(true);setShowShare(false);}],
                       ["クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
@@ -1837,7 +1885,7 @@ function App({uid}){
                               const gpt=POST_TYPE[g.postType||"x_post"];
                               return(
                                 <div key={"g"+gi}
-                                  onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
+                                  onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
                                   style={{flex:"1 1 0",minWidth:0,border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:5,padding:"3px 4px",cursor:"pointer",opacity:0.7,transition:"all .15s",background:gpt.bg}}
                                   onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
                                   onMouseLeave={e=>{e.currentTarget.style.opacity="0.7";e.currentTarget.style.boxShadow="none";}}>
@@ -1857,13 +1905,13 @@ function App({uid}){
                             const gpt=POST_TYPE[g.postType||"x_post"];
                             return(
                               <div key={"g"+gi}
-                                onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(g.hour).padStart(2,"0")}:00`,{title:g.title||"",postType:g.postType||"x_post"});}}
+                                onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
                                 style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"4px 6px",marginBottom:2,cursor:"pointer",opacity:0.65,transition:"all .15s",background:gpt.bg}}
                                 onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
                                 onMouseLeave={e=>{e.currentTarget.style.opacity="0.65";e.currentTarget.style.boxShadow="none";}}>
                                 <div style={{display:"flex",alignItems:"center",gap:3}}>
                                   <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
-                                  <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{String(g.hour).padStart(2,"0")}:00</span>
+                                  <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{slotTime(g)}</span>
                                 </div>
                                 {g.title
                                   ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
@@ -1978,6 +2026,14 @@ function App({uid}){
           posts={posts}
           accountName={activeAcc?.name||""}
           onClose={()=>setShowExport(false)}
+        />
+      )}
+
+      {showAIExport&&isAdmin&&(
+        <AIContextModal
+          posts={posts}
+          accountName={activeAcc?.name||""}
+          onClose={()=>setShowAIExport(false)}
         />
       )}
 
@@ -2133,11 +2189,11 @@ function MonthView({posts,today,slots,openNew,setPreview}){
                     {daySlots.slice(0,2).map((s,si)=>{
                       const gpt=POST_TYPE[s.postType||"x_post"];
                       return(
-                        <div key={"s"+si} onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${String(s.hour).padStart(2,"0")}:00`,{title:s.title||"",postType:s.postType||"x_post"});}}
+                        <div key={"s"+si} onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"});}}
                           style={{display:"flex",alignItems:"center",gap:3,border:`1px dashed ${gpt.dot}`,borderLeft:`2px dashed ${gpt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",background:gpt.bg,opacity:0.7}}
                           onMouseEnter={e=>e.currentTarget.style.opacity="1"}
                           onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
-                          <span style={{fontSize:8,color:gpt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.title||`${String(s.hour).padStart(2,"0")}:00 予約枠`}</span>
+                          <span style={{fontSize:8,color:gpt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.title||`${slotTime(s)} 予約枠`}</span>
                         </div>
                       );
                     })}
@@ -2214,15 +2270,15 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
           const dayLabel=["日","月","火","水","木","金","土"][d.getDay()];
           // この日に該当する予約枠を時刻順で取得
           const daySlots=showSlots&&slots?.length>0
-            ?slots.filter(s=>slotMatchesDate(s,d)).sort((a,b)=>a.hour-b.hour)
+            ?slots.filter(s=>slotMatchesDate(s,d)).sort((a,b)=>slotTime(a).localeCompare(slotTime(b)))
             :[];
           // 予約枠のうち実投稿が埋まっていない枠だけゴースト表示
-          const filledHours=new Set(dayPosts.map(p=>parseInt(p.datetime.slice(11,13))));
-          const ghostSlots=daySlots.filter(s=>!filledHours.has(s.hour));
+          const filledTimes=new Set(dayPosts.map(p=>p.datetime.slice(11,16)));
+          const ghostSlots=daySlots.filter(s=>!filledTimes.has(slotTime(s)));
           // 実投稿とゴーストをまとめて時刻順に並べる
           const allItems=[
             ...dayPosts.map(p=>({type:"post",data:p,sortKey:p.datetime.slice(11,13)})),
-            ...ghostSlots.map(s=>({type:"ghost",data:s,sortKey:String(s.hour).padStart(2,"0")})),
+            ...ghostSlots.map(s=>({type:"ghost",data:s,sortKey:slotTime(s)})),
           ].sort((a,b)=>a.sortKey.localeCompare(b.sortKey));
 
           return(
@@ -2277,13 +2333,13 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                   const gpt=POST_TYPE[s.postType||"x_post"];
                   return(
                     <div key={"g"+idx}
-                      onClick={()=>openNew(`${date}T${String(s.hour).padStart(2,"0")}:00`,{title:s.title||"",postType:s.postType||"x_post"})}
+                      onClick={()=>openNew(`${date}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"})}
                       style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:9,padding:"8px 10px",cursor:"pointer",opacity:0.7,transition:"all .15s",background:gpt.bg}}
                       onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 2px 8px #0000001a";}}
                       onMouseLeave={e=>{e.currentTarget.style.opacity="0.7";e.currentTarget.style.boxShadow="none";}}>
                       <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
                         <span style={{width:5,height:5,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
-                        <span style={{fontSize:10,color:gpt.color,fontWeight:700}}>{String(s.hour).padStart(2,"0")}:00</span>
+                        <span style={{fontSize:10,color:gpt.color,fontWeight:700}}>{slotTime(s)}</span>
                         <span style={{fontSize:9,color:gpt.color,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 5px",borderRadius:6,fontWeight:700,marginLeft:"auto"}}>{gpt.label}</span>
                       </div>
                       {s.title
@@ -2321,7 +2377,8 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
 function slotLabel(s){
   const DOWL=["","月","火","水","木","金","土","日"];
   const NTH=["","第1","第2","第3","第4","第5"];
-  const t=String(s.hour).padStart(2,"0")+":00";
+  // 後方互換：hourのみある古いデータはHH:00に変換
+  const t=s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");
   if(s.type==="daily") return `毎日 ${t}`;
   if(s.type==="nth_weekday") return `毎月${NTH[s.nth]||""}${DOWL[s.dow]||""}曜 ${t}`;
   return `毎週${DOWL[s.dow]||""}曜 ${t}`;
@@ -2348,16 +2405,15 @@ function SlotAddForm({onAdd}){
   const [type,setType]=useState("weekly");
   const [dow,setDow]=useState(1);
   const [nth,setNth]=useState(1);
-  const [hour,setHour]=useState(9);
+  const [time,setTime]=useState("09:00");
   const [postType,setPostType]=useState("x_post");
   const pt=POST_TYPE[postType];
 
   const preview=React.useMemo(()=>{
-    const t=String(hour).padStart(2,"0")+":00";
-    if(type==="daily") return `毎日 ${t}`;
-    if(type==="nth_weekday") return `毎月第${nth}${["","月","火","水","木","金","土","日"][dow]}曜 ${t}`;
-    return `毎週${["","月","火","水","木","金","土","日"][dow]}曜 ${t}`;
-  },[type,dow,nth,hour]);
+    if(type==="daily") return `毎日 ${time}`;
+    if(type==="nth_weekday") return `毎月第${nth}${["","月","火","水","木","金","土","日"][dow]}曜 ${time}`;
+    return `毎週${["","月","火","水","木","金","土","日"][dow]}曜 ${time}`;
+  },[type,dow,nth,time]);
 
   return(
     <div style={{background:"#fffbeb",border:"1.5px dashed #fcd34d",borderRadius:10,padding:"14px 14px 12px",marginTop:8}}>
@@ -2377,7 +2433,7 @@ function SlotAddForm({onAdd}){
       </div>
 
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-        {/* 第N（nth_weekdayのみ） */}
+        {/* 第N */}
         {type==="nth_weekday"&&(
           <div>
             <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>第N</label>
@@ -2391,7 +2447,7 @@ function SlotAddForm({onAdd}){
             </div>
           </div>
         )}
-        {/* 曜日（毎日以外） */}
+        {/* 曜日 */}
         {type!=="daily"&&(
           <div style={{flex:1,minWidth:120}}>
             <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
@@ -2405,13 +2461,13 @@ function SlotAddForm({onAdd}){
             </div>
           </div>
         )}
-        {/* 時刻 */}
-        <div style={{minWidth:80}}>
+        {/* 時刻（分単位） */}
+        <div style={{minWidth:100}}>
           <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
-          <select value={hour} onChange={e=>setHour(Number(e.target.value))}
-            style={{border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
-            {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
-          </select>
+          <input type="time" value={time} onChange={e=>setTime(e.target.value)}
+            style={{border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",background:"#fff",fontFamily:"inherit",cursor:"pointer"}}
+            onFocus={e=>e.target.style.borderColor="#f59e0b"}
+            onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
         </div>
       </div>
 
@@ -2429,7 +2485,7 @@ function SlotAddForm({onAdd}){
         <span style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,borderRadius:10,padding:"0 7px",fontSize:10,fontWeight:700}}>{pt.label}</span>
       </div>
 
-      <button onClick={()=>onAdd({type,dow,nth,hour,postType,title:""})}
+      <button onClick={()=>onAdd({type,dow,nth,time,postType,title:""})}
         style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
@@ -2465,6 +2521,236 @@ function postToMarkdown(p){
 
 function sanitizeFilename(s){
   return (s||"untitled").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+}
+
+// ════════════════════════════════════════════════════════
+// AIコンテキスト出力モーダル
+// ════════════════════════════════════════════════════════
+function postsToAIContext(posts, accountName, {scores, postTypes, includeBody, includeMemo, includeLinks, prompt}){
+  const filtered=posts.filter(p=>{
+    const scoreOk=scores.length===0||scores.includes(p.score);
+    const typeOk=postTypes.length===0||postTypes.includes(p.postType||"x_post");
+    return scoreOk&&typeOk;
+  }).sort((a,b)=>b.datetime.localeCompare(a.datetime));
+
+  if(filtered.length===0)return "# 該当する投稿がありませんでした";
+
+  const lines=[];
+  if(prompt.trim()){
+    lines.push(`# 依頼内容\n${prompt.trim()}\n`);
+    lines.push("---\n");
+  }
+  lines.push(`# ContentOS データ（${accountName}）`);
+  lines.push(`取得件数: ${filtered.length}件 / 条件: スコア[${scores.length?scores.join(","):"全て"}] 種類[${postTypes.length?postTypes.map(t=>POST_TYPE[t]?.label||t).join(","):"全て"}]\n`);
+
+  filtered.forEach((p,i)=>{
+    const pt=POST_TYPE[p.postType||"x_post"]?.label||p.postType;
+    const sc=p.score?` [スコア:${p.score}]`:"";
+    const st=STATUS[p.status]?.label||p.status;
+    lines.push(`## ${i+1}. ${p.title||"（タイトルなし）"}`);
+    lines.push(`- 種類: ${pt}${sc}　ステータス: ${st}　日時: ${p.datetime.replace("T"," ")}`);
+    if(includeMemo&&p.memo) lines.push(`- メモ: ${p.memo}`);
+    if(includeLinks&&(p.memoLinks||[]).length>0){
+      const ls=(p.memoLinks||[]).map(l=>{
+        const url=typeof l==="string"?l:l.url;
+        const label=typeof l==="string"?"":l.label;
+        return label?`[${label}](${url})`:url;
+      });
+      lines.push(`- リンク: ${ls.join(" / ")}`);
+    }
+    if(includeBody&&p.body){
+      const plain=p.body.replace(/<[^>]+>/g,"").replace(/\n{3,}/g,"\n\n").trim();
+      if(plain) lines.push(`\n### 本文\n${plain}`);
+    }
+    lines.push("");
+  });
+
+  return lines.join("\n");
+}
+
+function AIContextModal({posts,accountName,onClose}){
+  const [scores,setScores]=useState([]);
+  const [postTypes,setPostTypes]=useState([]);
+  const [includeBody,setIncludeBody]=useState(false);
+  const [includeMemo,setIncludeMemo]=useState(true);
+  const [includeLinks,setIncludeLinks]=useState(true);
+  const [prompt,setPrompt]=useState("");
+  const [copied,setCopied]=useState(false);
+  const today=fmtDate(new Date());
+  const [dateFrom,setDateFrom]=useState("");
+  const [dateTo,setDateTo]=useState(today);
+
+  const toggle=(arr,setArr,v)=>setArr(prev=>prev.includes(v)?prev.filter(x=>x!==v):[...prev,v]);
+
+  const setPreset=preset=>{
+    const d=new Date();
+    if(preset==="all"){setDateFrom("");setDateTo(today);return;}
+    if(preset==="7"){d.setDate(d.getDate()-7);setDateFrom(fmtDate(d));setDateTo(today);return;}
+    if(preset==="30"){d.setDate(d.getDate()-30);setDateFrom(fmtDate(d));setDateTo(today);return;}
+    if(preset==="90"){d.setDate(d.getDate()-90);setDateFrom(fmtDate(d));setDateTo(today);return;}
+  };
+
+  const preview=React.useMemo(()=>postsToAIContext(
+    posts.filter(p=>{
+      if(dateFrom&&p.datetime.slice(0,10)<dateFrom)return false;
+      if(dateTo&&p.datetime.slice(0,10)>dateTo)return false;
+      return true;
+    }),
+    accountName,{scores,postTypes,includeBody,includeMemo,includeLinks,prompt}
+  ),[posts,accountName,scores,postTypes,includeBody,includeMemo,includeLinks,prompt,dateFrom,dateTo]);
+
+  const targetCount=posts.filter(p=>{
+    const scoreOk=scores.length===0||scores.includes(p.score);
+    const typeOk=postTypes.length===0||postTypes.includes(p.postType||"x_post");
+    const fromOk=!dateFrom||p.datetime.slice(0,10)>=dateFrom;
+    const toOk=!dateTo||p.datetime.slice(0,10)<=dateTo;
+    return scoreOk&&typeOk&&fromOk&&toOk;
+  }).length;
+
+  const handleCopy=()=>{
+    navigator.clipboard.writeText(preview).then(()=>{
+      setCopied(true);setTimeout(()=>setCopied(false),3000);
+    });
+  };
+
+  const handleDownload=()=>{
+    const blob=new Blob([preview],{type:"text/markdown;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`${sanitizeFilename(accountName)}_ai_context.md`;
+    a.click();URL.revokeObjectURL(url);
+  };
+
+  const chipBtn=(label,active,onClick)=>(
+    <button onClick={onClick} style={{padding:"3px 10px",borderRadius:99,border:`1.5px solid ${active?"#111":"#e0d8ce"}`,background:active?"#111":"#fff",color:active?"#fff":"#555",fontSize:11,fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all .12s"}}>
+      {label}
+    </button>
+  );
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:860,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.15)",border:"1px solid #e6dfd6"}}>
+        {/* ヘッダー */}
+        <div style={{padding:"14px 20px",borderBottom:"1px solid #e6dfd6",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:15,letterSpacing:"-.3px"}}>AIコンテキスト出力</div>
+            <div style={{fontSize:11,color:"#a8a09a",marginTop:2}}>投稿データをAIに渡せる形式で出力します</div>
+          </div>
+          <Btn onClick={onClose}>閉じる</Btn>
+        </div>
+
+        <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+          {/* 左：フィルター設定 */}
+          <div style={{width:260,borderRight:"1px solid #e6dfd6",padding:"16px",display:"flex",flexDirection:"column",gap:14,overflowY:"auto",flexShrink:0}}>
+
+            {/* 期間 */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>期間</div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+                {[["all","全期間"],["7","7日"],["30","30日"],["90","90日"]].map(([v,l])=>{
+                  const isActive=v==="all"?!dateFrom:dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))));
+                  return(
+                    <button key={v} onClick={()=>setPreset(v)}
+                      style={{padding:"3px 9px",borderRadius:99,border:`1.5px solid ${isActive?"#111":"#e0d8ce"}`,background:isActive?"#111":"#fff",color:isActive?"#fff":"#555",fontSize:11,fontWeight:isActive?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all .12s"}}>
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                  style={{flex:1,border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}
+                  onFocus={e=>e.target.style.borderColor="#111"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+                <span style={{fontSize:11,color:"#aaa"}}>〜</span>
+                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                  style={{flex:1,border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}
+                  onFocus={e=>e.target.style.borderColor="#111"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+              </div>
+            </div>
+
+            {/* スコア */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>スコア</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {chipBtn("全て",scores.length===0,()=>setScores([]))}
+                {Object.entries(SCORE).map(([k])=>chipBtn(k,scores.includes(k),()=>toggle(scores,setScores,k)))}
+              </div>
+            </div>
+
+            {/* 投稿種類 */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>投稿種類</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {chipBtn("全て",postTypes.length===0,()=>setPostTypes([]))}
+                {Object.entries(POST_TYPE).map(([k,v])=>chipBtn(v.label,postTypes.includes(k),()=>toggle(postTypes,setPostTypes,k)))}
+              </div>
+            </div>
+
+            {/* 含める情報 */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>含める情報</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {[
+                  ["本文（長くなります）",includeBody,setIncludeBody],
+                  ["メモ",includeMemo,setIncludeMemo],
+                  ["リンク",includeLinks,setIncludeLinks],
+                ].map(([label,val,setter])=>(
+                  <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"#444"}}>
+                    <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:"#111",width:14,height:14}}/>
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* プロンプト */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>依頼文（任意）</div>
+              <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
+                placeholder={"例：これらのSランク記事を参考に、来週のX投稿アイデアを5つ提案してください。"}
+                rows={4}
+                style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:8,padding:"8px 10px",fontSize:11.5,fontFamily:"inherit",color:"#333",outline:"none",resize:"vertical",lineHeight:1.6,boxSizing:"border-box"}}
+                onFocus={e=>e.target.style.borderColor="#111"}
+                onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+            </div>
+
+            {/* 件数 */}
+            <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
+              対象: <strong>{targetCount}件</strong>
+            </div>
+
+            {/* ボタン */}
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              <button onClick={handleCopy}
+                style={{background:copied?"#10b981":"#111",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit",transition:"background .15s"}}>
+                {copied?"✓ コピーしました":"クリップボードにコピー"}
+              </button>
+              <button onClick={handleDownload}
+                style={{background:"#fff",border:"1px solid #e0d8ce",borderRadius:9,padding:"9px 0",fontSize:13,fontWeight:600,color:"#333",cursor:"pointer",fontFamily:"inherit"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"}
+                onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                MDファイルでダウンロード
+              </button>
+            </div>
+          </div>
+
+          {/* 右：プレビュー */}
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"10px 16px",borderBottom:"1px solid #e6dfd6",fontSize:11,color:"#a8a09a",fontWeight:600,letterSpacing:".3px",flexShrink:0}}>
+              プレビュー
+            </div>
+            <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
+              <pre style={{fontSize:11.5,lineHeight:1.7,color:"#333",whiteSpace:"pre-wrap",wordBreak:"break-word",fontFamily:"'Geist Mono','SF Mono','Menlo',monospace",margin:0}}>
+                {preview}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ExportModal({posts,accountName,onClose}){
