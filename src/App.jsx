@@ -460,7 +460,7 @@ function TagSelector({
   const composing=useRef(false);
 
   useEffect(()=>{
-    if(!open)return;
+    if(!open){setQ("");return;}
     setTimeout(()=>inputRef.current?.focus(),50);
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
     window.addEventListener("mousedown",h);
@@ -1199,7 +1199,7 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew,allLabels=[]}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
   const [showComments,setShowComments]=useState(false);
@@ -1337,13 +1337,13 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 label="ラベル"
                 multi
                 selected={post.labels||[]}
-                options={(post.labels||[]).map(l=>({value:l,label:l}))}
-                onChange={labels=>onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels})}
-                onClear={()=>onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:[]})}
+                options={[...new Set([...(post.labels||[]),...allLabels])].sort().map(l=>({value:l,label:l}))}
+                onChange={labels=>onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels})}
+                onClear={()=>onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:[]})}
                 allowNew
                 onAdd={l=>{
                   const next=[...new Set([...(post.labels||[]),l])];
-                  onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:next});
+                  onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:next});
                 }}
                 badge={
                   (post.labels||[]).length>0
@@ -1351,7 +1351,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                         {(post.labels||[]).map((l,i)=>(
                           <span key={i} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#555"}}>
                             {l}
-                            <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:next});}}
+                            <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:next});}}
                               style={{cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,marginLeft:1}}>×</span>
                           </span>
                         ))}
@@ -1674,6 +1674,7 @@ function App({uid}){
   const activeAcc=React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
   const posts    =React.useMemo(()=>allPosts[activeAccId]||[],[allPosts,activeAccId]);
   const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
+  const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
     posts.filter(p=>p.status===OVERDUE_STATUS&&p.datetime<=nowDt).length
@@ -2463,7 +2464,8 @@ function App({uid}){
         onSaveComment={saveComment}
         onChangeStatus={changeStatus}
         onSaveMeta={saveMeta}
-        onChangePostType={changePostType}/>}
+        onChangePostType={changePostType}
+        allLabels={allLabels}/> }
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
