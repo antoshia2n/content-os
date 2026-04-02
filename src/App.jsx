@@ -1796,6 +1796,8 @@ function App({uid}){
       };
     });
   },[filtered,weekDateStrs,weekDates,slots]);
+
+  const ghostBySlot=React.useMemo(()=>{
     const m={};
     weekDates.forEach((date,i)=>{
       slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
