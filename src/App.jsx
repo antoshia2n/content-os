@@ -39,17 +39,17 @@ const HOURS  = Array.from({length:24},(_,i)=>i);
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const XFONT  = "'Geist','Hiragino Sans','Noto Sans JP',sans-serif";
 const STORAGE_BUCKET = "contentos"; // Supabase Storageバケット名
+const BD="1px solid #e0d8ce";
+const BD2="1px solid #e6dfd6";
 // ── スタイル定数（繰り返し削減） ──────────────────────
 const S={
-  row:{...S.row},
-  col:{...S.col},
+  row:{display:"flex",alignItems:"center"},
+  col:{display:"flex",flexDirection:"column"},
   rowC:{display:"flex",alignItems:"center",justifyContent:"center"},
   rowB:{display:"flex",alignItems:"center",justifyContent:"space-between"},
   chip:{display:"inline-flex",alignItems:"center",borderRadius:99,fontWeight:600,fontSize:11},
   inp:{border:BD,borderRadius:8,outline:"none",boxSizing:"border-box",background:"#fff",color:"#333",fontSize:13},
 };
-const BD="1px solid #e0d8ce";
-const BD2="1px solid #e6dfd6";
 
 // 通知対象：予約済みのまま過ぎた投稿を検出するステータス
 const OVERDUE_STATUS = "reserved";
