@@ -434,6 +434,144 @@ function fallbackCopy(plain,onDone){
 // 概要メモ（リンク対応）
 // ════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════
+// TagSelector — メディア・スコア・ラベル共通ドロップダウン
+// ════════════════════════════════════════════════════════
+function TagSelector({
+  // 表示用
+  label,          // セクションラベル（例："メディア"）
+  badge,          // トリガーに表示するReact要素
+  // 選択肢
+  options,        // [{value, label, color, bg, border}]
+  selected,       // 現在選択中のvalue（単一）or value[]（複数）
+  multi=false,    // 複数選択か
+  // コールバック
+  onChange,       // (value or value[]) => void
+  onClear,        // クリアボタン用（optional）
+  // ラベル新規追加
+  allowNew=false, // 新規入力を許可するか
+  onAdd,          // (newValue) => void
+  disabled=false,
+}){
+  const [open,setOpen]=useState(false);
+  const [q,setQ]=useState("");
+  const [newVal,setNewVal]=useState("");
+  const ref=useRef(null);
+  const inputRef=useRef(null);
+  const composing=useRef(false);
+
+  useEffect(()=>{
+    if(!open)return;
+    setTimeout(()=>inputRef.current?.focus(),50);
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    window.addEventListener("mousedown",h);
+    return()=>window.removeEventListener("mousedown",h);
+  },[open]);
+
+  const filtered=options.filter(o=>
+    !q||o.label.toLowerCase().includes(q.toLowerCase())||String(o.value).toLowerCase().includes(q.toLowerCase())
+  );
+
+  const isSelected=v=>Array.isArray(selected)?selected.includes(v):selected===v;
+
+  const toggle=v=>{
+    if(multi){
+      const arr=Array.isArray(selected)?selected:[];
+      onChange(arr.includes(v)?arr.filter(x=>x!==v):[...arr,v]);
+    } else {
+      onChange(isSelected(v)?null:v);
+      setOpen(false);
+    }
+  };
+
+  const handleAdd=()=>{
+    const v=newVal.trim();
+    if(!v)return;
+    onAdd?.(v);
+    setNewVal("");
+    if(!multi)setOpen(false);
+  };
+
+  return(
+    <div ref={ref} style={{position:"relative",display:"inline-block"}}>
+      {/* トリガーバッジ */}
+      <div onClick={()=>!disabled&&setOpen(v=>!v)}
+        style={{cursor:disabled?"default":"pointer",userSelect:"none",opacity:disabled?0.5:1}}>
+        {badge}
+      </div>
+
+      {/* ドロップダウン */}
+      {open&&(
+        <div style={{
+          position:"absolute",top:"calc(100% + 5px)",left:0,zIndex:500,
+          background:"#fff",border:"1px solid #e0d8ce",borderRadius:12,
+          width:220,boxShadow:"0 8px 28px rgba(0,0,0,.12)",
+          display:"flex",flexDirection:"column",overflow:"hidden",
+        }}>
+          {/* ヘッダー */}
+          <div style={{padding:"8px 10px 6px",borderBottom:"1px solid #f0ebe4"}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>{label}</div>
+            <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
+              placeholder="検索…"
+              style={{width:"100%",border:"1px solid #e0d8ce",borderRadius:6,padding:"4px 8px",fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box",color:"#333"}}
+              onFocus={e=>e.target.style.borderColor="#f59e0b"}
+              onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+          </div>
+
+          {/* 選択肢リスト */}
+          <div style={{maxHeight:200,overflowY:"auto"}}>
+            {onClear&&(Array.isArray(selected)?selected.length>0:selected)&&(
+              <button onClick={()=>{onClear?.();if(!multi)setOpen(false);}}
+                style={{width:"100%",border:"none",background:"none",padding:"7px 11px",fontSize:11.5,color:"#ef4444",cursor:"pointer",textAlign:"left",fontFamily:"inherit",fontWeight:600}}>
+                × クリア
+              </button>
+            )}
+            {filtered.length===0&&<div style={{padding:"12px 11px",fontSize:12,color:"#ccc"}}>該当なし</div>}
+            {filtered.map(o=>{
+              const sel=isSelected(o.value);
+              return(
+                <button key={o.value} onClick={()=>toggle(o.value)}
+                  style={{
+                    width:"100%",border:"none",background:sel?(o.bg||"#f5f0eb"):"none",
+                    padding:"7px 11px",fontSize:12,cursor:"pointer",textAlign:"left",
+                    fontFamily:"inherit",display:"flex",alignItems:"center",gap:7,
+                    color:sel?(o.color||"#111"):"#333",fontWeight:sel?700:500,
+                    transition:"background .1s",
+                  }}
+                  onMouseEnter={e=>{if(!sel)e.currentTarget.style.background="#f8f4f0";}}
+                  onMouseLeave={e=>{if(!sel)e.currentTarget.style.background="none";}}>
+                  {o.dot&&<span style={{width:7,height:7,borderRadius:"50%",background:o.dot,flexShrink:0}}/>}
+                  {o.swatch&&<span style={{width:14,height:14,borderRadius:3,background:o.swatch,flexShrink:0,border:"1px solid rgba(0,0,0,.08)"}}/>}
+                  <span style={{flex:1}}>{o.label}</span>
+                  {sel&&<span style={{fontSize:11,color:o.color||"#f59e0b",fontWeight:800}}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 新規追加 */}
+          {allowNew&&(
+            <div style={{borderTop:"1px solid #f0ebe4",padding:"7px 8px",display:"flex",gap:5}}>
+              <input value={newVal} onChange={e=>setNewVal(e.target.value)}
+                onCompositionStart={()=>{composing.current=true;}}
+                onCompositionEnd={e=>{composing.current=false;setNewVal(e.target.value);}}
+                onKeyDown={e=>{if(!composing.current&&e.key==="Enter"){e.preventDefault();handleAdd();}}}
+                placeholder="新規追加…"
+                style={{flex:1,border:"1px solid #e0d8ce",borderRadius:6,padding:"4px 8px",fontSize:11.5,fontFamily:"inherit",outline:"none",color:"#333",minWidth:0}}
+                onFocus={e=>e.target.style.borderColor="#f59e0b"}
+                onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+              <button onClick={handleAdd} disabled={!newVal.trim()}
+                style={{background:newVal.trim()?"#111":"#e0d8ce",border:"none",borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,color:"#fff",cursor:newVal.trim()?"pointer":"default",fontFamily:"inherit",flexShrink:0}}>
+                追加
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // ラベルエディタ
 // ════════════════════════════════════════════════════════
 function LabelEditor({labels,onChange}){
@@ -1142,62 +1280,119 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
       <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:900,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
 
         {/* ヘッダー */}
-        <div style={{padding:"12px 18px",borderBottom:"1px solid #e6dfd6",background:pt.bg,display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
+        <div style={{padding:"14px 18px 12px",borderBottom:"1px solid #e6dfd6",background:"#fff",display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-              {/* 投稿種類変更 */}
-              <select value={post.postType||"x_post"} onChange={e=>!post._unsaved&&onChangePostType(post.id,e.target.value)}
-                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:post._unsaved?"default":"pointer",fontFamily:"inherit",outline:"none",opacity:post._unsaved?0.6:1}}
-                disabled={!!post._unsaved}>
-                {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-              </select>
-              <span style={{fontSize:11,color:"#888"}}>{post.datetime.replace("T"," ")}</span>
-              {/* スコア */}
-              <div style={{display:"flex",gap:3}}>
-                {Object.entries(SCORE).map(([k,v])=>(
-                  <button key={k} onClick={()=>onChangeStatus(post.id,post.status,k)}
-                    style={{width:22,height:22,borderRadius:5,border:"none",background:post.score===k?v.bg:"#e6dfd6",color:post.score===k?v.color:"#999",fontSize:10,fontWeight:800,cursor:"pointer",transition:"all .1s"}}>
-                    {v.label}
-                  </button>
-                ))}
-                {post.score&&<button onClick={()=>onChangeStatus(post.id,post.status,null)}
-                  style={{width:22,height:22,borderRadius:5,border:"none",background:"none",color:"#bbb",fontSize:10,cursor:"pointer"}}>×</button>}
-              </div>
-            </div>
-            <div style={{fontSize:18,fontWeight:800,color:"#0f1419",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+
+            {/* タイトル */}
+            <div style={{fontSize:18,fontWeight:800,color:"#111",lineHeight:1.3,marginBottom:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
               {post._unsaved
-                ? <input
-                    ref={titleRef}
-                    autoFocus
-                    defaultValue={post.title||""}
-                    placeholder="タイトルを入力…"
-                    onKeyDown={e=>{ if(e.key==="Enter") e.preventDefault(); }}
-                    style={{width:"100%",border:"none",borderBottom:"2px solid #f59e0b",outline:"none",fontSize:18,fontWeight:800,color:"#0f1419",background:"transparent",fontFamily:"inherit",padding:"2px 0"}}/>
+                ? <input ref={titleRef} autoFocus defaultValue={post.title||""} placeholder="タイトルを入力…"
+                    onKeyDown={e=>{if(e.key==="Enter")e.preventDefault();}}
+                    style={{width:"100%",border:"none",borderBottom:"2px solid #f59e0b",outline:"none",fontSize:18,fontWeight:800,color:"#111",background:"transparent",fontFamily:"inherit",padding:"2px 0"}}/>
                 : post.title||"（タイトルなし）"
               }
             </div>
+
+            {/* タグ行 */}
+            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+
+              {/* メディアタイプ */}
+              <TagSelector
+                label="メディアタイプ"
+                disabled={!!post._unsaved}
+                selected={post.postType||"x_post"}
+                options={Object.entries(POST_TYPE).map(([k,v])=>({value:k,label:v.label,color:v.color,bg:v.bg,border:v.border,dot:v.dot}))}
+                onChange={v=>v&&!post._unsaved&&onChangePostType(post.id,v)}
+                badge={
+                  <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:pt.bg,border:`1.5px solid ${pt.border}`,fontSize:11,fontWeight:700,color:pt.color,cursor:"pointer"}}>
+                    <span style={{width:6,height:6,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                    {pt.label}
+                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+                  </span>
+                }
+              />
+
+              {/* スコア */}
+              <TagSelector
+                label="スコア"
+                selected={post.score||null}
+                options={Object.entries(SCORE).map(([k,v])=>({value:k,label:`${k} スコア`,color:v.color,bg:v.bg,swatch:v.bg}))}
+                onChange={v=>onChangeStatus(post.id,post.status,v||null)}
+                onClear={()=>onChangeStatus(post.id,post.status,null)}
+                badge={
+                  post.score
+                    ? <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:SCORE[post.score]?.bg,border:`1.5px solid ${SCORE[post.score]?.bg}`,fontSize:11,fontWeight:800,color:SCORE[post.score]?.color,cursor:"pointer"}}>
+                        {post.score}
+                        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+                      </span>
+                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#a8a09a",cursor:"pointer"}}>
+                        スコア
+                        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+                      </span>
+                }
+              />
+
+              {/* ラベル */}
+              <TagSelector
+                label="ラベル"
+                multi
+                selected={post.labels||[]}
+                options={(post.labels||[]).map(l=>({value:l,label:l}))}
+                onChange={labels=>onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels})}
+                onClear={()=>onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:[]})}
+                allowNew
+                onAdd={l=>{
+                  const next=[...new Set([...(post.labels||[]),l])];
+                  onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:next});
+                }}
+                badge={
+                  (post.labels||[]).length>0
+                    ? <div style={{display:"inline-flex",alignItems:"center",gap:3,flexWrap:"wrap",cursor:"pointer"}}>
+                        {(post.labels||[]).map((l,i)=>(
+                          <span key={i} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#555"}}>
+                            {l}
+                            <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo:post.memo,memoLinks:post.memoLinks,labels:next});}}
+                              style={{cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,marginLeft:1}}>×</span>
+                          </span>
+                        ))}
+                        <span style={{display:"inline-flex",alignItems:"center",padding:"3px 7px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,color:"#bbb"}}>
+                          +
+                        </span>
+                      </div>
+                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,fontWeight:600,color:"#a8a09a",cursor:"pointer"}}>
+                        + ラベル
+                      </span>
+                }
+              />
+
+              <span style={{fontSize:11,color:"#c4bab0",marginLeft:2}}>{post.datetime.replace("T"," ")}</span>
+            </div>
           </div>
+
+          {/* 右側ボタン群 */}
           <div style={{display:"flex",gap:5,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
-            {post._unsaved&&<span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:10,padding:"2px 8px"}}>新規</span>}
+            {post._unsaved&&<span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"#fef3c7",border:"1px solid #fcd34d",borderRadius:99,padding:"2px 8px"}}>新規</span>}
             {!post._unsaved&&(
               <select value={post.status} onChange={e=>onChangeStatus(post.id,e.target.value,post.score)}
-                style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                style={{border:`1.5px solid ${st?.border}`,borderRadius:99,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
             )}
             {post._unsaved&&(
               <button onClick={()=>onSaveNew(getEditPost())}
                 style={{background:"#10b981",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
-                💾 保存
+                保存
               </button>
             )}
-            <button onClick={()=>onEdit(getEditPost())} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>✏️ {post._unsaved?"編集して作成":"編集"}</button>
-            {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="none"}>📋</button>}
-            {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#536471",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>🔁</button>}
-            {!post._unsaved&&<button onClick={()=>onDelete(post)} style={{background:"none",border:"1.5px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
-              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑️</button>}
+            <button onClick={()=>onEdit(getEditPost())} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:11,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+              {post._unsaved?"編集して作成":"編集"}
+            </button>
+            {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"} onMouseLeave={e=>e.currentTarget.style.background="none"}>複製</button>}
+            {!post._unsaved&&<button onClick={()=>onRepost(post)} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#e0d8ce";}}>再投稿</button>}
+            {!post._unsaved&&<button onClick={()=>onDelete(post)} style={{background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>削除</button>}
             <button onClick={onClose} style={{background:"none",border:"1px solid #e0d8ce",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕</button>
           </div>
         </div>
@@ -1567,12 +1762,14 @@ function App({uid}){
     setPreview(prev=>prev&&prev.id===id?{...prev,postType}:prev);
   },[activeAccId,showToast]);
 
-  const saveMeta=React.useCallback(async(id,{memo,memoLinks})=>{
-    const{error}=await supabase.from("posts").update({memo,memo_links:memoLinks}).eq("id",id);
+  const saveMeta=React.useCallback(async(id,{memo,memoLinks,labels})=>{
+    const update={memo,memo_links:memoLinks};
+    if(labels!==undefined)update.labels=labels;
+    const{error}=await supabase.from("posts").update(update).eq("id",id);
     if(error){showToast("保存に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,memo,memoLinks}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,memo,memoLinks}:prev);
-    showToast("メモ・リンクを保存しました ✅");
+    const patch={memo,memoLinks,...(labels!==undefined?{labels}:{})};
+    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...patch}:p)}));
+    setPreview(prev=>prev&&prev.id===id?{...prev,...patch}:prev);
   },[activeAccId,showToast]);
 
   const saveComment=React.useCallback(async(id,comments)=>{
