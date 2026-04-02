@@ -68,7 +68,7 @@ function fmtTime(s){return s?s.slice(11,16):"";}
 
 // 予約枠のtime取得（後方互換：hourのみの旧データはHH:00に変換）
 function slotTime(s){return s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");}
-function genId(){return typeof crypto!=="undefined"&&crypto.randomUUID?parseInt(crypto.randomUUID().replace(/-/g,"").slice(0,15),16):Date.now()+Math.floor(Math.random()*10000);}
+function genId(){return typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2));}
 function nowStr(){return new Date().toISOString();}
 function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
 function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
@@ -1484,12 +1484,12 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 multi
                 selected={post.labels||[]}
                 options={[...new Set([...(post.labels||[]),...allLabels])].sort().map(l=>({value:l,label:l}))}
-                onChange={labels=>onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels})}
-                onClear={()=>onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:[]})}
+                onChange={labels=>onSaveMeta(post.id,{memo,memoLinks,labels})}
+                onClear={()=>onSaveMeta(post.id,{memo,memoLinks,labels:[]})}
                 allowNew
                 onAdd={l=>{
                   const next=[...new Set([...(post.labels||[]),l])];
-                  onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:next});
+                  onSaveMeta(post.id,{memo,memoLinks,labels:next});
                 }}
                 badge={
                   (post.labels||[]).length>0
@@ -1497,7 +1497,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                         {(post.labels||[]).map((l,i)=>(
                           <span key={i} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#555"}}>
                             {l}
-                            <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo:post.memo||"",memoLinks:post.memoLinks||[],labels:next});}}
+                            <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo,memoLinks,labels:next});}}
                               style={{cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,marginLeft:1}}>×</span>
                           </span>
                         ))}
@@ -1795,8 +1795,7 @@ function App({uid}){
   const [dragOver,           setDragOver]           = useState(null); // ⑧ ドラッグ中セルkey
   const [showNotifySettings, setShowNotifySettings] = useState(false); // メール通知設定
   const [notifySettings,     setNotifySettings]     = useState(null); // {email,notify_overdue,notify_today,notify_daily,send_hour,enabled}
-  const [showExport,         setShowExport]         = useState(false);
-  const [showAIExport,       setShowAIExport]       = useState(false);
+  const [showExport,         setShowExport]         = useState(null); // null | "ai" | "file" | "csv"
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -1966,8 +1965,9 @@ function App({uid}){
     const key="custom_"+label.toLowerCase().replace(/\s+/g,"_")+"_"+Date.now();
     // COLORS配列からランダムに色を割り当て
     const color=COLORS[Math.floor(Math.random()*COLORS.length)];
-    // 色を薄くしてbg/borderを生成
-    const newType={key,label,color,bg:color+"18",border:color+"55"};
+    // hexカラーをrgbaに変換してbg/borderを生成
+    const hexToRgba=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;};
+    const newType={key,label,color,bg:hexToRgba(color,0.1),border:hexToRgba(color,0.35)};
     const current=activeAcc?.custom_post_types||[];
     const next=[...current,newType];
     const{error}=await supabase.from("accounts").update({custom_post_types:next}).eq("id",activeAccId);
@@ -2313,8 +2313,9 @@ function App({uid}){
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}],
-                      ["AIコンテキスト出力",()=>{setShowAIExport(true);setShowShare(false);}],
-                      ["ローカル保存",()=>{setShowExport(true);setShowShare(false);}],
+                      ["AIコンテキスト出力",()=>{setShowExport("ai");setShowShare(false);}],
+                      ["ローカル保存",()=>{setShowExport("file");setShowShare(false);}],
+                      ["CSVエクスポート",()=>{setShowExport("csv");setShowShare(false);}],
                       ["クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
                       <button key={label} onClick={fn}
@@ -2592,17 +2593,11 @@ function App({uid}){
       {/* ── エクスポートモーダル ── */}
       {showExport&&isAdmin&&(
         <ExportModal
+          tab={showExport}
           posts={posts}
           accountName={activeAcc?.name||""}
-          onClose={()=>setShowExport(false)}
-        />
-      )}
-
-      {showAIExport&&isAdmin&&(
-        <AIContextModal
-          posts={posts}
-          accountName={activeAcc?.name||""}
-          onClose={()=>setShowAIExport(false)}
+          allPostTypes={allPostTypes}
+          onClose={()=>setShowExport(null)}
         />
       )}
 
@@ -3153,7 +3148,28 @@ function postsToAIContext(posts, accountName, {scores, postTypes, includeBody, i
   return lines.join("\n");
 }
 
-function AIContextModal({posts,accountName,onClose}){
+function postsToCSV(posts, postTypes){
+  const esc=v=>`"${String(v||"").replace(/"/g,'""')}"`; 
+  const header=["日時","タイトル","ステータス","種類","スコア","ラベル","メモ","リンク","文字数"];
+  const rows=posts.map(p=>([
+    esc(p.datetime.replace("T"," ")),
+    esc(p.title||""),
+    esc(STATUS[p.status]?.label||p.status),
+    esc((postTypes[p.postType||"x_post"]||POST_TYPE[p.postType||"x_post"])?.label||p.postType),
+    esc(p.score||""),
+    esc((p.labels||[]).join(" / ")),
+    esc(p.memo||""),
+    esc((p.memoLinks||[]).map(l=>typeof l==="string"?l:l.url).join(" / ")),
+    esc(p.body?p.body.replace(/<[^>]+>/g,"").length:"0"),
+  ].join(",")));
+  return [header.join(","),...rows].join("\n");
+}
+
+function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=POST_TYPE,onClose}){
+  const [tab,setTab]=useState(initialTab);
+  useEffect(()=>setTab(initialTab),[initialTab]);
+
+  // ── AI出力タブ state ──
   const [scores,setScores]=useState([]);
   const [postTypes,setPostTypes]=useState([]);
   const [includeBody,setIncludeBody]=useState(false);
@@ -3165,6 +3181,14 @@ function AIContextModal({posts,accountName,onClose}){
   const [dateFrom,setDateFrom]=useState("");
   const [dateTo,setDateTo]=useState(today);
 
+  // ── ファイル保存タブ state ──
+  const [format,setFormat]=useState("md");
+  const [scope,setScope]=useState("all");
+  const [statusFilter,setStatusFilter]=useState("all");
+  const [folderHandle,setFolderHandle]=useState(null);
+  const [progress,setProgress]=useState(null);
+  const [done,setDone]=useState(false);
+
   const toggle=(arr,setArr,v)=>setArr(prev=>prev.includes(v)?prev.filter(x=>x!==v):[...prev,v]);
 
   const setPreset=preset=>{
@@ -3175,330 +3199,281 @@ function AIContextModal({posts,accountName,onClose}){
     if(preset==="90"){d.setDate(d.getDate()-90);setDateFrom(fmtDate(d));setDateTo(today);return;}
   };
 
-  const preview=React.useMemo(()=>postsToAIContext(
-    posts.filter(p=>{
-      if(dateFrom&&p.datetime.slice(0,10)<dateFrom)return false;
-      if(dateTo&&p.datetime.slice(0,10)>dateTo)return false;
-      return true;
-    }),
-    accountName,{scores,postTypes,includeBody,includeMemo,includeLinks,prompt}
-  ),[posts,accountName,scores,postTypes,includeBody,includeMemo,includeLinks,prompt,dateFrom,dateTo]);
+  const filteredByDate=React.useMemo(()=>posts.filter(p=>{
+    if(dateFrom&&p.datetime.slice(0,10)<dateFrom)return false;
+    if(dateTo&&p.datetime.slice(0,10)>dateTo)return false;
+    return true;
+  }),[posts,dateFrom,dateTo]);
 
-  const targetCount=posts.filter(p=>{
+  const aiPreview=React.useMemo(()=>postsToAIContext(
+    filteredByDate,accountName,{scores,postTypes,includeBody,includeMemo,includeLinks,prompt}
+  ),[filteredByDate,accountName,scores,postTypes,includeBody,includeMemo,includeLinks,prompt]);
+
+  const targetCount=filteredByDate.filter(p=>{
     const scoreOk=scores.length===0||scores.includes(p.score);
     const typeOk=postTypes.length===0||postTypes.includes(p.postType||"x_post");
-    const fromOk=!dateFrom||p.datetime.slice(0,10)>=dateFrom;
-    const toOk=!dateTo||p.datetime.slice(0,10)<=dateTo;
-    return scoreOk&&typeOk&&fromOk&&toOk;
+    return scoreOk&&typeOk;
   }).length;
 
+  const filePosts=React.useMemo(()=>scope==="all"?posts:posts.filter(p=>p.status===statusFilter),[posts,scope,statusFilter]);
+
   const handleCopy=()=>{
-    navigator.clipboard.writeText(preview).then(()=>{
-      setCopied(true);setTimeout(()=>setCopied(false),3000);
-    });
+    navigator.clipboard.writeText(aiPreview).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),3000);});
   };
 
-  const handleDownload=()=>{
-    const blob=new Blob([preview],{type:"text/markdown;charset=utf-8"});
+  const handleDownloadAI=()=>{
+    const blob=new Blob([aiPreview],{type:"text/markdown;charset=utf-8"});
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");
-    a.href=url;
-    a.download=`${sanitizeFilename(accountName)}_ai_context.md`;
-    a.click();URL.revokeObjectURL(url);
+    a.href=url;a.download=`${sanitizeFilename(accountName)}_ai_context.md`;a.click();URL.revokeObjectURL(url);
   };
 
-  const chipBtn=(label,active,onClick)=>(
-    <button onClick={onClick} style={{padding:"3px 10px",borderRadius:99,border:`1.5px solid ${active?"#111":"#e0d8ce"}`,background:active?"#111":"#fff",color:active?"#fff":"#555",fontSize:11,fontWeight:active?700:500,cursor:"pointer",transition:"all .12s"}}>
+  const handleDownloadCSV=()=>{
+    const csv=postsToCSV(posts,allPostTypes);
+    const bom="\uFEFF"; // Excel対応BOM
+    const blob=new Blob([bom+csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`${sanitizeFilename(accountName)}_export.csv`;a.click();URL.revokeObjectURL(url);
+  };
+
+  const pickFolder=async()=>{
+    try{const h=await window.showDirectoryPicker({mode:"readwrite"});setFolderHandle(h);}
+    catch(e){if(e.name!=="AbortError")alert("フォルダの取得に失敗しました: "+e.message);}
+  };
+
+  const runExport=async()=>{
+    setProgress({done:0,total:filePosts.length,errors:[]});setDone(false);
+    if(FS_SUPPORTED&&folderHandle){
+      const errors=[];
+      for(let i=0;i<filePosts.length;i++){
+        const p=filePosts[i];
+        try{
+          const name=`${p.datetime.slice(0,10)}_${sanitizeFilename(p.title)}.${format}`;
+          const content=format==="md"?postToMarkdown(p):JSON.stringify(p,null,2);
+          const fh=await folderHandle.getFileHandle(name,{create:true});
+          const w=await fh.createWritable();await w.write(content);await w.close();
+        }catch(e){errors.push(p.title||"(無題)");}
+        setProgress({done:i+1,total:filePosts.length,errors});
+      }
+    }else{
+      const content=format==="md"
+        ?filePosts.map(p=>`${"=".repeat(60)}\n${postToMarkdown(p)}`).join("\n\n")
+        :JSON.stringify(filePosts,null,2);
+      const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;
+      a.download=`${sanitizeFilename(accountName)}_export.${format==="md"?"txt":"json"}`;
+      a.click();URL.revokeObjectURL(url);
+      setProgress({done:filePosts.length,total:filePosts.length,errors:[]});
+    }
+    setDone(true);
+  };
+
+  const chipBtn=(label,active,onClick,color)=>(
+    <button onClick={onClick}
+      style={{padding:"2px 9px",borderRadius:99,border:`1.5px solid ${active?(color||"#111"):"#e0d8ce"}`,background:active?(color||"#111"):"#fff",color:active?"#fff":"#555",fontSize:10.5,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",transition:"all .12s"}}>
       {label}
     </button>
   );
 
+  const TABS=[["ai","AI出力"],["file","ファイル保存"],["csv","CSV"]];
+
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:860,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.15)",border:BD2}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:tab==="ai"?860:500,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.15)",border:BD2,transition:"max-width .2s"}}>
+
         {/* ヘッダー */}
-        <div style={{padding:"14px 20px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-          <div>
-            <div style={{fontWeight:800,fontSize:15,letterSpacing:"-.3px"}}>AIコンテキスト出力</div>
-            <div style={{fontSize:11,color:"#a8a09a",marginTop:2}}>投稿データをAIに渡せる形式で出力します</div>
+        <div style={{padding:"14px 20px 0",borderBottom:BD2,flexShrink:0}}>
+          <div style={{...S.rowB,marginBottom:12}}>
+            <div style={{fontWeight:800,fontSize:15,letterSpacing:"-.3px"}}>エクスポート</div>
+            <Btn onClick={onClose}>閉じる</Btn>
           </div>
-          <Btn onClick={onClose}>閉じる</Btn>
+          {/* タブ */}
+          <div style={{...S.row,gap:0}}>
+            {TABS.map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)}
+                style={{padding:"7px 18px",border:"none",background:"none",borderBottom:`2.5px solid ${tab===id?"#f59e0b":"transparent"}`,fontSize:13,fontWeight:tab===id?700:500,color:tab===id?"#f59e0b":"#888",cursor:"pointer"}}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div style={{flex:1,display:"flex",overflow:"hidden"}}>
-          {/* 左：フィルター設定 */}
-          <div style={{width:260,borderRight:"1px solid #e6dfd6",padding:"16px",display:"flex",flexDirection:"column",gap:14,overflowY:"auto",flexShrink:0}}>
-
-            {/* 期間 */}
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>期間</div>
-              <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
-                {[["all","全期間"],["7","7日"],["30","30日"],["90","90日"]].map(([v,l])=>{
-                  const isActive=v==="all"?!dateFrom:dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))));
-                  return(
+        {/* ── AI出力タブ ── */}
+        {tab==="ai"&&(
+          <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+            {/* 左：フィルター */}
+            <div style={{width:260,borderRight:BD2,padding:16,...S.col,gap:14,overflowY:"auto",flexShrink:0}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>期間</div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+                  {[["all","全期間"],["7","7日"],["30","30日"],["90","90日"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setPreset(v)}
-                      style={{padding:"3px 9px",borderRadius:99,border:`1.5px solid ${isActive?"#111":"#e0d8ce"}`,background:isActive?"#111":"#fff",color:isActive?"#fff":"#555",fontSize:11,fontWeight:isActive?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all .12s"}}>
+                      style={{padding:"3px 9px",borderRadius:99,border:`1.5px solid ${v==="all"?(!dateFrom?"#111":"#e0d8ce"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#e0d8ce"}`,background:v==="all"?(!dateFrom?"#111":"#fff"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#fff",color:v==="all"?(!dateFrom?"#fff":"#555"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#fff":"#555",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all .12s"}}>
                       {l}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
+                <div style={{...S.row,gap:6}}>
+                  <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,outline:"none",color:"#333"}}/>
+                  <span style={{fontSize:11,color:"#aaa"}}>〜</span>
+                  <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,outline:"none",color:"#333"}}/>
+                </div>
               </div>
-              <div style={{...S.row,gap:6}}>
-                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-                  style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}
-                  onFocus={e=>e.target.style.borderColor="#111"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-                <span style={{fontSize:11,color:"#aaa"}}>〜</span>
-                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-                  style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}
-                  onFocus={e=>e.target.style.borderColor="#111"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>スコア</div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {chipBtn("全て",scores.length===0,()=>setScores([]))}
+                  {Object.entries(SCORE).map(([k,v])=>chipBtn(k,scores.includes(k),()=>toggle(scores,setScores,k),v.bg))}
+                </div>
               </div>
-            </div>
-
-            {/* スコア */}
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>スコア</div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                {chipBtn("全て",scores.length===0,()=>setScores([]))}
-                {Object.entries(SCORE).map(([k])=>chipBtn(k,scores.includes(k),()=>toggle(scores,setScores,k)))}
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>投稿種類</div>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                  {chipBtn("全て",postTypes.length===0,()=>setPostTypes([]))}
+                  {Object.entries(allPostTypes).map(([k,v])=>chipBtn(v.label,postTypes.includes(k),()=>toggle(postTypes,setPostTypes,k),v.color))}
+                </div>
               </div>
-            </div>
-
-            {/* 投稿種類 */}
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>投稿種類</div>
-              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                {chipBtn("全て",postTypes.length===0,()=>setPostTypes([]))}
-                {Object.entries(POST_TYPE).map(([k,v])=>chipBtn(v.label,postTypes.includes(k),()=>toggle(postTypes,setPostTypes,k)))}
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>含める情報</div>
+                <div style={{...S.col,gap:6}}>
+                  {[["本文（長くなります）",includeBody,setIncludeBody],["メモ",includeMemo,setIncludeMemo],["リンク",includeLinks,setIncludeLinks]].map(([label,val,setter])=>(
+                    <label key={label} style={{...S.row,gap:8,cursor:"pointer",fontSize:12,color:"#444"}}>
+                      <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:"#111",width:14,height:14}}/>
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* 含める情報 */}
-            <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>含める情報</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>依頼文（任意）</div>
+                <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
+                  placeholder={"例：Sランク記事を参考に来週の投稿アイデアを5つ提案して"}
+                  rows={4}
+                  style={{width:"100%",border:BD,borderRadius:8,padding:"8px 10px",fontSize:11.5,outline:"none",resize:"vertical",lineHeight:1.6,boxSizing:"border-box",color:"#333"}}/>
+              </div>
+              <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
+                対象: <strong>{targetCount}件</strong>
+              </div>
               <div style={{...S.col,gap:6}}>
-                {[
-                  ["本文（長くなります）",includeBody,setIncludeBody],
-                  ["メモ",includeMemo,setIncludeMemo],
-                  ["リンク",includeLinks,setIncludeLinks],
-                ].map(([label,val,setter])=>(
-                  <label key={label} style={{...S.row,gap:8,cursor:"pointer",fontSize:12,color:"#444"}}>
-                    <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:"#111",width:14,height:14}}/>
-                    {label}
-                  </label>
+                <button onClick={handleCopy}
+                  style={{background:copied?"#10b981":"#111",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",transition:"background .15s"}}>
+                  {copied?"✓ コピーしました":"クリップボードにコピー"}
+                </button>
+                <button onClick={handleDownloadAI}
+                  style={{background:"#fff",border:BD,borderRadius:9,padding:"9px 0",fontSize:13,fontWeight:600,color:"#333",cursor:"pointer"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"}
+                  onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                  MDファイルでダウンロード
+                </button>
+              </div>
+            </div>
+            {/* 右：プレビュー */}
+            <div style={{flex:1,...S.col,overflow:"hidden"}}>
+              <div style={{padding:"10px 16px",borderBottom:BD2,fontSize:11,color:"#a8a09a",fontWeight:600,flexShrink:0}}>プレビュー</div>
+              <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
+                <pre style={{fontSize:11.5,lineHeight:1.7,color:"#333",whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0}}>{aiPreview}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ファイル保存タブ ── */}
+        {tab==="file"&&(
+          <div style={{flex:1,overflowY:"auto",padding:20,...S.col,gap:16}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>ファイル形式</div>
+              <div style={{display:"flex",gap:6}}>
+                {[["md","Markdown (.md)"],["json","JSON (.json)"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setFormat(v)}
+                    style={{flex:1,border:`1.5px solid ${format===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 0",background:format===v?"#fef3c7":"#fff",color:format===v?"#d97706":"#555",fontWeight:format===v?700:500,fontSize:12,cursor:"pointer"}}>
+                    {l}
+                  </button>
                 ))}
               </div>
+              {format==="md"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>frontmatter付き。タイトル・本文・ステータス・リンクを含む</div>}
+              {format==="json"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>全フィールド保存。バックアップ向け</div>}
             </div>
-
-            {/* プロンプト */}
             <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7,letterSpacing:".3px"}}>依頼文（任意）</div>
-              <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
-                placeholder={"例：これらのSランク記事を参考に、来週のX投稿アイデアを5つ提案してください。"}
-                rows={4}
-                style={{width:"100%",border:BD,borderRadius:8,padding:"8px 10px",fontSize:11.5,fontFamily:"inherit",color:"#333",outline:"none",resize:"vertical",lineHeight:1.6,boxSizing:"border-box"}}
-                onFocus={e=>e.target.style.borderColor="#111"}
-                onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-            </div>
-
-            {/* 件数 */}
-            <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
-              対象: <strong>{targetCount}件</strong>
-            </div>
-
-            {/* ボタン */}
-            <div style={{...S.col,gap:6}}>
-              <button onClick={handleCopy}
-                style={{background:copied?"#10b981":"#111",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer",transition:"background .15s"}}>
-                {copied?"✓ コピーしました":"クリップボードにコピー"}
-              </button>
-              <button onClick={handleDownload}
-                style={{background:"#fff",border:BD,borderRadius:9,padding:"9px 0",fontSize:13,fontWeight:600,color:"#333",cursor:"pointer"}}
-                onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"}
-                onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                MDファイルでダウンロード
-              </button>
-            </div>
-          </div>
-
-          {/* 右：プレビュー */}
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"10px 16px",borderBottom:BD2,fontSize:11,color:"#a8a09a",fontWeight:600,letterSpacing:".3px",flexShrink:0}}>
-              プレビュー
-            </div>
-            <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
-              <pre style={{fontSize:11.5,lineHeight:1.7,color:"#333",whiteSpace:"pre-wrap",wordBreak:"break-word",fontFamily:"'Geist Mono','SF Mono','Menlo',monospace",margin:0}}>
-                {preview}
-              </pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExportModal({posts,accountName,onClose}){
-  const [format,setFormat]=useState("md");
-  const [scope,setScope]=useState("all");
-  const [statusFilter,setStatusFilter]=useState("all");
-  const [folderHandle,setFolderHandle]=useState(null);
-  const [progress,setProgress]=useState(null); // null | {done,total,errors}
-  const [done,setDone]=useState(false);
-
-  const targetPosts=React.useMemo(()=>{
-    if(scope==="all")return posts;
-    return posts.filter(p=>p.status===statusFilter);
-  },[posts,scope,statusFilter]);
-
-  const pickFolder=async()=>{
-    try{
-      const h=await window.showDirectoryPicker({mode:"readwrite"});
-      setFolderHandle(h);
-    }catch(e){
-      if(e.name!=="AbortError")alert("フォルダの取得に失敗しました: "+e.message);
-    }
-  };
-
-  const runExport=async()=>{
-    setProgress({done:0,total:targetPosts.length,errors:[]});
-    setDone(false);
-
-    if(FS_SUPPORTED&&folderHandle){
-      // File System Access API — フォルダに直接書き込み
-      const errors=[];
-      for(let i=0;i<targetPosts.length;i++){
-        const p=targetPosts[i];
-        try{
-          const date=p.datetime.slice(0,10);
-          const name=`${date}_${sanitizeFilename(p.title)}.${format}`;
-          const content=format==="md"?postToMarkdown(p):JSON.stringify(p,null,2);
-          const fh=await folderHandle.getFileHandle(name,{create:true});
-          const w=await fh.createWritable();
-          await w.write(content);
-          await w.close();
-        }catch(e){
-          errors.push(p.title||"(無題)");
-        }
-        setProgress({done:i+1,total:targetPosts.length,errors});
-      }
-      setDone(true);
-    }else{
-      // フォールバック：ZIPダウンロード（JSZipなし → 単一JSONで代替）
-      const content=format==="md"
-        ?targetPosts.map(p=>`${"=".repeat(60)}\n${postToMarkdown(p)}`).join("\n\n")
-        :JSON.stringify(targetPosts,null,2);
-      const blob=new Blob([content],{type:"text/plain;charset=utf-8"});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      a.href=url;
-      a.download=`${sanitizeFilename(accountName)}_export.${format==="md"?"txt":"json"}`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setProgress({done:targetPosts.length,total:targetPosts.length,errors:[]});
-      setDone(true);
-    }
-  };
-
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
-      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"88vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
-        {/* ヘッダー */}
-        <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb",flexShrink:0}}>
-          <div>
-            <div style={{fontWeight:800,fontSize:14}}>💾 ローカル保存</div>
-            <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{accountName} の投稿をファイルに書き出す</div>
-          </div>
-          <Btn onClick={onClose}>閉じる</Btn>
-        </div>
-        <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexDirection:"column",gap:16}}>
-
-          {/* フォーマット */}
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>ファイル形式</div>
-            <div style={{display:"flex",gap:6}}>
-              {[["md","Markdown (.md)"],["json","JSON (.json)"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setFormat(v)}
-                  style={{flex:1,border:`1.5px solid ${format===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"10px 0",background:format===v?"#fef3c7":"#fff",color:format===v?"#d97706":"#555",fontWeight:format===v?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            {format==="md"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>frontmatter付き。タイトル・本文・ステータス・リンクを含む</div>}
-            {format==="json"&&<div style={{fontSize:10,color:"#aaa",marginTop:5}}>全フィールドをそのまま保存。インポート・バックアップ向け</div>}
-          </div>
-
-          {/* 対象 */}
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>対象</div>
-            <div style={{display:"flex",gap:6,marginBottom:8}}>
-              {[["all","すべて"],["filter","ステータス絞り込み"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setScope(v)}
-                  style={{flex:1,border:`1.5px solid ${scope===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"8px 0",background:scope===v?"#fef3c7":"#fff",color:scope===v?"#d97706":"#555",fontWeight:scope===v?700:500,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            {scope==="filter"&&(
-              <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
-                style={{width:"100%",border:BD,borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
-                {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-              </select>
-            )}
-            <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f8f5f1",border:BD2,borderRadius:7,padding:"6px 10px"}}>
-              対象: <strong>{targetPosts.length}件</strong>
-            </div>
-          </div>
-
-          {/* フォルダ選択 */}
-          <div>
-            <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>保存先フォルダ</div>
-            {FS_SUPPORTED?(
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <button onClick={pickFolder}
-                  style={{flex:1,border:`1.5px solid ${folderHandle?"#10b981":"#e0d8ce"}`,borderRadius:9,padding:"10px 14px",background:folderHandle?"#d1fae5":"#fff",color:folderHandle?"#059669":"#555",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {folderHandle?`📁 ${folderHandle.name}`:"📁 フォルダを選択…"}
-                </button>
-                {folderHandle&&<button onClick={()=>setFolderHandle(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:16,padding:"4px"}}>×</button>}
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>対象</div>
+              <div style={{display:"flex",gap:6,marginBottom:8}}>
+                {[["all","すべて"],["filter","ステータス絞り込み"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setScope(v)}
+                    style={{flex:1,border:`1.5px solid ${scope===v?"#f59e0b":"#e0d8ce"}`,borderRadius:9,padding:"8px 0",background:scope===v?"#fef3c7":"#fff",color:scope===v?"#d97706":"#555",fontWeight:scope===v?700:500,fontSize:12,cursor:"pointer"}}>
+                    {l}
+                  </button>
+                ))}
               </div>
-            ):(
-              <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.6}}>
-                このブラウザはフォルダ選択に対応していません。<br/>
-                代わりに全件をひとつのファイルとしてダウンロードします。<br/>
-                <span style={{fontSize:10,color:"#aaa"}}>(Chrome / Edge 推奨)</span>
+              {scope==="filter"&&(
+                <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+                  style={{width:"100%",border:BD,borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",outline:"none",cursor:"pointer",background:"#fff"}}>
+                  {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>
+              )}
+              <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f8f5f1",border:BD2,borderRadius:7,padding:"6px 10px"}}>
+                対象: <strong>{filePosts.length}件</strong>
               </div>
-            )}
-          </div>
-
-          {/* 進捗 */}
-          {progress&&(
-            <div style={{background:"#f8f5f1",border:BD2,borderRadius:9,padding:"12px 14px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,marginBottom:6,color:done?"#059669":"#555"}}>
-                <span>{done?"✅ 完了":"⏳ 書き出し中…"}</span>
-                <span>{progress.done} / {progress.total}</span>
-              </div>
-              <div style={{height:6,background:"#e6dfd6",borderRadius:3,overflow:"hidden"}}>
-                <div style={{height:"100%",background:done?"#10b981":"#f59e0b",borderRadius:3,width:`${(progress.done/progress.total)*100}%`,transition:"width .2s"}}/>
-              </div>
-              {progress.errors.length>0&&(
-                <div style={{marginTop:8,fontSize:10,color:"#ef4444"}}>
-                  失敗: {progress.errors.join(", ")}
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:7}}>保存先フォルダ</div>
+              {FS_SUPPORTED?(
+                <div style={{...S.row,gap:8}}>
+                  <button onClick={pickFolder}
+                    style={{flex:1,border:`1.5px solid ${folderHandle?"#10b981":"#e0d8ce"}`,borderRadius:9,padding:"10px 14px",background:folderHandle?"#d1fae5":"#fff",color:folderHandle?"#059669":"#555",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {folderHandle?`📁 ${folderHandle.name}`:"📁 フォルダを選択…"}
+                  </button>
+                  {folderHandle&&<button onClick={()=>setFolderHandle(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:16,padding:"4px"}}>×</button>}
+                </div>
+              ):(
+                <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.6}}>
+                  このブラウザはフォルダ選択非対応。<br/>全件をひとつのファイルでダウンロードします。
                 </div>
               )}
             </div>
-          )}
-        </div>
+            {progress&&(
+              <div style={{background:"#f8f5f1",border:BD2,borderRadius:9,padding:"12px 14px"}}>
+                <div style={{...S.rowB,fontSize:12,fontWeight:700,marginBottom:6,color:done?"#059669":"#555"}}>
+                  <span>{done?"✅ 完了":"⏳ 書き出し中…"}</span>
+                  <span>{progress.done} / {progress.total}</span>
+                </div>
+                <div style={{height:6,background:"#e6dfd6",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",background:done?"#10b981":"#f59e0b",borderRadius:3,width:`${(progress.done/progress.total)*100}%`,transition:"width .2s"}}/>
+                </div>
+                {progress.errors.length>0&&<div style={{marginTop:8,fontSize:10,color:"#ef4444"}}>失敗: {progress.errors.join(", ")}</div>}
+              </div>
+            )}
+            <button onClick={runExport}
+              disabled={FS_SUPPORTED&&!folderHandle||filePosts.length===0||!!progress&&!done}
+              style={{background:(FS_SUPPORTED&&!folderHandle)||filePosts.length===0?"#d1d5db":"#f59e0b",border:"none",borderRadius:9,padding:"11px 0",fontSize:13,fontWeight:800,color:"#fff",cursor:(FS_SUPPORTED&&!folderHandle)||filePosts.length===0?"default":"pointer",transition:"background .15s"}}>
+              {done?"もう一度":"書き出す"}
+            </button>
+          </div>
+        )}
 
-        {/* フッター */}
-        <div style={{padding:"12px 18px",borderTop:BD2,display:"flex",gap:8,justifyContent:"flex-end",background:"#f5f0eb",flexShrink:0}}>
-          <Btn onClick={onClose}>キャンセル</Btn>
-          <button onClick={runExport}
-            disabled={FS_SUPPORTED&&!folderHandle||targetPosts.length===0||!!progress&&!done}
-            style={{background:(FS_SUPPORTED&&!folderHandle)||targetPosts.length===0?"#d1d5db":"#f59e0b",border:"none",borderRadius:8,padding:"7px 20px",fontSize:12,fontWeight:800,color:"#fff",cursor:(FS_SUPPORTED&&!folderHandle)||targetPosts.length===0?"default":"pointer",transition:"background .15s"}}>
-            {done?"もう一度":"書き出す"}
-          </button>
-        </div>
+        {/* ── CSVタブ ── */}
+        {tab==="csv"&&(
+          <div style={{flex:1,overflowY:"auto",padding:20,...S.col,gap:16}}>
+            <div style={{background:"#f5f0eb",borderRadius:10,padding:"14px 16px",fontSize:12,color:"#555",lineHeight:1.8}}>
+              <div style={{fontWeight:700,marginBottom:6,color:"#333"}}>出力フィールド</div>
+              日時、タイトル、ステータス、種類、スコア、ラベル、メモ、リンク、文字数
+            </div>
+            <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
+              対象: <strong>{posts.length}件</strong>（全件）
+            </div>
+            <div style={{fontSize:11,color:"#aaa",lineHeight:1.7}}>
+              Excelで開く場合はUTF-8 BOM付きで出力するので文字化けしません。
+            </div>
+            <button onClick={handleDownloadCSV}
+              style={{background:"#111",border:"none",borderRadius:9,padding:"12px 0",fontSize:13,fontWeight:700,color:"#fff",cursor:"pointer"}}>
+              CSVをダウンロード
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
