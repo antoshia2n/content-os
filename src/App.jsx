@@ -80,6 +80,7 @@ function dbToPost(p){
     memoLinks:rawLinks.map(l=>typeof l==="string"?{label:"",url:l}:l),
     history:p.history||[],
     score:p.score||null,
+    labels:p.labels||[],
   };
 }
 function getUrlParams(){
@@ -432,6 +433,49 @@ function fallbackCopy(plain,onDone){
 // ════════════════════════════════════════════════════════
 // 概要メモ（リンク対応）
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// ラベルエディタ
+// ════════════════════════════════════════════════════════
+function LabelEditor({labels,onChange}){
+  const [input,setInput]=useState("");
+  const composing=useRef(false);
+  const add=()=>{
+    const v=input.trim();
+    if(!v||labels.includes(v))return;
+    onChange([...labels,v]);
+    setInput("");
+  };
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {labels.length>0&&(
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {labels.map((l,i)=>(
+            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#f5f0eb",border:"1px solid #e0d8ce",borderRadius:99,padding:"2px 8px",fontSize:"0.72em",fontWeight:600,color:"#555"}}>
+              {l}
+              <button onClick={()=>onChange(labels.filter((_,j)=>j!==i))}
+                style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:"0.9em",padding:0,lineHeight:1}}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{display:"flex",gap:5}}>
+        <input value={input} onChange={e=>setInput(e.target.value)}
+          onCompositionStart={()=>{composing.current=true;}}
+          onCompositionEnd={()=>{composing.current=false;}}
+          onKeyDown={e=>{if(!composing.current&&e.key==="Enter"){e.preventDefault();add();}}}
+          placeholder="ラベルを入力 → Enter"
+          style={{flex:1,border:"1px solid #e0d8ce",borderRadius:7,padding:"5px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#333",outline:"none",boxSizing:"border-box"}}
+          onFocus={e=>e.target.style.borderColor="#f59e0b"}
+          onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+        <button onClick={add} disabled={!input.trim()}
+          style={{background:input.trim()?"#555":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 9px",fontSize:"0.77em",fontWeight:700,color:"#fff",cursor:input.trim()?"pointer":"default",fontFamily:"inherit"}}>
+          追加
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MemoEditor({memo,memoLinks,onChange}){
   const [linkInput,setLinkInput]=useState("");
   const [labelInput,setLabelInput]=useState("");
@@ -591,63 +635,163 @@ function RepostModal({post,onClose,onRepost}){
 // 検索モーダル
 // ════════════════════════════════════════════════════════
 function SearchModal({posts,onClose,onSelect,onRepost}){
-  const [q,setQ]=useState(""),[pt,setPt]=useState("all");
+  const [q,setQ]=useState("");
+  const [filterPt,setFilterPt]=useState([]);
+  const [filterScore,setFilterScore]=useState([]);
+  const [filterLabel,setFilterLabel]=useState("");
+  const [dateFrom,setDateFrom]=useState("");
+  const [dateTo,setDateTo]=useState("");
+  const [showFilters,setShowFilters]=useState(false);
   const inputRef=useRef(null);
+  const composing=useRef(false);
+
   useEffect(()=>{inputRef.current?.focus();},[]);
   useEffect(()=>{
     const h=e=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[]);
+
+  // 全投稿からラベル一覧を生成
+  const allLabels=React.useMemo(()=>{
+    const s=new Set();
+    posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));
+    return [...s].sort();
+  },[posts]);
+
+  const hasFilter=filterPt.length>0||filterScore.length>0||filterLabel||dateFrom||dateTo;
+
   const results=React.useMemo(()=>posts.filter(p=>{
-    const mq=!q||p.title.includes(q)||stripHtml(p.body).includes(q)||(p.memo||"").includes(q);
-    const mp=pt==="all"||(p.postType||"x_post")===pt;
-    return mq&&mp;
-  }).sort((a,b)=>b.datetime.localeCompare(a.datetime)),[posts,q,pt]);
+    if(q){
+      const qq=q.toLowerCase();
+      const hit=p.title.toLowerCase().includes(qq)
+        ||stripHtml(p.body).toLowerCase().includes(qq)
+        ||(p.memo||"").toLowerCase().includes(qq)
+        ||(p.labels||[]).some(l=>l.toLowerCase().includes(qq));
+      if(!hit)return false;
+    }
+    if(filterPt.length>0&&!filterPt.includes(p.postType||"x_post"))return false;
+    if(filterScore.length>0&&!filterScore.includes(p.score))return false;
+    if(filterLabel&&!(p.labels||[]).includes(filterLabel))return false;
+    if(dateFrom&&p.datetime.slice(0,10)<dateFrom)return false;
+    if(dateTo&&p.datetime.slice(0,10)>dateTo)return false;
+    return true;
+  }).sort((a,b)=>b.datetime.localeCompare(a.datetime)),[posts,q,filterPt,filterScore,filterLabel,dateFrom,dateTo]);
+
+  const toggle=(arr,setArr,v)=>setArr(prev=>prev.includes(v)?prev.filter(x=>x!==v):[...prev,v]);
+  const chipBtn=(label,active,onClick,color)=>(
+    <button onClick={onClick}
+      style={{padding:"2px 9px",borderRadius:99,border:`1.5px solid ${active?(color||"#111"):"#e0d8ce"}`,background:active?(color||"#111"):"#fff",color:active?"#fff":"#555",fontSize:10.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all .12s",whiteSpace:"nowrap"}}>
+      {label}
+    </button>
+  );
+
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"56px 20px 20px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"72vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #e6dfd6",display:"flex",gap:8,alignItems:"center"}}>
-          <span style={{color:"#aaa"}}>🔍</span>
-          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="タイトル・本文・メモで検索…"
-            style={{flex:1,border:"none",outline:"none",fontSize:"0.95em",fontFamily:"inherit",color:"#0f1419"}}/>
-          {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>×</button>}
-          <select value={pt} onChange={e=>setPt(e.target.value)}
-            style={{border:"1px solid #e0d8ce",borderRadius:8,padding:"4px 8px",fontSize:"0.76em",fontFamily:"inherit",outline:"none",color:"#555"}}>
-            <option value="all">全種類</option>
-            {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-          </select>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"48px 20px 20px"}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,maxHeight:"80vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.18)",border:"1px solid #e6dfd6"}}>
+
+        {/* 検索バー */}
+        <div style={{padding:"14px 16px",borderBottom:"1px solid #e6dfd6",display:"flex",gap:8,alignItems:"center"}}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#aaa" strokeWidth="2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+          <input ref={inputRef} value={q}
+            onChange={e=>setQ(e.target.value)}
+            onCompositionStart={()=>{composing.current=true;}}
+            onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
+            placeholder="タイトル・本文・メモ・ラベルで検索…"
+            style={{flex:1,border:"none",outline:"none",fontSize:14,fontFamily:"inherit",color:"#111"}}/>
+          {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:16}}>×</button>}
+          <button onClick={()=>setShowFilters(v=>!v)}
+            style={{display:"flex",alignItems:"center",gap:4,border:`1px solid ${hasFilter?"#111":"#e0d8ce"}`,borderRadius:8,padding:"4px 9px",fontSize:11.5,fontWeight:600,color:hasFilter?"#111":"#888",background:hasFilter?"#f5f0eb":"#fff",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4h12M4 8h8M6 12h4"/></svg>
+            絞り込み{hasFilter&&<span style={{background:"#111",color:"#fff",borderRadius:99,width:14,height:14,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,marginLeft:2}}>{[filterPt.length,filterScore.length,filterLabel?1:0,dateFrom||dateTo?1:0].reduce((a,b)=>a+b,0)}</span>}
+          </button>
         </div>
-        <div style={{flex:1,overflowY:"auto"}}>
-          {results.length===0?<div style={{padding:"40px 0",textAlign:"center",color:"#ccc",fontSize:"0.85em"}}>該当なし</div>
-          :results.map(p=>{
-            const pt2=POST_TYPE[p.postType||"x_post"],st=STATUS[p.status];
-            return(
-              <div key={p.id} style={{padding:"11px 16px",borderBottom:"1px solid #f3f4f6",display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer"}}
-                onMouseEnter={e=>e.currentTarget.style.background="#f8f5f1"}
-                onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                <span style={{width:8,height:8,borderRadius:"50%",background:pt2.dot,flexShrink:0,marginTop:5}}/>
-                <div style={{flex:1}} onClick={()=>onSelect(p)}>
-                  <div style={{fontWeight:700,fontSize:"0.88em",color:"#0f1419",marginBottom:2}}>{p.title||"（タイトルなし）"}</div>
-                  <div style={{fontSize:"0.75em",color:"#8b98a5",lineHeight:1.4,marginBottom:3}}>{stripHtml(p.body).slice(0,55)}…</div>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                    <span style={{fontSize:"0.69em",color:pt2.color,fontWeight:600,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 6px",borderRadius:10}}>{pt2.label}</span>
-                    {st&&<span style={{fontSize:"0.69em",color:st.text,background:st.chip,border:`1px solid ${st.border}`,padding:"0 6px",borderRadius:10,fontWeight:600}}>{st.label}</span>}
-                    <span style={{fontSize:"0.68em",color:"#aaa"}}>{p.datetime.slice(0,10)}</span>
-                  </div>
-                </div>
-                <button onClick={()=>onRepost(p)}
-                  style={{border:"1px solid #e0d8ce",background:"none",color:"#536471",borderRadius:7,padding:"4px 9px",fontSize:"0.71em",fontWeight:600,cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}
-                  onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}}
-                  onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";e.currentTarget.style.borderColor="#e0d8ce";}}>
-                  🔁再投稿
-                </button>
+
+        {/* フィルターパネル */}
+        {showFilters&&(
+          <div style={{padding:"12px 16px",borderBottom:"1px solid #e6dfd6",background:"#faf7f3",display:"flex",flexDirection:"column",gap:10}}>
+            {/* メディア */}
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>メディア</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                {Object.entries(POST_TYPE).map(([k,v])=>chipBtn(v.label,filterPt.includes(k),()=>toggle(filterPt,setFilterPt,k),v.color))}
               </div>
-            );
-          })}
+            </div>
+            {/* スコア */}
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>スコア</div>
+              <div style={{display:"flex",gap:4}}>
+                {Object.entries(SCORE).map(([k,v])=>chipBtn(k,filterScore.includes(k),()=>toggle(filterScore,setFilterScore,k),v.bg))}
+              </div>
+            </div>
+            {/* ラベル */}
+            {allLabels.length>0&&(
+              <div>
+                <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>ラベル</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {allLabels.map(l=>chipBtn(l,filterLabel===l,()=>setFilterLabel(v=>v===l?"":l)))}
+                </div>
+              </div>
+            )}
+            {/* 日付 */}
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>日付</div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                  style={{border:"1px solid #e0d8ce",borderRadius:6,padding:"4px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}/>
+                <span style={{fontSize:11,color:"#aaa"}}>〜</span>
+                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                  style={{border:"1px solid #e0d8ce",borderRadius:6,padding:"4px 7px",fontSize:11,fontFamily:"inherit",outline:"none",color:"#333"}}/>
+                {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom("");setDateTo("");}}
+                  style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>クリア</button>}
+              </div>
+            </div>
+            {hasFilter&&<button onClick={()=>{setFilterPt([]);setFilterScore([]);setFilterLabel("");setDateFrom("");setDateTo("");}}
+              style={{alignSelf:"flex-start",border:"none",background:"none",color:"#dc2626",cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"inherit",padding:0}}>
+              すべてクリア
+            </button>}
+          </div>
+        )}
+
+        {/* 結果一覧 */}
+        <div style={{flex:1,overflowY:"auto"}}>
+          {results.length===0
+            ?<div style={{padding:"48px 0",textAlign:"center",color:"#ccc",fontSize:13}}>該当なし</div>
+            :results.map(p=>{
+              const pt2=POST_TYPE[p.postType||"x_post"],st=STATUS[p.status];
+              const sc=SCORE[p.score];
+              return(
+                <div key={p.id}
+                  style={{padding:"11px 16px",borderBottom:"1px solid #f5f0eb",display:"flex",gap:10,alignItems:"flex-start"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="#f8f5f1"}
+                  onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:pt2.dot,flexShrink:0,marginTop:6}}/>
+                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onSelect(p)}>
+                    <div style={{fontWeight:700,fontSize:13,color:"#111",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title||"（タイトルなし）"}</div>
+                    <div style={{fontSize:11.5,color:"#8b98a5",lineHeight:1.4,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{stripHtml(p.body).slice(0,60)||"（本文なし）"}</div>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{fontSize:10,color:pt2.color,fontWeight:600,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"1px 6px",borderRadius:99}}>{pt2.label}</span>
+                      {st&&<span style={{fontSize:10,color:st.text,background:st.chip,border:`1px solid ${st.border}`,padding:"1px 6px",borderRadius:99,fontWeight:600}}>{st.label}</span>}
+                      {sc&&<span style={{fontSize:10,fontWeight:800,color:sc.color,background:sc.bg,padding:"1px 6px",borderRadius:99}}>{p.score}</span>}
+                      {(p.labels||[]).map(l=><span key={l} style={{fontSize:10,color:"#555",background:"#f5f0eb",border:"1px solid #e0d8ce",padding:"1px 6px",borderRadius:99}}>{l}</span>)}
+                      <span style={{fontSize:10,color:"#bbb",marginLeft:"auto"}}>{p.datetime.slice(0,10)}</span>
+                    </div>
+                  </div>
+                  <button onClick={()=>onRepost(p)}
+                    style={{border:"1px solid #e0d8ce",background:"none",color:"#888",borderRadius:7,padding:"4px 9px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#888";e.currentTarget.style.borderColor="#e0d8ce";}}>
+                    再投稿
+                  </button>
+                </div>
+              );
+            })}
         </div>
-        <div style={{padding:"9px 16px",borderTop:"1px solid #e6dfd6",fontSize:"0.72em",color:"#aaa",display:"flex",justifyContent:"space-between"}}>
+
+        {/* フッター */}
+        <div style={{padding:"9px 16px",borderTop:"1px solid #e6dfd6",fontSize:11.5,color:"#aaa",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span>{results.length}件</span>
-          <button onClick={onClose} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>閉じる (Esc)</button>
+          <button onClick={onClose} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontFamily:"inherit",fontSize:11.5}}>閉じる (Esc)</button>
         </div>
       </div>
     </div>
@@ -862,6 +1006,11 @@ function EditorModal({post,onSave,onClose}){
               <div style={{flex:1,overflowY:"auto",padding:13}}>
                 {sidePanel==="meta"&&(
                   <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {/* ラベル */}
+                    <div>
+                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>ラベル</label>
+                      <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
+                    </div>
                     <div>
                       <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
                       <MemoEditor memo={draft.memo} memoLinks={draft.memoLinks} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
@@ -926,7 +1075,6 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   const titleRef=useRef(null);
   const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
   const st=STATUS[post.status];
-  const sc=SCORE[post.score];
 
   const getEditPost=()=>({...post,title:titleRef.current?.value??post.title,memo,memoLinks});
 
@@ -1069,6 +1217,18 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
 
           {/* 右サイドパネル */}
           <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",display:"flex",flexDirection:"column",flexShrink:0,background:"#fafafa",overflowY:"auto"}}>
+
+            {/* ラベル */}
+            {(post.labels||[]).length>0&&(
+              <div style={{padding:"10px 14px",borderBottom:"1px solid #e6dfd6"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>ラベル</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {(post.labels||[]).map((l,i)=>(
+                    <span key={i} style={{fontSize:11,color:"#555",background:"#f5f0eb",border:"1px solid #e0d8ce",borderRadius:99,padding:"2px 9px",fontWeight:600}}>{l}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* メモ */}
             <div style={{padding:"12px 14px",borderBottom:"1px solid #e6dfd6"}}>
@@ -1304,8 +1464,16 @@ function App({uid}){
     return()=>document.removeEventListener("mousedown",h);
   },[showShare]);
 
-  const today    =React.useMemo(()=>fmtDate(new Date()),[]);
-  const nowDt    =React.useMemo(()=>new Date().toISOString().slice(0,16),[]);
+  const [today,setToday]=useState(()=>fmtDate(new Date()));
+  const [nowDt,setNowDt] =useState(()=>new Date().toISOString().slice(0,16));
+  useEffect(()=>{
+    const tick=()=>{
+      setToday(fmtDate(new Date()));
+      setNowDt(new Date().toISOString().slice(0,16));
+    };
+    const id=setInterval(tick,60000);
+    return()=>clearInterval(id);
+  },[]);
   const weekDates   =React.useMemo(()=>getWeekDates(week),[week]);
   const weekDateStrs=React.useMemo(()=>weekDates.map(fmtDate),[weekDates]);
   const activeAcc=React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
@@ -1357,6 +1525,7 @@ function App({uid}){
       comments:cleanP.comments||[],
       history:cleanP.history||[],
       score:cleanP.score||null,
+      labels:cleanP.labels||[],
     };
     const{error}=await supabase.from("posts").upsert(record);
     if(error){showToast("保存に失敗しました");return false;}
@@ -1480,7 +1649,7 @@ function App({uid}){
       .catch(()=>showToast("コピー完了"));
   },[showToast]);
   const openNew=React.useCallback((datetime,{title="",postType="x_post"}={})=>{
-    const newPost={id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[],_unsaved:true};
+    const newPost={id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],_unsaved:true};
     setPreview(newPost);
   },[today]);
 
@@ -1615,7 +1784,18 @@ function App({uid}){
     return m;
   },[filtered]);
 
-  const ghostBySlot=React.useMemo(()=>{
+  // 週ビューヘッダー統計（毎レンダーfilterを7×4回走らせないためuseMemoに）
+  const weekStats=React.useMemo(()=>{
+    return weekDateStrs.map((dateStr,i)=>{
+      const dayPosts=filtered.filter(p=>p.datetime.startsWith(dateStr));
+      return{
+        draftCnt:dayPosts.filter(p=>p.status==="draft").length,
+        reservedCnt:dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length,
+        publishedCnt:dayPosts.filter(p=>p.status==="published"||p.status==="popular").length,
+        ghostCnt:slots.filter(s=>slotMatchesDate(s,weekDates[i])).length,
+      };
+    });
+  },[filtered,weekDateStrs,weekDates,slots]);
     const m={};
     weekDates.forEach((date,i)=>{
       slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
@@ -1833,11 +2013,7 @@ function App({uid}){
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];
               const isToday=dateStr===today;
-              const dayPosts=filtered.filter(p=>p.datetime.startsWith(dateStr));
-              const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
-              const reservedCnt=dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length;
-              const publishedCnt=dayPosts.filter(p=>p.status==="published"||p.status==="popular").length;
-              const ghostCnt=slots.filter(s=>slotMatchesDate(s,date)).length;
+              const{draftCnt,reservedCnt,publishedCnt,ghostCnt}=weekStats[i]||{};
               return(
                 <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:"1px solid #e6dfd6",borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
@@ -2092,7 +2268,7 @@ function App({uid}){
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
-      {showSearch&&<SearchModal posts={posts} onClose={()=>setShowSearch(false)}
+      {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
         onRepost={p=>{setShowSearch(false);setRepostTgt(p);}}/>}
 
@@ -2135,16 +2311,20 @@ function App({uid}){
 function MonthView({posts,today,slots,openNew,setPreview}){
   const [monthBase,setMonthBase]=useState(()=>new Date());
   const year=monthBase.getFullYear(),month=monthBase.getMonth();
-  const firstDay=new Date(year,month,1);
-  const lastDay=new Date(year,month+1,0);
-  // 月曜始まりで週グリッドを構築
-  const startDow=(firstDay.getDay()+6)%7; // 0=月
-  const cells=[];
-  for(let i=0;i<startDow;i++)cells.push(null);
-  for(let d=1;d<=lastDay.getDate();d++)cells.push(new Date(year,month,d));
-  while(cells.length%7!==0)cells.push(null);
-  const weeks=[];
-  for(let i=0;i<cells.length;i+=7)weeks.push(cells.slice(i,i+7));
+
+  const {weeks,fmtD}=React.useMemo(()=>{
+    const firstDay=new Date(year,month,1);
+    const lastDay=new Date(year,month+1,0);
+    const startDow=(firstDay.getDay()+6)%7;
+    const cells=[];
+    for(let i=0;i<startDow;i++)cells.push(null);
+    for(let d=1;d<=lastDay.getDate();d++)cells.push(new Date(year,month,d));
+    while(cells.length%7!==0)cells.push(null);
+    const ws=[];
+    for(let i=0;i<cells.length;i+=7)ws.push(cells.slice(i,i+7));
+    const fmt=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`:"";
+    return{weeks:ws,fmtD:fmt};
+  },[year,month]);
 
   const postsByDate=React.useMemo(()=>{
     const m={};
@@ -2152,8 +2332,16 @@ function MonthView({posts,today,slots,openNew,setPreview}){
     return m;
   },[posts]);
 
-  const fmtD=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`:"";
-
+  // 月内の全日付×slotsのマッチングをまとめて計算
+  const slotsByDate=React.useMemo(()=>{
+    const m={};
+    weeks.flat().forEach(date=>{
+      if(!date)return;
+      const key=fmtD(date);
+      m[key]=slots.filter(s=>slotMatchesDate(s,date));
+    });
+    return m;
+  },[weeks,slots,fmtD]);
   return(
     <div style={{height:"calc(100vh - 100px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* ナビ */}
@@ -2174,7 +2362,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
             const isToday=dateStr===today;
             const isCurrentMonth=date&&date.getMonth()===month;
             const dayPosts=date?(postsByDate[dateStr]||[]):[];
-            const daySlots=date?slots.filter(s=>slotMatchesDate(s,date)):[];
+            const daySlots=date?(slotsByDate[dateStr]||[]):[];
             const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
             const reservedCnt=dayPosts.filter(p=>["reserved","waiting"].includes(p.status)).length;
             const publishedCnt=dayPosts.filter(p=>["published","popular"].includes(p.status)).length;
@@ -2573,6 +2761,7 @@ function postsToAIContext(posts, accountName, {scores, postTypes, includeBody, i
     lines.push(`## ${i+1}. ${p.title||"（タイトルなし）"}`);
     lines.push(`- 種類: ${pt}${sc}　ステータス: ${st}　日時: ${p.datetime.replace("T"," ")}`);
     if(includeMemo&&p.memo) lines.push(`- メモ: ${p.memo}`);
+    if((p.labels||[]).length>0) lines.push(`- ラベル: ${p.labels.join(", ")}`);
     if(includeLinks&&(p.memoLinks||[]).length>0){
       const ls=(p.memoLinks||[]).map(l=>{
         const url=typeof l==="string"?l:l.url;
