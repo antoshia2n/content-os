@@ -68,7 +68,7 @@ function fmtTime(s){return s?s.slice(11,16):"";}
 
 // 予約枠のtime取得（後方互換：hourのみの旧データはHH:00に変換）
 function slotTime(s){return s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");}
-function genId(){return typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2));}
+function genId(){return Date.now()*1000+Math.floor(Math.random()*1000);}
 function nowStr(){return new Date().toISOString();}
 function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
 function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
