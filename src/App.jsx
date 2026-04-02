@@ -1199,7 +1199,7 @@ function EditorModal({post,onSave,onClose}){
 // ════════════════════════════════════════════════════════
 // プレビューオーバーレイ
 // ════════════════════════════════════════════════════════
-function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew,allLabels=[]}){
+function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew,allLabels=[],allPostTypes=POST_TYPE,onAddPostType}){
   const [cmt,setCmt]=useState("");
   const [localComments,setLocalComments]=useState(post.comments||[]);
   const [showComments,setShowComments]=useState(false);
@@ -1211,7 +1211,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
   const [sideW,setSideW]=useState(280);
   const dragging=useRef(false);
   const titleRef=useRef(null);
-  const pt=POST_TYPE[post.postType||"x_post"]||POST_TYPE.x_post;
+  const pt=allPostTypes[post.postType||"x_post"]||allPostTypes.x_post||POST_TYPE.x_post;
   const st=STATUS[post.status];
 
   const getEditPost=()=>({...post,title:titleRef.current?.value??post.title,memo,memoLinks});
@@ -1301,8 +1301,10 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                 label="メディアタイプ"
                 disabled={!!post._unsaved}
                 selected={post.postType||"x_post"}
-                options={Object.entries(POST_TYPE).map(([k,v])=>({value:k,label:v.label,color:v.color,bg:v.bg,border:v.border,dot:v.dot}))}
+                options={Object.entries(allPostTypes).map(([k,v])=>({value:k,label:v.label,color:v.color,bg:v.bg,border:v.border,dot:v.dot}))}
                 onChange={v=>v&&!post._unsaved&&onChangePostType(post.id,v)}
+                allowNew={!!onAddPostType}
+                onAdd={label=>{onAddPostType?.(label);}}
                 badge={
                   <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:pt.bg,border:`1.5px solid ${pt.border}`,fontSize:11,fontWeight:700,color:pt.color,cursor:"pointer"}}>
                     <span style={{width:6,height:6,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
@@ -1671,7 +1673,14 @@ function App({uid}){
   },[]);
   const weekDates   =React.useMemo(()=>getWeekDates(week),[week]);
   const weekDateStrs=React.useMemo(()=>weekDates.map(fmtDate),[weekDates]);
-  const activeAcc=React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
+  const activeAcc    =React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
+  // アカウント固有のカスタム投稿タイプ（POST_TYPEにマージして使う）
+  const allPostTypes =React.useMemo(()=>{
+    const custom=(activeAcc?.custom_post_types||[]);
+    const merged={...POST_TYPE};
+    custom.forEach(c=>{merged[c.key]={label:c.label,color:c.color,bg:c.bg||"#f3f4f6",border:c.border||"#d1d5db",dot:c.color};});
+    return merged;
+  },[activeAcc]);
   const posts    =React.useMemo(()=>allPosts[activeAccId]||[],[allPosts,activeAccId]);
   const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
@@ -1807,6 +1816,21 @@ function App({uid}){
     setPreview(null);
     showToast("翌日同時刻に複製しました ✅");
   },[saveToDb,showToast]);
+
+  const addCustomPostType=React.useCallback(async(label)=>{
+    if(!activeAccId)return;
+    const key="custom_"+label.toLowerCase().replace(/\s+/g,"_")+"_"+Date.now();
+    // COLORS配列からランダムに色を割り当て
+    const color=COLORS[Math.floor(Math.random()*COLORS.length)];
+    // 色を薄くしてbg/borderを生成
+    const newType={key,label,color,bg:color+"18",border:color+"55"};
+    const current=activeAcc?.custom_post_types||[];
+    const next=[...current,newType];
+    const{error}=await supabase.from("accounts").update({custom_post_types:next}).eq("id",activeAccId);
+    if(error){showToast("追加に失敗しました");return;}
+    setAccounts(prev=>prev.map(a=>a.id===activeAccId?{...a,custom_post_types:next}:a));
+    showToast(`「${label}」を追加しました`);
+  },[activeAccId,activeAcc,showToast]);
 
   const addAccount=React.useCallback(async()=>{
     const id="acc_"+Date.now();
@@ -2249,7 +2273,7 @@ function App({uid}){
                       onMouseLeave={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
                       {/* 実投稿 */}
                       {sp.map(p=>{
-                        const pt2=POST_TYPE[p.postType||"x_post"],st2=STATUS[p.status];
+                        const pt2=allPostTypes[p.postType||"x_post"],st2=STATUS[p.status];
                         return(
                           <div key={p.id}
                             draggable
@@ -2281,7 +2305,7 @@ function App({uid}){
                         return multi?(
                           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
                             {ghosts.map((g,gi)=>{
-                              const gpt=POST_TYPE[g.postType||"x_post"];
+                              const gpt=allPostTypes[g.postType||"x_post"];
                               return(
                                 <div key={"g"+gi}
                                   onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
@@ -2301,7 +2325,7 @@ function App({uid}){
                           </div>
                         ):(
                           ghosts.map((g,gi)=>{
-                            const gpt=POST_TYPE[g.postType||"x_post"];
+                            const gpt=allPostTypes[g.postType||"x_post"];
                             return(
                               <div key={"g"+gi}
                                 onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
@@ -2339,6 +2363,7 @@ function App({uid}){
           slots={slots}
           openNew={openNew}
           setPreview={setPreview}
+          postTypes={allPostTypes}
         />
       )}
 
@@ -2357,6 +2382,7 @@ function App({uid}){
           openNew={openNew}
           slots={slots}
           changeStatus={changeStatus}
+          postTypes={allPostTypes}
         />
       )}
 
@@ -2374,7 +2400,7 @@ function App({uid}){
             </div>
             {/* フォーム（固定） */}
             <div style={{padding:"14px 18px",borderBottom:"1px solid #e6dfd6"}}>
-              <SlotAddForm onAdd={s=>{
+              <SlotAddForm postTypes={allPostTypes} onAdd={s=>{
                 saveSlots([...slots,{...s,id:genId()}]);
               }}/>
             </div>
@@ -2383,7 +2409,7 @@ function App({uid}){
               {slots.length===0
                 ?<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
                 :slots.map((s,i)=>{
-                  const pt=POST_TYPE[s.postType||"x_post"];
+                  const pt=allPostTypes[s.postType||"x_post"];
                   return(
                     <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,background:"#f8f5f1",border:"1px solid #e6dfd6",borderRadius:9,padding:"7px 10px",marginBottom:6}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
@@ -2465,7 +2491,9 @@ function App({uid}){
         onChangeStatus={changeStatus}
         onSaveMeta={saveMeta}
         onChangePostType={changePostType}
-        allLabels={allLabels}/> }
+        allLabels={allLabels}
+        allPostTypes={allPostTypes}
+        onAddPostType={addCustomPostType}/> }
 
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
 
@@ -2509,7 +2537,7 @@ function App({uid}){
 // ════════════════════════════════════════════════════════
 // マンスリービュー
 // ════════════════════════════════════════════════════════
-function MonthView({posts,today,slots,openNew,setPreview}){
+function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_TYPE}){
   const [monthBase,setMonthBase]=useState(()=>new Date());
   const year=monthBase.getFullYear(),month=monthBase.getMonth();
 
@@ -2585,7 +2613,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
                     </div>
                     {/* 投稿チップ（最大3件） */}
                     {dayPosts.slice(0,3).map(p=>{
-                      const pt=POST_TYPE[p.postType||"x_post"];
+                      const pt=postTypes[p.postType||"x_post"];
                       return(
                         <div key={p.id} onClick={e=>{e.stopPropagation();setPreview(p);}}
                           style={{display:"flex",alignItems:"center",gap:3,background:pt.bg,border:`1px solid ${pt.border}`,borderLeft:`3px solid ${pt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",overflow:"hidden"}}
@@ -2599,7 +2627,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
                     {dayPosts.length>3&&<div style={{fontSize:8,color:"#aaa",textAlign:"right"}}>+{dayPosts.length-3}件</div>}
                     {/* 予約枠チップ */}
                     {daySlots.slice(0,2).map((s,si)=>{
-                      const gpt=POST_TYPE[s.postType||"x_post"];
+                      const gpt=postTypes[s.postType||"x_post"];
                       return(
                         <div key={"s"+si} onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"});}}
                           style={{display:"flex",alignItems:"center",gap:3,border:`1px dashed ${gpt.dot}`,borderLeft:`2px dashed ${gpt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",background:gpt.bg,opacity:0.7}}
@@ -2621,7 +2649,7 @@ function MonthView({posts,today,slots,openNew,setPreview}){
   );
 }
 
-function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus}){
+function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,postTypes=POST_TYPE}){
   const [showSlots,setShowSlots]=useState(true);
   const byDate=React.useMemo(()=>{
     const m={};
@@ -2709,7 +2737,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                 {allItems.map((item,idx)=>{
                   if(item.type==="post"){
                     const p=item.data;
-                    const pt2=POST_TYPE[p.postType||"x_post"];
+                    const pt2=postTypes[p.postType||"x_post"];
                     const st2=STATUS[p.status];
                     return(
                       <div key={p.id} onClick={()=>setPreview(p)}
@@ -2742,7 +2770,7 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
                   }
                   // ゴースト枠
                   const s=item.data;
-                  const gpt=POST_TYPE[s.postType||"x_post"];
+                  const gpt=postTypes[s.postType||"x_post"];
                   return(
                     <div key={"g"+idx}
                       onClick={()=>openNew(`${date}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"})}
@@ -2813,13 +2841,13 @@ function slotMatchesDate(s,date){
 }
 
 // ── 予約枠追加フォーム ──
-function SlotAddForm({onAdd}){
+function SlotAddForm({onAdd,postTypes=POST_TYPE}){
   const [type,setType]=useState("weekly");
   const [dow,setDow]=useState(1);
   const [nth,setNth]=useState(1);
   const [time,setTime]=useState("09:00");
   const [postType,setPostType]=useState("x_post");
-  const pt=POST_TYPE[postType];
+  const pt=postTypes[postType];
 
   const preview=React.useMemo(()=>{
     if(type==="daily") return `毎日 ${time}`;
@@ -2888,7 +2916,7 @@ function SlotAddForm({onAdd}){
         <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
         <select value={postType} onChange={e=>setPostType(e.target.value)}
           style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-          {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
 
