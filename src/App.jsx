@@ -965,7 +965,122 @@ function SideIcon({id,icon,label,sidePanel,setSidePanel}){
 // ════════════════════════════════════════════════════════
 // エディタモーダル
 // ════════════════════════════════════════════════════════
-function EditorModal({post,onSave,onClose}){
+// ════════════════════════════════════════════════════════
+// 過去コンテンツ検索パネル（エディタサイドバー内）
+// ════════════════════════════════════════════════════════
+function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
+  const [q,setQ]=useState("");
+  const inputRef=useRef(null);
+  const composing=useRef(false);
+
+  const results=React.useMemo(()=>{
+    if(!q.trim())return [];
+    const qq=q.toLowerCase();
+    return posts
+      .filter(p=>
+        p.title.toLowerCase().includes(qq)||
+        stripHtml(p.body).toLowerCase().includes(qq)||
+        (p.memo||"").toLowerCase().includes(qq)
+      )
+      .slice(0,30)
+      .sort((a,b)=>b.datetime.localeCompare(a.datetime));
+  },[posts,q]);
+
+  // URLをプレーンテキストでカーソル位置に挿入
+  const insertUrl=(url)=>{
+    const el=bodyEditorRef.current;
+    if(!el)return;
+    el.focus();
+    if(savedRange){
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+    document.execCommand("insertText",false,url);
+  };
+
+  return(
+    <div style={{...S.col,height:"100%"}}>
+      {/* 検索欄 */}
+      <div style={{padding:"10px 11px",borderBottom:BD2,flexShrink:0}}>
+        <div style={{...S.row,gap:6,background:"#f5f0eb",borderRadius:8,padding:"5px 9px",border:BD}}>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#aaa" strokeWidth="2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e=>setQ(e.target.value)}
+            onCompositionStart={()=>{composing.current=true;}}
+            onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
+            placeholder="タイトル・本文・メモで検索…"
+            style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:12,color:"#333",minWidth:0}}/>
+          {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#bbb",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
+        </div>
+        <div style={{fontSize:10,color:"#bbb",marginTop:5,textAlign:"right"}}>
+          クリックしてカーソル位置を選択後、リンクを挿入
+        </div>
+      </div>
+
+      {/* 結果リスト */}
+      <div style={{flex:1,overflowY:"auto"}}>
+        {!q.trim()&&(
+          <div style={{padding:"24px 12px",textAlign:"center",color:"#ccc",fontSize:12,lineHeight:1.8}}>
+            キーワードを入力してください
+          </div>
+        )}
+        {q.trim()&&results.length===0&&(
+          <div style={{padding:"24px 12px",textAlign:"center",color:"#ccc",fontSize:12}}>
+            該当なし
+          </div>
+        )}
+        {results.map(p=>{
+          const pt=POST_TYPE[p.postType||"x_post"];
+          const links=(p.memoLinks||[]).filter(l=>{
+            const url=typeof l==="string"?l:l.url;
+            return url&&url.startsWith("http");
+          });
+          return(
+            <div key={p.id} style={{padding:"10px 12px",borderBottom:BD2}}>
+              {/* 投稿情報 */}
+              <div style={{...S.row,gap:5,marginBottom:4,flexWrap:"wrap"}}>
+                <span style={{width:6,height:6,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
+                <span style={{fontSize:10,color:pt.color,fontWeight:700,background:pt.bg,border:`1px solid ${pt.border}`,padding:"0 5px",borderRadius:99}}>{pt.label}</span>
+                <span style={{fontSize:10,color:"#bbb"}}>{p.datetime.slice(0,10)}</span>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:"#222",lineHeight:1.4,marginBottom:6,wordBreak:"break-all"}}>
+                {p.title||"（タイトルなし）"}
+              </div>
+
+              {/* リンク一覧 */}
+              {links.length>0?(
+                <div style={{...S.col,gap:4}}>
+                  {links.map((l,i)=>{
+                    const url=typeof l==="string"?l:l.url;
+                    const label=typeof l==="string"?"":l.label;
+                    return(
+                      <div key={i} style={{background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 8px"}}>
+                        {label&&<div style={{fontSize:10,fontWeight:700,color:"#0369a1",marginBottom:2}}>{label}</div>}
+                        <div style={{fontSize:10,color:"#64748b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:5}}>{url}</div>
+                        <button
+                          onClick={()=>{onSaveRange();insertUrl(url);}}
+                          style={{width:"100%",background:"#0369a1",border:"none",borderRadius:5,padding:"4px 0",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>
+                          ← 挿入
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):(
+                <div style={{fontSize:10,color:"#ccc",fontStyle:"italic"}}>リンクなし</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EditorModal({post,onSave,onClose,allPosts=[]}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
@@ -1136,6 +1251,7 @@ function EditorModal({post,onSave,onClose}){
           {/* アイコン列 */}
           <div style={{width:50,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
             <SideIcon id="meta" icon="⚙️" label="設定" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="search" icon="🔍" label="検索" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="history" icon="📋" label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="share" icon="🔗" label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
           </div>
@@ -1150,10 +1266,26 @@ function EditorModal({post,onSave,onClose}){
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
               <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               <div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
-                <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>{sidePanel==="meta"?"設定":sidePanel==="history"?"編集履歴":"共有"}</span>
+                <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
+                  {sidePanel==="meta"?"設定":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
+                </span>
                 <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>✕</button>
               </div>
-              <div style={{flex:1,overflowY:"auto",padding:13}}>
+              <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
+                {sidePanel==="search"&&(
+                  <PostSearchPanel
+                    posts={allPosts}
+                    bodyEditorRef={bodyEditorRef}
+                    savedRange={savedRange}
+                    onSaveRange={()=>{
+                      const sel=window.getSelection();
+                      if(sel?.rangeCount>0){
+                        const r=sel.getRangeAt(0);
+                        setSavedRange(bodyEditorRef.current?.contains(r.commonAncestorContainer)?r.cloneRange():null);
+                      }
+                    }}
+                  />
+                )}
                 {sidePanel==="meta"&&(
                   <div style={{...S.col,gap:12}}>
                     {/* ラベル */}
@@ -2507,7 +2639,7 @@ function App({uid}){
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)} allPosts={posts}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
