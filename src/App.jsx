@@ -586,6 +586,23 @@ function TagSelector({
 // ════════════════════════════════════════════════════════
 // ラベルエディタ
 // ════════════════════════════════════════════════════════
+// URL コピーボタン（フィードバック付き）
+function CopyBtn({url,size="sm"}){
+  const [copied,setCopied]=useState(false);
+  const copy=()=>{
+    navigator.clipboard.writeText(url).then(()=>{
+      setCopied(true);setTimeout(()=>setCopied(false),2000);
+    });
+  };
+  const sm=size==="sm";
+  return(
+    <button onClick={copy}
+      style={{border:"none",background:copied?"#10b981":"#e0f2fe",color:copied?"#fff":"#0369a1",borderRadius:5,padding:sm?"2px 6px":"3px 9px",fontSize:sm?"0.68em":"0.75em",fontWeight:700,cursor:"pointer",flexShrink:0,transition:"all .15s",whiteSpace:"nowrap"}}>
+      {copied?"✓":"コピー"}
+    </button>
+  );
+}
+
 function LabelEditor({labels,onChange}){
   const [input,setInput]=useState("");
   const composing=useRef(false);
@@ -714,6 +731,7 @@ function MemoEditor({memo,memoLinks,onChange}){
                 {l.label&&<div style={{fontSize:"0.7em",fontWeight:700,color:"#0369a1",marginBottom:1}}>{l.label}</div>}
                 <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.7em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
               </div>
+              <CopyBtn url={l.url}/>
               <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
             </div>
           ))}
@@ -1636,6 +1654,7 @@ function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSav
                         {l.label&&<div style={{fontSize:"0.68em",fontWeight:700,color:"#0369a1"}}>{l.label}</div>}
                         <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.68em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
                       </div>
+                      <CopyBtn url={l.url}/>
                       <button onClick={()=>{setMemoLinks(prev=>prev.filter((_,j)=>j!==i));setMetaDirty(true);}}
                         style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
                     </div>
