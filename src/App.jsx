@@ -475,8 +475,8 @@ function TagSelector({
     if(!open){setQ("");return;}
     setTimeout(()=>inputRef.current?.focus(),50);
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
-    window.addEventListener("mousedown",h);
-    return()=>window.removeEventListener("mousedown",h);
+    window.addEventListener("click",h);
+    return()=>window.removeEventListener("click",h);
   },[open]);
 
   const filtered=options.filter(o=>
