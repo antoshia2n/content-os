@@ -2809,6 +2809,36 @@ function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_TYPE}){
 
 function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,postTypes=POST_TYPE}){
   const [showSlots,setShowSlots]=useState(true);
+  const [weekBase,setWeekBase]=useState(()=>{
+    // 今週の月曜日を起点に
+    const d=new Date();const day=d.getDay();
+    d.setDate(d.getDate()+(day===0?-6:1-day));
+    d.setHours(0,0,0,0);return d;
+  });
+
+  // 週の月〜日を計算
+  const weekDates=React.useMemo(()=>{
+    return Array.from({length:7},(_,i)=>{
+      const d=new Date(weekBase);d.setDate(weekBase.getDate()+i);
+      return fmtDate(d);
+    });
+  },[weekBase]);
+
+  const weekLabel=React.useMemo(()=>{
+    const from=weekDates[0],to=weekDates[6];
+    const fd=new Date(from),td=new Date(to);
+    return `${fd.getMonth()+1}/${fd.getDate()} 〜 ${td.getMonth()+1}/${td.getDate()}`;
+  },[weekDates]);
+
+  const goWeek=delta=>{
+    setWeekBase(prev=>{const d=new Date(prev);d.setDate(d.getDate()+delta*7);return d;});
+  };
+  const goToday=()=>{
+    const d=new Date();const day=d.getDay();
+    d.setDate(d.getDate()+(day===0?-6:1-day));d.setHours(0,0,0,0);
+    setWeekBase(new Date(d));
+  };
+
   const byDate=React.useMemo(()=>{
     const m={};
     filtered.forEach(p=>{
@@ -2818,28 +2848,26 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
     return m;
   },[filtered]);
 
-  // 予約枠がある日付もカラムに含める
+  // 表示対象：週内の日付 + 予約枠がある日付
   const dates=React.useMemo(()=>{
-    const dateSet=new Set(Object.keys(byDate));
+    const dateSet=new Set(weekDates);
+    // 週内に投稿がある日はすでに含まれる
+    // 予約枠のある日も追加
     if(showSlots&&slots?.length>0){
-      // 今日から60日分の日付を生成してスロット該当日を追加
-      for(let i=0;i<60;i++){
-        const d=new Date();d.setDate(d.getDate()+i);
-        const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      weekDates.forEach(ds=>{
+        const d=new Date(ds+"T00:00:00");
         if(slots.some(s=>slotMatchesDate(s,d)))dateSet.add(ds);
-      }
+      });
     }
     return [...dateSet].sort();
-  },[byDate,slots,showSlots]);
+  },[weekDates,slots,showSlots]);
 
   const scrollRef=useRef(null);
   const todayColRef=useRef(null);
   useEffect(()=>{
-    if(!scrollRef.current||!todayColRef.current)return;
-    const container=scrollRef.current;
-    const col=todayColRef.current;
-    container.scrollTo({left:Math.max(0,col.offsetLeft-18),behavior:"smooth"});
-  },[today,dates.join(",")]);
+    if(!scrollRef.current)return;
+    scrollRef.current.scrollTo({left:0,behavior:"smooth"});
+  },[weekBase]);
 
   return(
     <div style={{...S.col,height:"calc(100vh - 52px)",overflow:"hidden"}}>
@@ -2847,6 +2875,18 @@ function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,se
         {activeAcc&&<span style={{width:8,height:8,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
         <span style={{fontWeight:800,fontSize:14}}>{activeAcc?.name} の投稿</span>
         <span style={{fontSize:12,color:"#aaa"}}>{filtered.length}件</span>
+
+        {/* 週ナビ */}
+        <div style={{...S.row,gap:4,marginLeft:8}}>
+          <button onClick={()=>goWeek(-1)}
+            style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+          <span style={{fontSize:12,fontWeight:600,color:"#444",minWidth:120,textAlign:"center"}}>{weekLabel}</span>
+          <button onClick={()=>goWeek(1)}
+            style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+          <button onClick={goToday}
+            style={{border:BD2,background:"#fff",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#555"}}>今週</button>
+        </div>
+
         {/* 予約枠トグル */}
         <button onClick={()=>setShowSlots(v=>!v)}
           style={{...S.row,gap:5,border:`1.5px solid ${showSlots?"#f59e0b":"#e0d8ce"}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",background:showSlots?"#fef3c7":"#fff",color:showSlots?"#d97706":"#aaa",fontFamily:"inherit",transition:"all .15s"}}>
