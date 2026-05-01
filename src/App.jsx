@@ -1172,7 +1172,7 @@ function EditorModal({post,onSave,onClose,allPosts=[]}){
   const saveToNotion=async()=>{
     setNotionState("saving");
     try{
-      const res=await fetch("/api/notion",{
+      const res=await fetch("/api/internal/push-to-notion",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
@@ -1855,13 +1855,13 @@ function App({uid}){
   useEffect(()=>{
     async function load(){
       setLoading(true);
-      const{data:accs}=await supabase.from("accounts").select("*").order("created_at");
+      const{data:accs}=await supabase.from("accounts").select("*").eq("user_id",uid).order("created_at");
       if(accs&&accs.length>0){
         setAccounts(accs);
         const firstId=urlAccountId||accs[0].id;
         setActiveAccId(firstId);
         const targetIds=isClient?[firstId]:accs.map(a=>a.id);
-        const{data:ps}=await supabase.from("posts").select("*").in("account_id",targetIds);
+        const{data:ps}=await supabase.from("posts").select("*").eq("user_id",uid).in("account_id",targetIds);
         if(ps){
           const grouped={};
           ps.forEach(p=>{
@@ -1882,7 +1882,7 @@ function App({uid}){
   const saveToDb=React.useCallback(async(p)=>{
     const {_unsaved,...cleanP}=p; // _unsavedフラグをstate・DBから除去
     const record={
-      id:cleanP.id,account_id:activeAccId,
+      id:cleanP.id,account_id:activeAccId,user_id:uid,
       title:cleanP.title,status:cleanP.status,
       post_type:cleanP.postType||"x_post",
       datetime:cleanP.datetime,
@@ -1902,7 +1902,7 @@ function App({uid}){
       return{...prev,[activeAccId]:exists?cur.map(x=>x.id===cleanP.id?cleanP:x):[...cur,cleanP]};
     });
     return true;
-  },[activeAccId,showToast]);
+  },[activeAccId,uid,showToast]);
 
   const save=React.useCallback(async(p)=>{
     const ok=await saveToDb(p);
@@ -1997,7 +1997,7 @@ function App({uid}){
 
   const addAccount=React.useCallback(async()=>{
     const id="acc_"+Date.now();
-    const acc={id,name:"新規クライアント",handle:"@handle",color:"#6b7280"};
+    const acc={id,name:"新規クライアント",handle:"@handle",color:"#6b7280",user_id:uid};
     const{error}=await supabase.from("accounts").insert(acc);
     if(error){showToast("追加に失敗しました");return;}
     setAccounts(prev=>[...prev,acc]);
