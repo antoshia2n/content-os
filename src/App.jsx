@@ -5,11 +5,11 @@ import { doc, getDoc } from "firebase/firestore";
 import {
   PORTAL_APP_ID, PORTAL_URL,
   POST_TYPE, STATUS, SCORE,
-  DAYS, HOURS, COLORS, XFONT, STORAGE_BUCKET, BD, BD2, S,
+  DAYS, HOURS, COLORS, BD, BD2, S,
   OVERDUE_STATUS,
-  IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, REPOST_REPEATS,
-  SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, TOOLBAR_BLOCK_LABELS,
-  fmtDate, fmtTime, slotTime, genId, nowStr, stripHtml, isUrl,
+  
+  
+  fmtDate, fmtTime, slotTime, genId, nowStr,
   nextDaySameTime, getWeekDates, dbToPost, getUrlParams,
 } from "./constants.js";
 import {
@@ -39,6 +39,10 @@ import {
   RepostModal, SearchModal,
 } from "./components/modals.jsx";
 import { Btn } from "./components/shared.jsx";
+import { usePostActions } from "./hooks/usePostActions.js";
+import { useSlots } from "./hooks/useSlots.js";
+import { useAccounts } from "./hooks/useAccounts.js";
+
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 
@@ -46,28 +50,34 @@ function App({uid}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
-  const [accounts,           setAccounts]          = useState([]);
-  const [allPosts,           setAllPosts]           = useState({});
-  const [activeAccId,        setActiveAccId]        = useState(urlAccountId||null);
+  // ── UI State ──────────────────────────────────────────
+  const [toast,              setToast]              = useState(null);
+  const showToast=React.useCallback((msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);},[]);
+
+  // ── データフック（showToast が必要なため先に定義）──────
+  const {
+    accounts, setAccounts, allPosts, setAllPosts, activeAccId, setActiveAccId, loading,
+    addAccount, updateAccount, deleteAccount, copyShareLink,
+  } = useAccounts({ uid, urlAccountId, isClient, showToast });
+
+  // ── 残りの UI State ────────────────────────────────────
   const [view,               setView]               = useState("calendar");
   const [week,               setWeek]               = useState(new Date());
   const [preview,            setPreview]            = useState(null);
   const [editing,            setEditing]            = useState(null);
   const [filterStatus,       setFilter]             = useState("all");
+  const [filterPlatform,     setFilterPlatform]     = useState("all");
   const [showShare,          setShowShare]          = useState(false);
   const [showAccountSettings,setShowAccountSettings]= useState(false);
-  const [toast,              setToast]              = useState(null);
-  const [loading,            setLoading]            = useState(true);
   const [showSearch,         setShowSearch]         = useState(false);
   const [repostTgt,          setRepostTgt]          = useState(null);
   const [deleteConfirm,      setDeleteConfirm]      = useState(null);
-  const [slots,              setSlots]              = useState([]); // 予約枠 [{id,dow,hour,postType}]
   const [showSlotSettings,   setShowSlotSettings]   = useState(false);
-  const [dragId,             setDragId]             = useState(null); // ⑧ DnD
-  const [dragOver,           setDragOver]           = useState(null); // ⑧ ドラッグ中セルkey
-  const [showNotifySettings, setShowNotifySettings] = useState(false); // メール通知設定
-  const [notifySettings,     setNotifySettings]     = useState(null); // {email,notify_overdue,notify_today,notify_daily,send_hour,enabled}
-  const [showExport,         setShowExport]         = useState(null); // null | "ai" | "file" | "csv"
+  const [dragId,             setDragId]             = useState(null);
+  const [dragOver,           setDragOver]           = useState(null);
+  const [showNotifySettings, setShowNotifySettings] = useState(false);
+  const [notifySettings,     setNotifySettings]     = useState(null);
+  const [showExport,         setShowExport]         = useState(null);
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -97,261 +107,20 @@ function App({uid}){
     return merged;
   },[activeAcc]);
   const posts    =React.useMemo(()=>allPosts[activeAccId]||[],[allPosts,activeAccId]);
-  const filtered =React.useMemo(()=>filterStatus==="all"?posts:posts.filter(p=>p.status===filterStatus),[posts,filterStatus]);
+  const filtered =React.useMemo(()=>posts.filter(p=>(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
     posts.filter(p=>p.status===OVERDUE_STATUS&&p.datetime<=nowDt).length
   ,[posts,nowDt]);
 
-  // ── ロード ──
-  useEffect(()=>{
-    async function load(){
-      setLoading(true);
-      const{data:accs}=await dbFetchAccounts(uid);
-      if(accs&&accs.length>0){
-        setAccounts(accs);
-        const firstId=urlAccountId||accs[0].id;
-        setActiveAccId(firstId);
-        const targetIds=isClient?[firstId]:accs.map(a=>a.id);
-        const{data:ps}=await dbFetchPosts(uid,targetIds);
-        if(ps){
-          const grouped={};
-          ps.forEach(p=>{
-            if(!grouped[p.account_id])grouped[p.account_id]=[];
-            grouped[p.account_id].push(dbToPost(p));
-          });
-          setAllPosts(grouped);
-        }
-      }
-      setLoading(false);
-    }
-    load();
-  },[]);
-
-  const showToast=React.useCallback((msg)=>{setToast(msg);setTimeout(()=>setToast(null),2500);},[]);
-
-  // ── DB保存（内部共通） ──
-  const saveToDb=React.useCallback(async(p)=>{
-    const {_unsaved,...cleanP}=p; // _unsavedフラグをstate・DBから除去
-    const record={
-      id:cleanP.id,account_id:activeAccId,user_id:uid,
-      title:cleanP.title,status:cleanP.status,
-      post_type:cleanP.postType||"x_post",
-      datetime:cleanP.datetime,
-      body:cleanP.body||"",
-      memo:cleanP.memo||"",
-      memo_links:cleanP.memoLinks||[],
-      comments:cleanP.comments||[],
-      history:cleanP.history||[],
-      score:cleanP.score||null,
-      labels:cleanP.labels||[],
-    };
-    const{error}=await dbUpsertPost(record);
-    if(error){showToast("保存に失敗しました");return false;}
-    setAllPosts(prev=>{
-      const cur=prev[activeAccId]||[];
-      const exists=cur.find(x=>x.id===cleanP.id);
-      return{...prev,[activeAccId]:exists?cur.map(x=>x.id===cleanP.id?cleanP:x):[...cur,cleanP]};
-    });
-    return true;
-  },[activeAccId,uid,showToast]);
-
-  const save=React.useCallback(async(p)=>{
-    const ok=await saveToDb(p);
-    if(!ok)return;
-    setEditing(null);setPreview(p);
-    showToast("保存しました ✅");
-  },[saveToDb,showToast]);
-
-  const del=React.useCallback(async(id)=>{
-    const{error}=await dbDeletePost(id);
-    if(error){showToast("削除に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).filter(p=>p.id!==id)}));
-    setPreview(null);setDeleteConfirm(null);
-    showToast("削除しました 🗑️");
-  },[activeAccId,showToast]);
-
-  const changeStatus=React.useCallback(async(id,s,score)=>{
-    const update={status:s,score:score!==undefined?score:null};
-    const{error}=await dbUpdatePost(id,update);
-    if(error){showToast("更新に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...update}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,...update}:prev);
-  },[activeAccId,showToast]);
-
-  const changePostType=React.useCallback(async(id,postType)=>{
-    const{error}=await dbUpdatePost(id,{post_type:postType});
-    if(error){showToast("更新に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,postType}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,postType}:prev);
-  },[activeAccId,showToast]);
-
-  const saveMeta=React.useCallback(async(id,{memo,memoLinks,labels})=>{
-    const update={memo,memo_links:memoLinks};
-    if(labels!==undefined)update.labels=labels;
-    const{error}=await dbUpdatePost(id,update);
-    if(error){showToast("保存に失敗しました");return;}
-    const patch={memo,memoLinks,...(labels!==undefined?{labels}:{})};
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...patch}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,...patch}:prev);
-  },[activeAccId,showToast]);
-
-  const saveComment=React.useCallback(async(id,comments)=>{
-    const{error}=await dbUpdatePost(id,{comments});
-    if(error){showToast("コメントの保存に失敗しました");return;}
-    setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,comments}:p)}));
-    setPreview(prev=>prev&&prev.id===id?{...prev,comments}:prev);
-  },[activeAccId,showToast]);
-
-  const handleRepost=React.useCallback(async(p,dt,repeat)=>{
-    const newPost={
-      ...p,id:genId(),datetime:dt,status:"draft",
-      title:repeat!=="none"?`【再】${p.title}`:p.title,
-      history:[{at:nowStr(),note:`「${p.title}」から再投稿${repeat!=="none"?` (${repeat})`:""}`}],
-      comments:[],
-    };
-    const ok=await saveToDb(newPost);
-    if(!ok)return;
-    setRepostTgt(null);
-    showToast("再投稿を作成しました ✅");
-  },[saveToDb,showToast]);
-
-  const handleDuplicate=React.useCallback(async(p)=>{
-    const newPost={
-      ...p,id:genId(),
-      datetime:nextDaySameTime(p.datetime),
-      status:"draft",
-      title:`【複製】${p.title}`,
-      history:[{at:nowStr(),note:`「${p.title}」を複製`}],
-      comments:[],
-    };
-    const ok=await saveToDb(newPost);
-    if(!ok)return;
-    setPreview(null);
-    showToast("翌日同時刻に複製しました ✅");
-  },[saveToDb,showToast]);
-
-  const addCustomPostType=React.useCallback(async(label)=>{
-    if(!activeAccId)return;
-    const key="custom_"+label.toLowerCase().replace(/\s+/g,"_")+"_"+Date.now();
-    // COLORS配列からランダムに色を割り当て
-    const color=COLORS[Math.floor(Math.random()*COLORS.length)];
-    // hexカラーをrgbaに変換してbg/borderを生成
-    const hexToRgba=(hex,a)=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;};
-    const newType={key,label,color,bg:hexToRgba(color,0.1),border:hexToRgba(color,0.35)};
-    const current=activeAcc?.custom_post_types||[];
-    const next=[...current,newType];
-    const{error}=await dbUpdateAccount(activeAccId,{custom_post_types:next});
-    if(error){showToast("追加に失敗しました");return;}
-    setAccounts(prev=>prev.map(a=>a.id===activeAccId?{...a,custom_post_types:next}:a));
-    showToast(`「${label}」を追加しました`);
-  },[activeAccId,activeAcc,showToast]);
-
-  const addAccount=React.useCallback(async()=>{
-    const id="acc_"+Date.now();
-    const acc={id,name:"新規クライアント",handle:"@handle",color:"#6b7280",user_id:uid};
-    const{error}=await dbInsertAccount(acc);
-    if(error){showToast("追加に失敗しました");return;}
-    setAccounts(prev=>[...prev,acc]);
-    setAllPosts(prev=>({...prev,[id]:[]}));
-    setActiveAccId(id);setShowAccountSettings(true);
-  },[showToast]);
-
-  const updateAccount=React.useCallback(async(id,fields)=>{
-    const{error}=await dbUpdateAccount(id,fields);
-    if(error){showToast("更新に失敗しました");return;}
-    setAccounts(prev=>prev.map(a=>a.id===id?{...a,...fields}:a));
-  },[showToast]);
-
-  const deleteAccount=React.useCallback(async(id)=>{
-    setAccounts(prev=>{
-      if(prev.length<=1){showToast("最後のアカウントは削除できません");return prev;}
-      return prev; // 非同期処理はsetAccountsの外でやるため、ここでは何もしない
-    });
-    // 改めて現在のaccountsを参照するため非同期処理はuseRefで管理せずシンプルに実施
-    const cur=await dbFetchAllAccounts();
-    if(cur.length<=1){showToast("最後のアカウントは削除できません");return;}
-    const{error}=await dbDeleteAccount(id);
-    if(error){showToast("削除に失敗しました");return;}
-    const remaining=cur.filter(a=>a.id!==id);
-    setAccounts(remaining);
-    setAllPosts(prev=>{const n={...prev};delete n[id];return n;});
-    setActiveAccId(prev=>prev===id?remaining[0]?.id:prev);
-  },[showToast]);
-
-  const copyShareLink=React.useCallback((accId)=>{
-    const base=window.location.href.split("?")[0];
-    navigator.clipboard.writeText(`${base}?account=${accId}`)
-      .then(()=>showToast("共有リンクをコピーしました"))
-      .catch(()=>showToast("コピー完了"));
-  },[showToast]);
-  const openNew=React.useCallback((datetime,{title="",postType="x_post"}={})=>{
-    const newPost={id:genId(),title,status:"draft",postType,datetime:datetime||`${today}T07:00`,body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],_unsaved:true};
-    setPreview(newPost);
-  },[today]);
-
-  // 予約枠 — Supabaseで user_id + account_id ごとに管理
-  useEffect(()=>{
-    if(!activeAccId||!uid)return;
-    supabase.from("slots").select("*")
-      .eq("account_id",activeAccId).eq("user_id",uid)
-      .then(({data,error})=>{
-        if(error){console.error("slots load error:",error);return;}
-        setSlots((data||[]).map(s=>({
-          ...s,
-          postType:s.post_type||s.postType||"x_post",
-          time:s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":null),
-        })));
-      });
-  },[activeAccId,uid]);
-
-  const slotsRef=useRef(slots);
-  useEffect(()=>{slotsRef.current=slots;},[slots]);
-
-  const saveSlots=React.useCallback(async(next)=>{
-    const prev=slotsRef.current;
-    const resolved=typeof next==="function"?next(prev):next;
-    setSlots(resolved);
-    if(!activeAccId||!uid)return;
-    const prevIds=new Set(prev.map(s=>s.id));
-    const nextIds=new Set(resolved.map(s=>s.id));
-    const deleted=[...prevIds].filter(id=>!nextIds.has(id));
-    if(deleted.length>0){
-      const{error:delErr}=await supabase.from("slots").delete().in("id",deleted);
-      if(delErr)console.error("slots delete error:",delErr);
-    }
-    if(resolved.length>0){
-      const records=resolved.map(s=>({
-        id:s.id,
-        account_id:activeAccId,
-        user_id:uid,
-        type:s.type||"weekly",
-        dow:s.dow??null,
-        nth:s.nth??null,
-        time:s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":null),
-        post_type:s.postType||s.post_type||"x_post",
-        title:s.title||"",
-      }));
-      const{error:upsErr}=await supabase.from("slots").upsert(records);
-      if(upsErr){
-        console.error("slots upsert error:",upsErr);
-        showToast("予約枠の保存に失敗しました");
-      }
-    }
-  },[activeAccId,uid,showToast]);
-
-  // ⑧ ドラッグ&ドロップ：投稿を別セルにドロップして日時変更
-  const handleDrop=React.useCallback(async(postId,dateStr,hour)=>{
-    const p=posts.find(x=>x.id===postId);
-    if(!p)return;
-    const newDt=`${dateStr}T${String(hour).padStart(2,"0")}:00`;
-    if(p.datetime===newDt)return;
-    const updated={...p,datetime:newDt,history:[...(p.history||[]),{at:nowStr(),note:`${p.datetime}→${newDt} (DnD)`}]};
-    await saveToDb(updated);
-    showToast("日時を変更しました 📅");
-    setDragId(null);setDragOver(null);
-  },[posts,saveToDb,showToast]);
+  const { slots, saveSlots } = useSlots({ activeAccId, uid, showToast });
+  const {
+    saveToDb, save, del, changeStatus, changePostType,
+    saveMeta, saveComment, handleRepost, handleDuplicate,
+    addCustomPostType, handleDrop, openNew,
+  } = usePostActions({ activeAccId, uid, showToast, setAllPosts, setPreview, setEditing,
+    setDeleteConfirm, setRepostTgt, today, posts, activeAcc });
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -642,6 +411,11 @@ function App({uid}){
             <option value="all">すべて</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
+          <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
+            style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer"}}>
+            <option value="all">全プラットフォーム</option>
+            {Object.entries(allPostTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          </select>
         </div>
       )}
 
@@ -791,6 +565,8 @@ function App({uid}){
           activeAcc={activeAcc}
           filterStatus={filterStatus}
           setFilter={setFilter}
+          filterPlatform={filterPlatform}
+          setFilterPlatform={setFilterPlatform}
           setPreview={setPreview}
           setEditing={setEditing}
           handleDuplicate={handleDuplicate}

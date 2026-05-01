@@ -113,7 +113,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
   );
 }
 
-export function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,postTypes=POST_TYPE}){
+export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filterPlatform,setFilterPlatform,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,postTypes=POST_TYPE}){
   const [showSlots,setShowSlots]=useState(true);
   const [weekBase,setWeekBase]=useState(()=>{
     // 今週の月曜日を起点に
@@ -203,6 +203,11 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,setPre
           style={{marginLeft:"auto",background:"#f8f4ef",border:BD,borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
           <option value="all">すべてのステータス</option>
           {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <select value={filterPlatform||"all"} onChange={e=>setFilterPlatform&&setFilterPlatform(e.target.value)}
+          style={{background:"#f8f4ef",border:BD,borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
+          <option value="all">全プラットフォーム</option>
+          {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
       <div ref={scrollRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",display:"flex",padding:"16px 18px",gap:14,alignItems:"flex-start"}}>
