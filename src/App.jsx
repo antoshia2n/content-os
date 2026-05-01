@@ -1,106 +1,23 @@
 import React, { useState, useRef, useEffect } from "react";
-import { supabase } from "./supabase.js";
 import { auth, db, googleProvider } from "./firebase.js";
 import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import {
+  PORTAL_APP_ID, PORTAL_URL,
+  POST_TYPE, STATUS, SCORE,
+  DAYS, HOURS, COLORS, XFONT, STORAGE_BUCKET, BD, BD2, S,
+  OVERDUE_STATUS,
+  IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, REPOST_REPEATS,
+  SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, TOOLBAR_BLOCK_LABELS,
+  fmtDate, fmtTime, slotTime, genId, nowStr, stripHtml, isUrl,
+  nextDaySameTime, getWeekDates, dbToPost, getUrlParams,
+} from "./constants.js";
+import {
+  dbFetchAccounts, dbInsertAccount, dbUpdateAccount, dbDeleteAccount, dbFetchAllAccounts,
+  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost,
+  supabase,
+} from "./lib/supabase.js";
 
-// ── ポータル連携設定 ──────────────────────────────────
-const PORTAL_APP_ID  = "content-os";
-const PORTAL_URL     = "https://portal.shia2n.jp";
-
-// ── 定数 ──────────────────────────────────────────────
-const POST_TYPE = {
-  x_post:    { label:"Xポスト",  color:"#1d9bf0", bg:"#e8f5fe", border:"#93d3fc", dot:"#1d9bf0" },
-  x_quote:   { label:"X引用",   color:"#0ea5e9", bg:"#e0f2fe", border:"#7dd3fc", dot:"#0ea5e9" },
-  x_article: { label:"X記事",   color:"#2563eb", bg:"#dbeafe", border:"#93c5fd", dot:"#2563eb" },
-  note:      { label:"note",   color:"#41c9b4", bg:"#d1faf5", border:"#6ee7da", dot:"#41c9b4" },
-  membership:{ label:"メンシプ", color:"#8b5cf6", bg:"#ede9fe", border:"#c4b5fd", dot:"#8b5cf6" },
-  paid:      { label:"有料",    color:"#f59e0b", bg:"#fef3c7", border:"#fcd34d", dot:"#f59e0b" },
-  other:     { label:"その他",  color:"#6b7280", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af" },
-};
-const STATUS = {
-  draft:     { label:"下書き",      chip:"#f3f4f6", text:"#6b7280", border:"#d1d5db" },
-  review:    { label:"レビュー待ち", chip:"#fef3c7", text:"#d97706", border:"#fcd34d" },
-  waiting:   { label:"予約待ち",    chip:"#dbeafe", text:"#2563eb", border:"#93c5fd" },
-  reserved:  { label:"予約済み",    chip:"#ede9fe", text:"#7c3aed", border:"#c4b5fd" },
-  published: { label:"公開済",      chip:"#d1fae5", text:"#059669", border:"#6ee7b7" },
-  popular:   { label:"好評",        chip:"#ffedd5", text:"#ea580c", border:"#fdba74" },
-  flop:      { label:"不評",        chip:"#fee2e2", text:"#dc2626", border:"#fca5a5" },
-};
-const SCORE={
-  S:{label:"S",color:"#fff",bg:"#7c3aed",border:"#7c3aed"},
-  A:{label:"A",color:"#fff",bg:"#2563eb",border:"#2563eb"},
-  B:{label:"B",color:"#fff",bg:"#059669",border:"#059669"},
-  C:{label:"C",color:"#fff",bg:"#d97706",border:"#d97706"},
-  D:{label:"D",color:"#fff",bg:"#dc2626",border:"#dc2626"},
-};
-const DAYS   = ["月","火","水","木","金","土","日"];
-const HOURS  = Array.from({length:24},(_,i)=>i);
-const COLORS = ["#f59e0b","#3b82f6","#10b981","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
-const XFONT  = "'Geist','Hiragino Sans','Noto Sans JP',sans-serif";
-const STORAGE_BUCKET = "contentos"; // Supabase Storageバケット名
-const BD="1px solid #e0d8ce";
-const BD2="1px solid #e6dfd6";
-// ── スタイル定数（繰り返し削減） ──────────────────────
-const S={
-  row:{display:"flex",alignItems:"center"},
-  col:{display:"flex",flexDirection:"column"},
-  rowC:{display:"flex",alignItems:"center",justifyContent:"center"},
-  rowB:{display:"flex",alignItems:"center",justifyContent:"space-between"},
-  chip:{display:"inline-flex",alignItems:"center",borderRadius:99,fontWeight:600,fontSize:11},
-  inp:{border:BD,borderRadius:8,outline:"none",boxSizing:"border-box",background:"#fff",color:"#333",fontSize:13},
-};
-
-// 通知対象：予約済みのまま過ぎた投稿を検出するステータス
-const OVERDUE_STATUS = "reserved";
-
-// ⑦ レンダー内で再生成されないようモジュールレベルで定義
-const IMG_SIZES_OPTS=[["small","小 (25%)"],["medium","中 (50%)"],["large","大 (75%)"],["full","全幅"]];
-const IMG_ALIGNS_OPTS=[["left","左"],["center","中央"],["right","右"]];
-const REPOST_REPEATS=[["none","繰り返しなし"],["weekly","毎週"],["biweekly","隔週"],["monthly","毎月"],["bimonthly","2ヶ月ごと"],["quarterly","3ヶ月ごと"]];
-const SLOT_DOWS=[[1,"月"],[2,"火"],[3,"水"],[4,"木"],[5,"金"],[6,"土"],[7,"日"]];
-const SLOT_NTHS=[[1,"第1"],[2,"第2"],[3,"第3"],[4,"第4"]];
-const SLOT_TYPES=[["weekly","毎週"],["daily","毎日"],["nth_weekday","第N曜日"]];
-const TOOLBAR_BLOCK_LABELS={"p":"本文","h1":"見出し","h2":"小見出し","blockquote":"引用","li":"リスト"};
-
-function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
-function fmtTime(s){return s?s.slice(11,16):"";}
-
-// 予約枠のtime取得（後方互換：hourのみの旧データはHH:00に変換）
-function slotTime(s){return s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");}
-function genId(){return Date.now()*1000+Math.floor(Math.random()*1000);}
-function nowStr(){return new Date().toISOString();}
-function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
-function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
-function nextDaySameTime(dt){
-  const d=new Date(dt.length===16?dt+":00":dt);
-  d.setDate(d.getDate()+1);
-  return fmtDate(d)+"T"+dt.slice(11,16);
-}
-function getWeekDates(base){
-  const d=new Date(base),day=d.getDay(),mon=new Date(d);
-  mon.setDate(d.getDate()+(day===0?-6:1-day));
-  return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});
-}
-function dbToPost(p){
-  const rawLinks=p.memo_links||[];
-  return{...p,
-    postType:p.post_type||"x_post",
-    comments:p.comments||[],
-    body:p.body||"",
-    memo:p.memo||"",
-    memoLinks:rawLinks.map(l=>typeof l==="string"?{label:"",url:l}:l),
-    history:p.history||[],
-    score:p.score||null,
-    labels:p.labels||[],
-  };
-}
-function getUrlParams(){
-  if(typeof window==="undefined")return{isClient:false,accountId:null};
-  const p=new URLSearchParams(window.location.search);
-  const accId=p.get("account");
-  return{isClient:!!accId,accountId:accId};
-}
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -1855,13 +1772,13 @@ function App({uid}){
   useEffect(()=>{
     async function load(){
       setLoading(true);
-      const{data:accs}=await supabase.from("accounts").select("*").eq("user_id",uid).order("created_at");
+      const{data:accs}=await dbFetchAccounts(uid);
       if(accs&&accs.length>0){
         setAccounts(accs);
         const firstId=urlAccountId||accs[0].id;
         setActiveAccId(firstId);
         const targetIds=isClient?[firstId]:accs.map(a=>a.id);
-        const{data:ps}=await supabase.from("posts").select("*").eq("user_id",uid).in("account_id",targetIds);
+        const{data:ps}=await dbFetchPosts(uid,targetIds);
         if(ps){
           const grouped={};
           ps.forEach(p=>{
@@ -1894,7 +1811,7 @@ function App({uid}){
       score:cleanP.score||null,
       labels:cleanP.labels||[],
     };
-    const{error}=await supabase.from("posts").upsert(record);
+    const{error}=await dbUpsertPost(record);
     if(error){showToast("保存に失敗しました");return false;}
     setAllPosts(prev=>{
       const cur=prev[activeAccId]||[];
@@ -1912,7 +1829,7 @@ function App({uid}){
   },[saveToDb,showToast]);
 
   const del=React.useCallback(async(id)=>{
-    const{error}=await supabase.from("posts").delete().eq("id",id);
+    const{error}=await dbDeletePost(id);
     if(error){showToast("削除に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).filter(p=>p.id!==id)}));
     setPreview(null);setDeleteConfirm(null);
@@ -1921,14 +1838,14 @@ function App({uid}){
 
   const changeStatus=React.useCallback(async(id,s,score)=>{
     const update={status:s,score:score!==undefined?score:null};
-    const{error}=await supabase.from("posts").update(update).eq("id",id);
+    const{error}=await dbUpdatePost(id,update);
     if(error){showToast("更新に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...update}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,...update}:prev);
   },[activeAccId,showToast]);
 
   const changePostType=React.useCallback(async(id,postType)=>{
-    const{error}=await supabase.from("posts").update({post_type:postType}).eq("id",id);
+    const{error}=await dbUpdatePost(id,{post_type:postType});
     if(error){showToast("更新に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,postType}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,postType}:prev);
@@ -1937,7 +1854,7 @@ function App({uid}){
   const saveMeta=React.useCallback(async(id,{memo,memoLinks,labels})=>{
     const update={memo,memo_links:memoLinks};
     if(labels!==undefined)update.labels=labels;
-    const{error}=await supabase.from("posts").update(update).eq("id",id);
+    const{error}=await dbUpdatePost(id,update);
     if(error){showToast("保存に失敗しました");return;}
     const patch={memo,memoLinks,...(labels!==undefined?{labels}:{})};
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,...patch}:p)}));
@@ -1945,7 +1862,7 @@ function App({uid}){
   },[activeAccId,showToast]);
 
   const saveComment=React.useCallback(async(id,comments)=>{
-    const{error}=await supabase.from("posts").update({comments}).eq("id",id);
+    const{error}=await dbUpdatePost(id,{comments});
     if(error){showToast("コメントの保存に失敗しました");return;}
     setAllPosts(prev=>({...prev,[activeAccId]:(prev[activeAccId]||[]).map(p=>p.id===id?{...p,comments}:p)}));
     setPreview(prev=>prev&&prev.id===id?{...prev,comments}:prev);
@@ -1989,7 +1906,7 @@ function App({uid}){
     const newType={key,label,color,bg:hexToRgba(color,0.1),border:hexToRgba(color,0.35)};
     const current=activeAcc?.custom_post_types||[];
     const next=[...current,newType];
-    const{error}=await supabase.from("accounts").update({custom_post_types:next}).eq("id",activeAccId);
+    const{error}=await dbUpdateAccount(activeAccId,{custom_post_types:next});
     if(error){showToast("追加に失敗しました");return;}
     setAccounts(prev=>prev.map(a=>a.id===activeAccId?{...a,custom_post_types:next}:a));
     showToast(`「${label}」を追加しました`);
@@ -1998,7 +1915,7 @@ function App({uid}){
   const addAccount=React.useCallback(async()=>{
     const id="acc_"+Date.now();
     const acc={id,name:"新規クライアント",handle:"@handle",color:"#6b7280",user_id:uid};
-    const{error}=await supabase.from("accounts").insert(acc);
+    const{error}=await dbInsertAccount(acc);
     if(error){showToast("追加に失敗しました");return;}
     setAccounts(prev=>[...prev,acc]);
     setAllPosts(prev=>({...prev,[id]:[]}));
@@ -2006,7 +1923,7 @@ function App({uid}){
   },[showToast]);
 
   const updateAccount=React.useCallback(async(id,fields)=>{
-    const{error}=await supabase.from("accounts").update(fields).eq("id",id);
+    const{error}=await dbUpdateAccount(id,fields);
     if(error){showToast("更新に失敗しました");return;}
     setAccounts(prev=>prev.map(a=>a.id===id?{...a,...fields}:a));
   },[showToast]);
@@ -2017,9 +1934,9 @@ function App({uid}){
       return prev; // 非同期処理はsetAccountsの外でやるため、ここでは何もしない
     });
     // 改めて現在のaccountsを参照するため非同期処理はuseRefで管理せずシンプルに実施
-    const cur=await supabase.from("accounts").select("*").order("created_at").then(r=>r.data||[]);
+    const cur=await dbFetchAllAccounts();
     if(cur.length<=1){showToast("最後のアカウントは削除できません");return;}
-    const{error}=await supabase.from("accounts").delete().eq("id",id);
+    const{error}=await dbDeleteAccount(id);
     if(error){showToast("削除に失敗しました");return;}
     const remaining=cur.filter(a=>a.id!==id);
     setAccounts(remaining);
