@@ -1086,7 +1086,7 @@ function EditorModal({post,onSave,onClose,allPosts=[]}){
     }
   };
 
-  const saveToNotion=async()=>{
+  const saveToNotionWithStatus=async(overrideStatus)=>{
     setNotionState("saving");
     try{
       const res=await fetch("/api/internal/push-to-notion",{
@@ -1095,7 +1095,7 @@ function EditorModal({post,onSave,onClose,allPosts=[]}){
         body:JSON.stringify({
           title:draft.title,
           body:draft.body,
-          status:draft.status,
+          status:overrideStatus??draft.status,
           postType:draft.postType,
           datetime:draft.datetime,
           memo:draft.memo,
@@ -1105,14 +1105,21 @@ function EditorModal({post,onSave,onClose,allPosts=[]}){
       if(!res.ok)throw new Error(data.error||"エラー");
       setNotionState("done");
       setTimeout(()=>setNotionState("idle"),4000);
-      // Notion URLを新しいタブで開く
-      if(data.url)window.open(data.url,"_blank");
+      if(data.url){
+        setDraft(d=>{
+          const already=(d.memoLinks||[]).some(l=>l.url===data.url);
+          if(already)return d;
+          return{...d,memoLinks:[{label:"Notion",url:data.url},...(d.memoLinks||[])]};
+        });
+      }
     }catch(e){
       setNotionState("error");
       setTimeout(()=>setNotionState("idle"),4000);
       console.error(e);
     }
   };
+
+  const saveToNotion=()=>saveToNotionWithStatus();
 
   const pt=POST_TYPE[draft.postType]||POST_TYPE.x_post;
   const st=STATUS[draft.status];
@@ -1128,7 +1135,7 @@ function EditorModal({post,onSave,onClose,allPosts=[]}){
             style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))}
+          <select value={draft.status} onChange={e=>{const s=e.target.value;setDraft(d=>({...d,status:s}));if(s==="published")saveToNotionWithStatus("published");}}
             style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
