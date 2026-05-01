@@ -27,7 +27,7 @@ import {
   AccountSettings,
 } from "./screens/AccountSettings.jsx";
 import {
-  MonthView, ListView, SlotAddForm,
+  MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
 import {
   ExportModal,
@@ -38,6 +38,7 @@ import {
 import {
   RepostModal, SearchModal,
 } from "./components/modals.jsx";
+import { Btn } from "./components/shared.jsx";
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 
