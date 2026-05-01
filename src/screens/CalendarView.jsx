@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { POST_TYPE, STATUS, BD, BD2, S, XFONT, SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, DAYS, HOURS, fmtDate, fmtTime, slotTime, genId, nowStr } from "../constants.js";
+import { POST_TYPE, STATUS, SCORE, BD, BD2, S, XFONT, SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, DAYS, HOURS, fmtDate, fmtTime, slotTime, genId, nowStr } from "../constants.js";
 
 export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_TYPE}){
   const [monthBase,setMonthBase]=useState(()=>new Date());

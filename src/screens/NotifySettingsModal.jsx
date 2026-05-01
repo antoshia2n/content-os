@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { BD, BD2, S } from "../constants.js";
+import { BD, BD2, S, HOURS } from "../constants.js";
+import { Btn } from "../components/shared.jsx";
 
 export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
   const [draft,setDraft]=useState({...settings});

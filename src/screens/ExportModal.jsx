@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, STATUS, SCORE, BD, BD2, S, fmtDate, fmtTime, stripHtml } from "../constants.js";
+import { Btn } from "../components/shared.jsx";
 
 export function postToMarkdown(p){
   const links=(p.memoLinks||[]).map(l=>{

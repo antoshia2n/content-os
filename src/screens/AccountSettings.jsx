@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { COLORS, BD, BD2, S } from "../constants.js";
+import { Btn } from "../components/shared.jsx";
 
 export function AccountSettings({accounts,onUpdate,onDelete,onAdd,onCopyLink,onClose}){
   const [editingId,setEditingId]=useState(null),[draft,setDraft]=useState({});

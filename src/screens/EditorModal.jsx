@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, STATUS, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
-import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel } from "../components/editor.jsx";
+import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText } from "../components/editor.jsx";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 
 export function EditorModal({post,onSave,onClose,allPosts=[]}){
