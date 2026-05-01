@@ -84,7 +84,7 @@ export async function onRequestPost(context) {
   };
 
   if (postType && MEDIA_MAP[postType]) {
-    properties.media = { select: { name: MEDIA_MAP[postType] } };
+    properties.media = { multi_select: [{ name: MEDIA_MAP[postType] }] };
   }
 
   if (datetime) {
