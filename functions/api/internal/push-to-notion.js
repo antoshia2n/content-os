@@ -1,137 +1,212 @@
 // functions/api/internal/push-to-notion.js
-// Cloudflare Functions — Notion API プロキシ
-// 呼び出し元：App.jsx（同一オリジン SPA）
-// 認証：不要（同一オリジン呼び出し＝CORS保護で十分、NOTION_SECRETはサーバー側で保護）
-//
-// 環境変数（Cloudflare Pages > Settings > Environment Variables）:
-//   NOTION_SECRET        : Notion インテグレーションのシークレット
-//   NOTION_DATABASE_ID   : 保存先データベースのID（アウトプットDB）
+// コンテンツくん → Notion コンテンツアウトプットDB push
+// 設計書：コンテンツアウトプットDB 設計書（2026-05-01）§4
+// Cloudflare Functions 形式
+
+// CORS ヘッダー（shia2n-mcp 等の外部オリジンからも呼ばれるため付与）
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// OPTIONS プリフライト対応
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const secret = env.NOTION_SECRET;
-  const dbId   = env.NOTION_DATABASE_ID;
 
-  if (!secret || !dbId) {
-    return new Response(
-      JSON.stringify({ error: "Notion環境変数が設定されていません" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+  // ────────────────────────────────────────────────
+  // 1. 認証チェック（MCP_INTERNAL_SECRET）
+  // ────────────────────────────────────────────────
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || authHeader !== `Bearer ${env.MCP_INTERNAL_SECRET}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    });
   }
 
-  const { title, body, status, postType, datetime, memo } = await request.json();
-
-  // ── HTML → Notion ブロック変換 ──────────────────────
-  function htmlToBlocks(html) {
-    if (!html) return [];
-    const blocks = [];
-
-    const h1s = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map(m => m[1].replace(/<[^>]+>/g,"").trim());
-    const h2s = [...html.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)].map(m => m[1].replace(/<[^>]+>/g,"").trim());
-    const lis = [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map(m => m[1].replace(/<[^>]+>/g,"").trim());
-    const bqs = [...html.matchAll(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi)].map(m => m[1].replace(/<[^>]+>/g,"").trim());
-
-    const plain = html
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n")
-      .replace(/<\/h1>/gi, "\n")
-      .replace(/<\/h2>/gi, "\n")
-      .replace(/<\/li>/gi, "\n")
-      .replace(/<\/blockquote>/gi, "\n")
-      .replace(/<\/div>/gi, "\n")
-      .replace(/<[^>]+>/g, "");
-
-    const lines = plain.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-
-    for (const line of lines) {
-      const rich = [{ type: "text", text: { content: line.slice(0, 2000) } }];
-      if      (h1s.includes(line)) blocks.push({ object:"block", type:"heading_1",         heading_1:         { rich_text: rich } });
-      else if (h2s.includes(line)) blocks.push({ object:"block", type:"heading_2",         heading_2:         { rich_text: rich } });
-      else if (lis.includes(line)) blocks.push({ object:"block", type:"bulleted_list_item", bulleted_list_item:{ rich_text: rich } });
-      else if (bqs.includes(line)) blocks.push({ object:"block", type:"quote",             quote:             { rich_text: rich } });
-      else                         blocks.push({ object:"block", type:"paragraph",         paragraph:         { rich_text: rich } });
-      if (blocks.length >= 99) break;
-    }
-    return blocks;
-  }
-
-  // ── ContentOS → Notion プロパティマッピング ──────────
-  const MEDIA_MAP = {
-    x_post:    "Xポスト",
-    x_quote:   "X引用",
-    x_article: "X記事",
-    note:      "note",
-    membership:"メンシプ",
-    paid:      "有料",
-    other:     "その他",
-  };
-
-  const STATUS_MAP = {
-    draft:     "下書き",
-    review:    "レビュー待ち",
-    waiting:   "予約待ち",
-    reserved:  "予約済み",
-    published: "公開済",
-    popular:   "好評",
-    flop:      "不評",
-  };
-
-  // ── プロパティ組み立て ────────────────────────────
-  const properties = {
-    title: {
-      title: [{ text: { content: title || "無題" } }],
-    },
-  };
-
-  if (postType && MEDIA_MAP[postType]) {
-    properties.media = { multi_select: [{ name: MEDIA_MAP[postType] }] };
-  }
-
-  if (datetime) {
-    const iso = datetime.length === 16 ? datetime + ":00+09:00" : datetime;
-    properties.date = { date: { start: iso } };
-  }
-
-  if (status && STATUS_MAP[status]) {
-    properties.status = { select: { name: STATUS_MAP[status] } };
-  }
-
-  const blocks = htmlToBlocks(body);
-
-  // ── Notion API コール ─────────────────────────────
+  // ────────────────────────────────────────────────
+  // 2. リクエストボディ取得
+  // ────────────────────────────────────────────────
+  let body;
   try {
-    const notionRes = await fetch("https://api.notion.com/v1/pages", {
-      method: "POST",
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  // 3. フィールド展開
+  //
+  // 【草案保存時】に送るフィールド:
+  //   title, content_type, target, tags, body_text, source_app
+  //
+  // 【投稿完了マーク時】に追加で送るフィールド（page_id 必須）:
+  //   page_id, post_url, post_date
+  //
+  // 【パフォーマンス更新時（X-PDCA → Notion）】:
+  //   page_id, impressions, engagement, rating
+  // ────────────────────────────────────────────────
+  const {
+    page_id,       // string | undefined — 更新時は既存 Notion ページ ID を指定
+    title,         // string — コンテンツタイトル / 見出し
+    content_type,  // string — "Xポスト" | "X記事" | "note" | "セミナー" | "メルマガ"
+    target,        // string — "自分" | "クライアント"
+    tags,          // string[] — テーマタグ（例: ["思考", "X運用"]）
+    body_text,     // string — 本文テキスト（2000字超は自動分割）
+    post_url,      // string — 投稿後の URL（X / note 等）
+    post_date,     // string — 投稿日 ISO8601（例: "2026-05-01"）
+    impressions,   // number — インプレッション数
+    engagement,    // number — エンゲージメント数（いいね+リプ+引用+RT）
+    rating,        // string — "高" | "中" | "低"
+    reused_for,    // string[] — 転用済み先（例: ["X記事→note"]）
+    source_app,    // string — "コンテンツくん" | "X-PDCA" | "手動"
+  } = body;
+
+  const notionSecret = env.NOTION_SECRET;
+  const dbId = env.NOTION_DATABASE_ID; // コンテンツアウトプットDB の ID をセット
+
+  if (!notionSecret || !dbId) {
+    return new Response(JSON.stringify({ error: 'Missing env: NOTION_SECRET or NOTION_DATABASE_ID' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    });
+  }
+
+  // ────────────────────────────────────────────────
+  // 4. Notion properties オブジェクト構築
+  //    → undefined / null のフィールドは含めない（部分更新に対応）
+  // ────────────────────────────────────────────────
+  const properties = {};
+
+  if (title != null) {
+    properties['タイトル'] = {
+      title: [{ text: { content: String(title) } }],
+    };
+  }
+
+  if (content_type != null) {
+    properties['コンテンツ種別'] = { select: { name: content_type } };
+  }
+
+  if (target != null) {
+    properties['対象'] = { select: { name: target } };
+  }
+
+  if (Array.isArray(tags) && tags.length > 0) {
+    properties['テーマタグ'] = {
+      multi_select: tags.map(name => ({ name })),
+    };
+  }
+
+  // 本文: Notion rich_text は 1ブロック 2000字上限 → 超過分は第2ブロックに分割
+  if (body_text != null) {
+    const text = String(body_text);
+    const LIMIT = 2000;
+    const blocks = [];
+    for (let i = 0; i < text.length; i += LIMIT) {
+      blocks.push({ text: { content: text.slice(i, i + LIMIT) } });
+    }
+    properties['本文'] = { rich_text: blocks };
+  }
+
+  if (post_url != null && post_url !== '') {
+    properties['投稿URL'] = { url: post_url };
+  }
+
+  if (post_date != null) {
+    properties['投稿日'] = { date: { start: post_date } };
+  }
+
+  if (impressions != null) {
+    properties['インプレッション'] = { number: Number(impressions) };
+  }
+
+  if (engagement != null) {
+    properties['エンゲージメント'] = { number: Number(engagement) };
+  }
+
+  if (rating != null) {
+    properties['評価'] = { select: { name: rating } };
+  }
+
+  if (Array.isArray(reused_for) && reused_for.length > 0) {
+    properties['転用済み先'] = {
+      multi_select: reused_for.map(name => ({ name })),
+    };
+  }
+
+  if (source_app != null) {
+    properties['蓄積元アプリ'] = { select: { name: source_app } };
+  }
+
+  // ────────────────────────────────────────────────
+  // 5. Notion API 呼び出し
+  //    page_id あり → 既存ページ更新（PATCH）
+  //    page_id なし → 新規ページ作成（POST）
+  // ────────────────────────────────────────────────
+  let notionRes;
+
+  if (page_id) {
+    // 既存ページ更新
+    notionRes = await fetch(`https://api.notion.com/v1/pages/${page_id}`, {
+      method: 'PATCH',
       headers: {
-        Authorization:    `Bearer ${secret}`,
-        "Content-Type":   "application/json",
-        "Notion-Version": "2022-06-28",
+        Authorization: `Bearer ${notionSecret}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28',
+      },
+      body: JSON.stringify({ properties }),
+    });
+  } else {
+    // 新規ページ作成
+    notionRes = await fetch('https://api.notion.com/v1/pages', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${notionSecret}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28',
       },
       body: JSON.stringify({
-        parent:     { database_id: dbId },
+        parent: { database_id: dbId },
         properties,
-        children:   blocks,
       }),
     });
+  }
 
-    const data = await notionRes.json();
+  const notionData = await notionRes.json();
 
-    if (!notionRes.ok) {
-      return new Response(
-        JSON.stringify({ error: data.message || "Notion APIエラー", code: data.code }),
-        { status: notionRes.status, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
+  if (!notionRes.ok) {
+    console.error('Notion API error:', notionData);
     return new Response(
-      JSON.stringify({ url: data.url, id: data.id }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: "サーバーエラー: " + err.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({ error: 'Notion API error', detail: notionData }),
+      {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      }
     );
   }
+
+  // ────────────────────────────────────────────────
+  // 6. 正常レスポンス
+  //    notion_page_id を返す → Supabase の posts に保存して更新時に使う
+  // ────────────────────────────────────────────────
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      notion_page_id: notionData.id,
+      notion_url: notionData.url,
+    }),
+    {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    }
+  );
 }
