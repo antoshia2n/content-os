@@ -131,7 +131,7 @@ function App({uid}){
   // メール通知設定ロード
   useEffect(()=>{
     if(!activeAccId)return;
-    supabase.from("notification_settings").select("*").eq("account_id",activeAccId).single()
+    supabase.from("notification_settings").select("*").eq("account_id",activeAccId).maybeSingle()
       .then(({data})=>{
         if(data)setNotifySettings(data);
         else setNotifySettings({account_id:activeAccId,email:"",notify_overdue:true,notify_today:true,notify_daily:false,send_hour:8,enabled:false});
