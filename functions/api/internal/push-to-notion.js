@@ -16,16 +16,7 @@ export async function onRequestOptions() {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // 1. 認証
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || authHeader !== `Bearer ${env.MCP_INTERNAL_SECRET}`) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-    });
-  }
-
-  // 2. Body 取得
+  // 1. Body 取得
   let body;
   try {
     body = await request.json();
@@ -36,7 +27,7 @@ export async function onRequestPost(context) {
     });
   }
 
-  // 3. フィールド展開
+  // 2. フィールド展開
   //
   // 【草案保存時】
   //   title, content_type, target, tags, body_text, source_app
@@ -91,7 +82,7 @@ export async function onRequestPost(context) {
     );
   }
 
-  // 4. Notion properties 構築（undefined は除外 → 部分更新に対応）
+  // 3. Notion properties 構築（undefined は除外 → 部分更新に対応）
   const properties = {};
 
   if (title != null) {
@@ -172,7 +163,7 @@ export async function onRequestPost(context) {
     properties['status'] = { select: { name: '下書き' } };
   }
 
-  // 5. Notion API 呼び出し
+  // 4. Notion API 呼び出し
   let notionRes;
 
   if (page_id) {
