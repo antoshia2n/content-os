@@ -3,6 +3,9 @@ import { POST_TYPE, STATUS, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, 
 import { supabase } from "../lib/supabase.js";
 import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText } from "../components/editor.jsx";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
+import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
+
+const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 export function EditorModal({post,onSave,onClose,allPosts=[]}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});

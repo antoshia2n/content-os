@@ -11,7 +11,7 @@ const PUBLISHED_STATUSES = new Set(["published", "popular"]);
 export function usePostActions({
   activeAccId, uid, showToast,
   setAllPosts, setPreview, setEditing, setDeleteConfirm, setRepostTgt,
-  today, posts, activeAcc,
+  today, posts, activeAcc, setAccounts,
 }) {
   const saveToDb = useCallback(async (p) => {
     const { _unsaved, ...cleanP } = p;
@@ -133,9 +133,9 @@ export function usePostActions({
     const next = [...current, newType];
     const { error } = await dbUpdateAccount(activeAccId, { custom_post_types: next });
     if (error) { showToast("追加に失敗しました"); return; }
-    setAllPosts(prev => prev); // trigger re-render
+    setAccounts(prev => prev.map(a => a.id === activeAccId ? { ...a, custom_post_types: next } : a));
     showToast(`「${label}」を追加しました`);
-  }, [activeAccId, activeAcc, showToast, setAllPosts]);
+  }, [activeAccId, activeAcc, showToast, setAccounts]);
 
   const handleDrop = useCallback(async (postId, dateStr, hour) => {
     const p = posts.find(x => x.id === postId);

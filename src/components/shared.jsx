@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { BD, BD2, S, COLORS } from "../constants.js";
+import { BD, BD2, S, COLORS, isUrl } from "../constants.js";
 
 export function TagSelector({
   // 表示用

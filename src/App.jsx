@@ -120,7 +120,7 @@ function App({uid}){
     saveMeta, saveComment, handleRepost, handleDuplicate,
     addCustomPostType, handleDrop, openNew,
   } = usePostActions({ activeAccId, uid, showToast, setAllPosts, setPreview, setEditing,
-    setDeleteConfirm, setRepostTgt, today, posts, activeAcc });
+    setDeleteConfirm, setRepostTgt, today, posts, activeAcc, setAccounts });
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -691,7 +691,7 @@ function App({uid}){
         onRepost={(dt,r)=>handleRepost(repostTgt,dt,r)}/>}
 
       {showAccountSettings&&isAdmin&&(
-        <AccountSettings accounts={accounts} onUpdate={updateAccount} onDelete={deleteAccount} onAdd={addAccount} onCopyLink={copyShareLink} onClose={()=>setShowAccountSettings(false)} activeAcc={activeAcc}/>
+        <AccountSettings accounts={accounts} onUpdate={updateAccount} onDelete={deleteAccount} onAdd={addAccount} onCopyLink={copyShareLink} onClose={()=>setShowAccountSettings(false)}/>
       )}
 
       {/* 削除確認ダイアログ */}
