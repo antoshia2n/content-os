@@ -691,7 +691,7 @@ function App({uid}){
         onRepost={(dt,r)=>handleRepost(repostTgt,dt,r)}/>}
 
       {showAccountSettings&&isAdmin&&(
-        <AccountSettings accounts={accounts} onUpdate={updateAccount} onDelete={deleteAccount} onAdd={addAccount} onCopyLink={copyShareLink} onClose={()=>setShowAccountSettings(false)}/>
+        <AccountSettings accounts={accounts} onUpdate={updateAccount} onDelete={deleteAccount} onAdd={addAccount} onCopyLink={copyShareLink} onClose={()=>setShowAccountSettings(false)} activeAcc={activeAcc}/>
       )}
 
       {/* 削除確認ダイアログ */}
