@@ -57,7 +57,9 @@ function App({uid}){
   // ── データフック（showToast が必要なため先に定義）──────
   const {
     accounts, setAccounts, allPosts, setAllPosts, activeAccId, setActiveAccId, loading,
-    addAccount, updateAccount, deleteAccount, copyShareLink,
+    switchableAccounts,
+    addAccount, updateAccount, copyShareLink,
+    setDefaultAccount, setAccountActive, moveAccount,
   } = useAccounts({ uid, urlAccountId, isClient, showToast });
 
   // ── 残りの UI State ────────────────────────────────────
@@ -294,7 +296,7 @@ function App({uid}){
         {/* 管理者：アカウントタブ */}
         {isAdmin&&(
           <div style={{display:"flex",gap:2,background:"#f5f0eb",borderRadius:8,padding:2,maxWidth:400,overflow:"auto",flexShrink:0}}>
-            {accounts.map(acc=>(
+            {switchableAccounts.map(acc=>(
               <button key={acc.id} onClick={()=>{setActiveAccId(acc.id);setPreview(null);}}
                 style={{...S.row,gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:activeAccId===acc.id?"#fff":"transparent",color:activeAccId===acc.id?"#111":"#a8a09a",boxShadow:activeAccId===acc.id?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
                 <span style={{width:6,height:6,borderRadius:"50%",background:activeAccId===acc.id?acc.color:"#ccc",display:"inline-block",flexShrink:0}}/>
@@ -691,7 +693,16 @@ function App({uid}){
         onRepost={(dt,r)=>handleRepost(repostTgt,dt,r)}/>}
 
       {showAccountSettings&&isAdmin&&(
-        <AccountSettings accounts={accounts} onUpdate={updateAccount} onDelete={deleteAccount} onAdd={addAccount} onCopyLink={copyShareLink} onClose={()=>setShowAccountSettings(false)}/>
+        <AccountSettings
+          accounts={accounts}
+          activeAcc={activeAcc}
+          onUpdate={updateAccount}
+          onAdd={addAccount}
+          onCopyLink={copyShareLink}
+          onSetDefault={setDefaultAccount}
+          onSetActive={setAccountActive}
+          onMove={moveAccount}
+          onClose={()=>setShowAccountSettings(false)}/>
       )}
 
       {/* 削除確認ダイアログ */}
