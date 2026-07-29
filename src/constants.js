@@ -21,12 +21,12 @@ export const POST_TYPE = {
 export const STATUS = {
   draft:     { label:"下書き",      chip:"#f3f4f6", text:"#6b7280", border:"#d1d5db" },
   review:    { label:"レビュー待ち", chip:"#fef3c7", text:"#d97706", border:"#fcd34d" },
-  waiting:   { label:"予約待ち",    chip:"#dbeafe", text:"#2563eb", border:"#93c5fd" },
+  waiting:   { label:"日時未定",    chip:"#dbeafe", text:"#2563eb", border:"#93c5fd" },
   reserved:  { label:"予約済み",    chip:"#ede9fe", text:"#7c3aed", border:"#c4b5fd" },
   published: { label:"公開済",      chip:"#d1fae5", text:"#059669", border:"#6ee7b7" },
-  popular:   { label:"好評",        chip:"#ffedd5", text:"#ea580c", border:"#fdba74" },
-  flop:      { label:"不評",        chip:"#fee2e2", text:"#dc2626", border:"#fca5a5" },
 };
+// 「好評 / 不評」は状態ではなく投稿後の成績のため、v1.1 で status から廃止した。
+// 成績は score（S/A/B/C/D）または labels で表す（要件 v1.1 §4.3）
 
 // ── スコア定数 ────────────────────────────────────────
 export const SCORE = {
@@ -77,6 +77,7 @@ export function nowStr(){return new Date().toISOString();}
 export function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
 export function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
 export function nextDaySameTime(dt){
+  if(!dt)return"";               // 日時未定の投稿は日時なしのまま複製する
   const d=new Date(dt.length===16?dt+":00":dt);
   d.setDate(d.getDate()+1);
   return fmtDate(d)+"T"+dt.slice(11,16);
@@ -89,6 +90,8 @@ export function getWeekDates(base){
 export function dbToPost(p){
   const rawLinks=p.memo_links||[];
   return{...p,
+    // 日時未定（データベース上は空）は、画面側では空文字として扱う
+    datetime:p.datetime||"",
     postType:p.post_type||"x_post",
     comments:p.comments||[],
     body:p.body||"",

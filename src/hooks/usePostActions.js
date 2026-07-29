@@ -5,8 +5,9 @@ import { useCallback } from "react";
 import { dbUpsertPost, dbDeletePost, dbUpdatePost, dbUpdateAccount } from "../lib/supabase.js";
 import { genId, nowStr, nextDaySameTime, dbToPost, COLORS } from "../constants.js";
 
-// 公開済とみなすステータスキー（App.jsx の weekStats より確認）
-const PUBLISHED_STATUSES = new Set(["published", "popular"]);
+// 公開済とみなすステータスキー
+// v1.1 で popular は status から廃止（成績は score / labels へ）
+const PUBLISHED_STATUSES = new Set(["published"]);
 
 export function usePostActions({
   activeAccId, uid, showToast,
@@ -19,7 +20,8 @@ export function usePostActions({
       id: cleanP.id, account_id: activeAccId, user_id: uid,
       title: cleanP.title, status: cleanP.status,
       post_type: cleanP.postType || "x_post",
-      datetime: cleanP.datetime,
+      // 空の日時は「未定」としてデータベースには空で入れる（空文字を残さない）
+      datetime: cleanP.datetime || null,
       body: cleanP.body || "",
       memo: cleanP.memo || "",
       memo_links: cleanP.memoLinks || [],

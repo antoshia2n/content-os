@@ -58,7 +58,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
             const daySlots=date?(slotsByDate[dateStr]||[]):[];
             const draftCnt=dayPosts.filter(p=>p.status==="draft").length;
             const reservedCnt=dayPosts.filter(p=>["reserved","waiting"].includes(p.status)).length;
-            const publishedCnt=dayPosts.filter(p=>["published","popular"].includes(p.status)).length;
+            const publishedCnt=dayPosts.filter(p=>p.status==="published").length;
             return(
               <div key={`${wi}-${di}`}
                 style={{minHeight:100,borderRight:"1px solid #e6dfd6",borderBottom:BD2,padding:"4px 5px",background:isToday?"#fffcf5":!isCurrentMonth?"#f5f0eb":"#fff",verticalAlign:"top",cursor:date?"pointer":"default"}}

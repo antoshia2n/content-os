@@ -199,7 +199,7 @@ function App({uid}){
       return{
         draftCnt:dayPosts.filter(p=>p.status==="draft").length,
         reservedCnt:dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length,
-        publishedCnt:dayPosts.filter(p=>p.status==="published"||p.status==="popular").length,
+        publishedCnt:dayPosts.filter(p=>p.status==="published").length,
         ghostCnt:slots.filter(s=>slotMatchesDate(s,weekDates[i])).length,
       };
     });
