@@ -66,6 +66,10 @@ export async function onRequestPost(context) {
   const params = new URLSearchParams();
   params.set('select', SELECT_COLUMNS);
   params.set('user_id', `eq.${user_id}`);
+  // account_id（任意）：省略時は全アカウント横断（要件 v1.2 F6）
+  if (typeof body.account_id === 'string' && body.account_id) {
+    params.set('account_id', `eq.${body.account_id}`);
+  }
   params.set('body', 'eq.');           // body = '' (空文字)
   params.set('order', 'datetime.asc'); // 日時昇順で返す
 

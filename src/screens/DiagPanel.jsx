@@ -7,6 +7,10 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase.js";
 
+// shia2n-mcp の公開診断アドレス（認証不要・機密情報は返らない）
+// MCP サーバーが生きているかを確認するために使う
+const MCP_DIAG_URL = "https://shia2n-mcp.gameister1.workers.dev/diag";
+
 const ENV_KEYS = [
   ["VITE_SUPABASE_URL", "Supabase のURL"],
   ["VITE_SUPABASE_ANON_KEY", "Supabase のキー"],
@@ -56,6 +60,7 @@ export function DiagPanel() {
     accounts: { state: "pending", detail: "確認中…" },
     posts:    { state: "pending", detail: "確認中…" },
     write:    { state: "pending", detail: "確認中…" },
+    mcp:      { state: "pending", detail: "確認中…" },
   });
 
   useEffect(() => {
@@ -104,6 +109,23 @@ export function DiagPanel() {
       } catch (e) {
         if (alive) setChecks(c => ({ ...c, write: { state: "ng", detail: String(e.message || e) } }));
       }
+
+      // MCP サーバーの疎通（shia2n-mcp の公開診断アドレス）
+      try {
+        const res = await fetch(MCP_DIAG_URL, { method: "GET" });
+        if (!alive) return;
+        if (!res.ok) throw new Error(`応答 ${res.status}`);
+        const info = await res.json();
+        setChecks(c => ({ ...c, mcp: {
+          state: "ok",
+          detail: `応答あり（版 ${info?.version ?? "不明"}）／${MCP_DIAG_URL}`,
+        }}));
+      } catch (e) {
+        if (alive) setChecks(c => ({ ...c, mcp: {
+          state: "ng",
+          detail: `${String(e.message || e)}／${MCP_DIAG_URL}`,
+        }}));
+      }
     })();
     return () => { alive = false; };
   }, []);
@@ -138,11 +160,7 @@ export function DiagPanel() {
         <Row title="書き込みの権限"       detail={checks.write.detail}    state={checks.write.state} />
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>Claude との接続（MCP）</div>
-        <Row
-          title="MCP サーバーの疎通"
-          detail="shia2n-mcp 側の確認用アドレスを実装したうえで、この行を有効にします（未実装）"
-          state="skip"
-        />
+        <Row title="MCP サーバーの疎通" detail={checks.mcp.detail} state={checks.mcp.state} />
 
         <div style={{ marginTop: 22, display: "flex", gap: 8 }}>
           <button onClick={() => window.location.reload()}

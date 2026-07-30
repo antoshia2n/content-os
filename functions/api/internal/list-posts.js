@@ -9,7 +9,10 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const SELECT_COLUMNS = 'id,title,body,score,status,platform,datetime,account_id,post_type,created_at,updated_at';
+const SELECT_COLUMNS = 'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at';
+
+// 制作段階の5値（要件 v1.2 §4.3）
+const VALID_STATUS = ['draft', 'review', 'waiting', 'reserved', 'published'];
 
 // HTML タグ除去（body は HTML 文字列のため、統括 Claude が分析しやすいよう plain 版を併設）
 function stripHtml(html) {
@@ -66,6 +69,21 @@ export async function onRequestPost(context) {
   // sort: 'score_desc' | 'created_desc' (default 'created_desc')
   const sort = body.sort === 'score_desc' ? 'score_desc' : 'created_desc';
 
+  // account_id（任意）：省略時は全アカウント横断（要件 v1.2 F6）
+  const accountId = typeof body.account_id === 'string' && body.account_id ? body.account_id : null;
+
+  // status（任意）：waiting だけ取りたいケースのため（要件 v1.2 F6）
+  let statusFilter = null;
+  if (body.status !== undefined && body.status !== null && body.status !== '') {
+    if (!VALID_STATUS.includes(body.status)) {
+      return new Response(
+        JSON.stringify({ ok: false, error: `invalid status: ${body.status} (allowed: ${VALID_STATUS.join(' / ')})` }),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+      );
+    }
+    statusFilter = body.status;
+  }
+
   // 3. env チェック（VITE_ プレフィックス両対応）
   const SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
   const SUPABASE_KEY = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
@@ -85,6 +103,8 @@ export async function onRequestPost(context) {
   const params = new URLSearchParams();
   params.set('select', SELECT_COLUMNS);
   params.set('user_id', `eq.${user_id}`);
+  if (accountId) params.set('account_id', `eq.${accountId}`);
+  if (statusFilter) params.set('status', `eq.${statusFilter}`);
   params.set('order', 'created_at.desc');
   params.set('limit', String(fetchLimit));
 
@@ -136,7 +156,7 @@ export async function onRequestPost(context) {
   }));
 
   return new Response(
-    JSON.stringify({ ok: true, count: posts.length, sort, posts }),
+    JSON.stringify({ ok: true, count: posts.length, sort, account_id: accountId, status: statusFilter, posts }),
     { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
   );
 }
