@@ -20,6 +20,7 @@ import {
 import {
   EditorModal,
 } from "./screens/EditorModal.jsx";
+import { DiagPanel } from "./screens/DiagPanel.jsx";
 import {
   PreviewOverlay,
 } from "./screens/PreviewOverlay.jsx";
@@ -45,6 +46,9 @@ import { useAccounts } from "./hooks/useAccounts.js";
 
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
+
+// 「全アカウント」を表す内部キー（アカウントIDと衝突しない値）
+const ALL_ACC="__all__";
 
 function App({uid}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
@@ -100,15 +104,24 @@ function App({uid}){
   },[]);
   const weekDates   =React.useMemo(()=>getWeekDates(week),[week]);
   const weekDateStrs=React.useMemo(()=>weekDates.map(fmtDate),[weekDates]);
-  const activeAcc    =React.useMemo(()=>accounts.find(a=>a.id===activeAccId),[accounts,activeAccId]);
+  const activeAcc    =React.useMemo(()=>accounts.find(a=>a.id===activeAccId)||null,[accounts,activeAccId]);
+  // ── 「全アカウント」表示（要件 v1.2 F5）──────────────────────
+  // 横断して「見る」ための状態。書き込み先（宛先）は既定アカウントになる
+  const isAllAccounts=activeAccId===ALL_ACC;
+  const defaultAcc   =React.useMemo(()=>accounts.find(a=>a.is_default)||switchableAccounts[0]||null,[accounts,switchableAccounts]);
+  const targetAccId  =isAllAccounts?(defaultAcc?.id||null):activeAccId;
+  const targetAcc    =React.useMemo(()=>accounts.find(a=>a.id===targetAccId)||null,[accounts,targetAccId]);
   // アカウント固有のカスタム投稿タイプ（POST_TYPEにマージして使う）
   const allPostTypes =React.useMemo(()=>{
-    const custom=(activeAcc?.custom_post_types||[]);
+    const custom=((activeAcc||targetAcc)?.custom_post_types||[]);
     const merged={...POST_TYPE};
     custom.forEach(c=>{merged[c.key]={label:c.label,color:c.color,bg:c.bg||"#f3f4f6",border:c.border||"#d1d5db",dot:c.color};});
     return merged;
-  },[activeAcc]);
-  const posts    =React.useMemo(()=>allPosts[activeAccId]||[],[allPosts,activeAccId]);
+  },[activeAcc,targetAcc]);
+  const posts    =React.useMemo(()=>isAllAccounts
+    ?Object.values(allPosts).flat()
+    :(allPosts[activeAccId]||[])
+  ,[allPosts,activeAccId,isAllAccounts]);
   const filtered =React.useMemo(()=>posts.filter(p=>(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
@@ -116,19 +129,19 @@ function App({uid}){
     posts.filter(p=>p.status===OVERDUE_STATUS&&p.datetime<=nowDt).length
   ,[posts,nowDt]);
 
-  const { slots, saveSlots } = useSlots({ activeAccId, uid, showToast });
+  const { slots, saveSlots } = useSlots({ activeAccId: targetAccId, uid, showToast });
   const {
     saveToDb, save, del, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
-    addCustomPostType, handleDrop, openNew,
-  } = usePostActions({ activeAccId, uid, showToast, setAllPosts, setPreview, setEditing,
-    setDeleteConfirm, setRepostTgt, today, posts, activeAcc, setAccounts });
+    addCustomPostType, handleDrop, openNew, setDatetime,
+  } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
+    setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts });
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
-    await supabase.from("notification_settings").upsert({...s,account_id:activeAccId});
+    await supabase.from("notification_settings").upsert({...s,account_id:targetAccId});
     showToast("通知設定を保存しました ✅");
-  },[activeAccId,showToast]);
+  },[targetAccId,showToast]);
 
   // メール通知設定ロード
   useEffect(()=>{
@@ -296,6 +309,12 @@ function App({uid}){
         {/* 管理者：アカウントタブ */}
         {isAdmin&&(
           <div style={{display:"flex",gap:2,background:"#f5f0eb",borderRadius:8,padding:2,maxWidth:400,overflow:"auto",flexShrink:0}}>
+            {switchableAccounts.length>1&&(
+              <button onClick={()=>{setActiveAccId(ALL_ACC);setPreview(null);}}
+                style={{...S.row,gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:isAllAccounts?"#fff":"transparent",color:isAllAccounts?"#111":"#a8a09a",boxShadow:isAllAccounts?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
+                全アカウント
+              </button>
+            )}
             {switchableAccounts.map(acc=>(
               <button key={acc.id} onClick={()=>{setActiveAccId(acc.id);setPreview(null);}}
                 style={{...S.row,gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:activeAccId===acc.id?"#fff":"transparent",color:activeAccId===acc.id?"#111":"#a8a09a",boxShadow:activeAccId===acc.id?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
@@ -415,7 +434,7 @@ function App({uid}){
           </select>
           <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
             style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer"}}>
-            <option value="all">全プラットフォーム</option>
+            <option value="all">すべての種別</option>
             {Object.entries(allPostTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
         </div>
@@ -576,6 +595,7 @@ function App({uid}){
           openNew={openNew}
           slots={slots}
           changeStatus={changeStatus}
+          setDatetime={setDatetime}
           postTypes={allPostTypes}
         />
       )}
@@ -683,7 +703,7 @@ function App({uid}){
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],...editing}} onSave={save} onClose={()=>setEditing(null)} allPosts={posts}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
@@ -820,6 +840,13 @@ function PortalAuthWrapper({children}){
 
 // ── ポータル認証付きエクスポート ──
 export default function AppWithAuth(){
+  // 診断画面（要件 v1.2 §7・基準9）。/diag または ?diag=1 で開く
+  // ログインの前に確認できるようにするため、認証の外側で分岐する
+  if(typeof window!=="undefined"){
+    const path=window.location.pathname.replace(/\/+$/,"");
+    const hasQuery=new URLSearchParams(window.location.search).has("diag");
+    if(path==="/diag"||hasQuery)return <DiagPanel/>;
+  }
   return(
     <PortalAuthWrapper>
       {uid=><App uid={uid}/>}

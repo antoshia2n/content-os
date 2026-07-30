@@ -14,10 +14,36 @@ export function usePostActions({
   setAllPosts, setPreview, setEditing, setDeleteConfirm, setRepostTgt,
   today, posts, activeAcc, setAccounts,
 }) {
+  // 投稿1件を、どのアカウントの引き出しに入っていても正しく書き換える
+  // （「全アカウント」表示では引き出しが1つに決まらないため）
+  const patchPost = useCallback((id, patch) => {
+    setAllPosts(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => {
+        if ((next[k] || []).some(x => x.id === id)) {
+          next[k] = next[k].map(x => x.id === id ? { ...x, ...patch } : x);
+        }
+      });
+      return next;
+    });
+  }, [setAllPosts]);
+
+  const removePost = useCallback((id) => {
+    setAllPosts(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => {
+        next[k] = (next[k] || []).filter(x => x.id !== id);
+      });
+      return next;
+    });
+  }, [setAllPosts]);
+
   const saveToDb = useCallback(async (p) => {
     const { _unsaved, ...cleanP } = p;
+    // 既存投稿は元のアカウントに保存する（宛先に引っ越さないようにするため）
+    const accId = cleanP.account_id || activeAccId;
     const record = {
-      id: cleanP.id, account_id: activeAccId, user_id: uid,
+      id: cleanP.id, account_id: accId, user_id: uid,
       title: cleanP.title, status: cleanP.status,
       post_type: cleanP.postType || "x_post",
       // 空の日時は「未定」としてデータベースには空で入れる（空文字を残さない）
@@ -35,9 +61,10 @@ export function usePostActions({
     const { error } = await dbUpsertPost(record);
     if (error) { showToast("保存に失敗しました"); return false; }
     setAllPosts(prev => {
-      const cur = prev[activeAccId] || [];
+      const cur = prev[accId] || [];
       const exists = cur.find(x => x.id === cleanP.id);
-      return { ...prev, [activeAccId]: exists ? cur.map(x => x.id === cleanP.id ? cleanP : x) : [...cur, cleanP] };
+      const saved = { ...cleanP, account_id: accId };
+      return { ...prev, [accId]: exists ? cur.map(x => x.id === cleanP.id ? saved : x) : [...cur, saved] };
     });
     return true;
   }, [activeAccId, uid, showToast, setAllPosts]);
@@ -53,25 +80,25 @@ export function usePostActions({
   const del = useCallback(async (id) => {
     const { error } = await dbDeletePost(id);
     if (error) { showToast("削除に失敗しました"); return; }
-    setAllPosts(prev => ({ ...prev, [activeAccId]: (prev[activeAccId] || []).filter(p => p.id !== id) }));
+    removePost(id);
     setPreview(null); setDeleteConfirm(null);
     showToast("削除しました 🗑️");
-  }, [activeAccId, showToast, setAllPosts, setPreview, setDeleteConfirm]);
+  }, [removePost, showToast, setPreview, setDeleteConfirm]);
 
   const changeStatus = useCallback(async (id, s, score) => {
     const update = { status: s, score: score !== undefined ? score : null };
     const { error } = await dbUpdatePost(id, update);
     if (error) { showToast("更新に失敗しました"); return; }
-    setAllPosts(prev => ({ ...prev, [activeAccId]: (prev[activeAccId] || []).map(p => p.id === id ? { ...p, ...update } : p) }));
+    patchPost(id, update);
     setPreview(prev => prev && prev.id === id ? { ...prev, ...update } : prev);
-  }, [activeAccId, showToast, setAllPosts, setPreview]);
+  }, [patchPost, showToast, setPreview]);
 
   const changePostType = useCallback(async (id, postType) => {
     const { error } = await dbUpdatePost(id, { post_type: postType });
     if (error) { showToast("更新に失敗しました"); return; }
-    setAllPosts(prev => ({ ...prev, [activeAccId]: (prev[activeAccId] || []).map(p => p.id === id ? { ...p, postType } : p) }));
+    patchPost(id, { postType });
     setPreview(prev => prev && prev.id === id ? { ...prev, postType } : prev);
-  }, [activeAccId, showToast, setAllPosts, setPreview]);
+  }, [patchPost, showToast, setPreview]);
 
   const saveMeta = useCallback(async (id, { memo, memoLinks, labels }) => {
     const update = { memo, memo_links: memoLinks };
@@ -79,16 +106,16 @@ export function usePostActions({
     const { error } = await dbUpdatePost(id, update);
     if (error) { showToast("保存に失敗しました"); return; }
     const patch = { memo, memoLinks, ...(labels !== undefined ? { labels } : {}) };
-    setAllPosts(prev => ({ ...prev, [activeAccId]: (prev[activeAccId] || []).map(p => p.id === id ? { ...p, ...patch } : p) }));
+    patchPost(id, patch);
     setPreview(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
-  }, [activeAccId, showToast, setAllPosts, setPreview]);
+  }, [patchPost, showToast, setPreview]);
 
   const saveComment = useCallback(async (id, comments) => {
     const { error } = await dbUpdatePost(id, { comments });
     if (error) { showToast("コメントの保存に失敗しました"); return; }
-    setAllPosts(prev => ({ ...prev, [activeAccId]: (prev[activeAccId] || []).map(p => p.id === id ? { ...p, comments } : p) }));
+    patchPost(id, { comments });
     setPreview(prev => prev && prev.id === id ? { ...prev, comments } : prev);
-  }, [activeAccId, showToast, setAllPosts, setPreview]);
+  }, [patchPost, showToast, setPreview]);
 
   const handleRepost = useCallback(async (p, dt, repeat) => {
     const newPost = {
@@ -149,14 +176,32 @@ export function usePostActions({
     showToast("日時を変更しました 📅");
   }, [posts, saveToDb, showToast]);
 
+  // 日時未定 → 日時を入れて予約に上げる（要件 v1.2 F3）
+  // 日時を消したときは予約 → 日時未定に戻す。下書き・レビュー待ち・公開済は動かさない
+  const setDatetime = useCallback(async (id, dt) => {
+    const p = (posts || []).find(x => x.id === id);
+    if (!p) return;
+    const nextDt = dt || null;
+    let status = p.status;
+    if (nextDt && status === "waiting") status = "reserved";
+    else if (!nextDt && status === "reserved") status = "waiting";
+
+    const { error } = await dbUpdatePost(id, { datetime: nextDt, status });
+    if (error) { showToast("日時の保存に失敗しました"); return; }
+    const patch = { datetime: nextDt || "", status };
+    patchPost(id, patch);
+    setPreview(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
+    showToast(nextDt ? "予約に上げました 📅" : "日時未定に戻しました");
+  }, [posts, patchPost, showToast, setPreview]);
+
   const openNew = useCallback((datetime, { title = "", postType = "x_post" } = {}) => {
-    const newPost = { id: genId(), title, status: "draft", postType, datetime: datetime || `${today}T07:00`, body: "", memo: "", memoLinks: [], comments: [], history: [], labels: [], notion_page_id: null, _unsaved: true };
+    const newPost = { id: genId(), title, status: "draft", postType, datetime: datetime || `${today}T07:00`, body: "", memo: "", memoLinks: [], comments: [], history: [], labels: [], notion_page_id: null, account_id: activeAccId, _unsaved: true };
     setPreview(newPost);
-  }, [today, setPreview]);
+  }, [today, activeAccId, setPreview]);
 
   return {
     saveToDb, save, del, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
-    addCustomPostType, handleDrop, openNew,
+    addCustomPostType, handleDrop, openNew, setDatetime,
   };
 }

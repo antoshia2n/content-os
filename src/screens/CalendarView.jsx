@@ -113,7 +113,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
   );
 }
 
-export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filterPlatform,setFilterPlatform,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,postTypes=POST_TYPE}){
+export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filterPlatform,setFilterPlatform,setPreview,setEditing,handleDuplicate,setRepostTgt,openNew,slots,changeStatus,setDatetime,postTypes=POST_TYPE}){
   const [showSlots,setShowSlots]=useState(true);
   const [weekBase,setWeekBase]=useState(()=>{
     // 今週の月曜日を起点に
@@ -147,12 +147,16 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
 
   const byDate=React.useMemo(()=>{
     const m={};
-    filtered.forEach(p=>{
+    // 日時が空の投稿は日付の列に入れない（別枠の「日時未定」列に出す）
+    filtered.filter(p=>p.datetime).forEach(p=>{
       const d=p.datetime.slice(0,10);
       (m[d]=m[d]||[]).push(p);
     });
     return m;
   },[filtered]);
+
+  // 日時未定（waiting）の投稿。ここから日時を入れて予約に上げられる（F3）
+  const undated=React.useMemo(()=>filtered.filter(p=>!p.datetime),[filtered]);
 
   // 表示対象：週内の日付 + 予約枠がある日付
   const dates=React.useMemo(()=>{
@@ -206,15 +210,49 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
         </select>
         <select value={filterPlatform||"all"} onChange={e=>setFilterPlatform&&setFilterPlatform(e.target.value)}
           style={{background:"#f8f4ef",border:BD,borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
-          <option value="all">全プラットフォーム</option>
+          <option value="all">すべての種別</option>
           {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
       <div ref={scrollRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",display:"flex",padding:"16px 18px",gap:14,alignItems:"flex-start"}}>
-        {dates.length===0&&<div style={{color:"#ccc",fontSize:13,margin:"auto"}}>投稿がありません</div>}
+        {dates.length===0&&undated.length===0&&<div style={{color:"#ccc",fontSize:13,margin:"auto"}}>投稿がありません</div>}
+
+        {/* ── 日時未定（F3）：この列で日時を入れると予約に上がる ── */}
+        {undated.length>0&&(
+          <div style={{flexShrink:0,width:210}}>
+            <div style={{...S.row,gap:6,marginBottom:8,paddingBottom:7,borderBottom:"2px solid #93c5fd"}}>
+              <div style={{width:30,height:30,borderRadius:"50%",background:"#dbeafe",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🗂</div>
+              <div>
+                <div style={{fontSize:10,fontWeight:700,color:"#2563eb"}}>日時未定</div>
+                <div style={{fontSize:10,color:"#bbb"}}>日時を入れると予約に</div>
+              </div>
+              <span style={{marginLeft:"auto",fontSize:10,color:"#ccc"}}>{undated.length}件</span>
+            </div>
+            <div style={{...S.col,gap:7}}>
+              {undated.map(p=>{
+                const pt2=postTypes[p.postType||"x_post"];
+                return(
+                  <div key={p.id} style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:9,padding:"9px 10px"}}>
+                    <div onClick={()=>setPreview(p)} style={{cursor:"pointer"}}>
+                      <div style={{...S.row,gap:4,marginBottom:4}}>
+                        <span style={{fontSize:9,color:pt2.color,fontWeight:700,background:pt2.bg,border:`1px solid ${pt2.border}`,padding:"0 5px",borderRadius:6}}>{pt2.label}</span>
+                        {p.score&&<span style={{fontSize:9,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:4,padding:"0 5px"}}>{p.score}</span>}
+                      </div>
+                      <div style={{fontSize:11.5,fontWeight:700,color:"#1a1a1a",lineHeight:1.45,marginBottom:6}}>{p.title||"(無題)"}</div>
+                    </div>
+                    <input type="datetime-local"
+                      onClick={e=>e.stopPropagation()}
+                      onChange={e=>{const v=e.target.value;if(v)setDatetime&&setDatetime(p.id,v);}}
+                      style={{width:"100%",boxSizing:"border-box",background:"#f8f4ef",border:BD,borderRadius:7,padding:"4px 6px",fontSize:11,color:"#555",outline:"none",cursor:"pointer",fontFamily:"inherit"}}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {dates.map(date=>{
           const isToday=date===today;
-          const dayPosts=(byDate[date]||[]).sort((a,b)=>a.datetime.localeCompare(b.datetime));
+          const dayPosts=(byDate[date]||[]).sort((a,b)=>(a.datetime||"").localeCompare(b.datetime||""));
           const d=new Date(date+"T00:00:00");
           const dayLabel=["日","月","火","水","木","金","土"][d.getDay()];
           // この日に該当する予約枠を時刻順で取得

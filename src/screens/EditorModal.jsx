@@ -7,7 +7,7 @@ import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
-export function EditorModal({post,onSave,onClose,allPosts=[]}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
@@ -52,7 +52,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[]}){
 
   const saveLocalFile=async()=>{
     const content=postToMarkdown(draft);
-    const date=draft.datetime.slice(0,10);
+    const date=(draft.datetime||"").slice(0,10);
     const name=`${date}_${sanitizeFilename(draft.title||"untitled")}.md`;
     try{
       if(FS_SUPPORTED){
@@ -129,6 +129,15 @@ export function EditorModal({post,onSave,onClose,allPosts=[]}){
             style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
+          {accounts.length>0&&(
+            <div style={{...S.row,gap:6,marginRight:8}}>
+              <span style={{fontSize:10.5,color:"#999",fontWeight:700,whiteSpace:"nowrap"}}>登録先</span>
+              <select value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))}
+                style={{background:"#fff7ed",border:"1px solid #fcd34d",borderRadius:7,padding:"4px 8px",fontSize:11.5,fontWeight:700,color:"#b45309",outline:"none",cursor:"pointer",fontFamily:"inherit"}}>
+                {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
           <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
             style={{border:BD,borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
           <div style={{flex:1}}/>
