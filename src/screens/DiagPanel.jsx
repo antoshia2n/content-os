@@ -3,12 +3,16 @@
 // 目的：不具合が出たときに Naoki が画面を探し回らなくて済むよう、
 //       環境変数・Supabase接続を1画面で確認できるようにする。
 // 開き方： /diag  または  ?diag=1
+//
+// 【2026-07-31 改訂】この画面はログインの外側で開くため、
+//   表示は「OK / NG」の存在確認だけに限定する。
+//   アカウント名・件数・内訳・接続先URL・キーの断片・エラー本文は
+//   画面に出さない（誰でも開ける画面から中身が読めてしまうため）。
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase.js";
 
-// shia2n-mcp の公開診断アドレス（認証不要・機密情報は返らない）
-// MCP サーバーが生きているかを確認するために使う
+// shia2n-mcp の公開診断アドレス（疎通確認にのみ使用し、画面には表示しない）
 const MCP_DIAG_URL = "https://shia2n-mcp.gameister1.workers.dev/diag";
 
 const ENV_KEYS = [
@@ -19,12 +23,6 @@ const ENV_KEYS = [
   ["VITE_FIREBASE_PROJECT_ID", "Firebase のプロジェクト"],
   ["VITE_FIREBASE_APP_ID", "Firebase のアプリID"],
 ];
-
-const mask = (v) => {
-  if (!v) return "";
-  if (v.length <= 12) return v.slice(0, 3) + "…";
-  return v.slice(0, 8) + "…" + v.slice(-4);
-};
 
 function Light({ state }) {
   const map = {
@@ -47,7 +45,7 @@ function Row({ title, detail, state }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{title}</div>
         {detail && (
-          <div style={{ fontSize: 11, color: "#999", marginTop: 2, wordBreak: "break-all", fontFamily: "monospace" }}>{detail}</div>
+          <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{detail}</div>
         )}
       </div>
       <Light state={state} />
@@ -55,49 +53,42 @@ function Row({ title, detail, state }) {
   );
 }
 
+// 画面に出してよい文言は、この3種類だけに固定する
+const MSG = {
+  pending: "確認中…",
+  ok: "確認できました",
+  ng: "確認できませんでした",
+};
+
 export function DiagPanel() {
   const [checks, setChecks] = useState({
-    accounts: { state: "pending", detail: "確認中…" },
-    posts:    { state: "pending", detail: "確認中…" },
-    write:    { state: "pending", detail: "確認中…" },
-    mcp:      { state: "pending", detail: "確認中…" },
+    accounts: { state: "pending", detail: MSG.pending },
+    posts:    { state: "pending", detail: MSG.pending },
+    write:    { state: "pending", detail: MSG.pending },
+    mcp:      { state: "pending", detail: MSG.pending },
   });
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      // Supabase 読み取り：accounts
+      // Supabase 読み取り：accounts（読めるかどうかだけを見る。中身は使わない）
       try {
-        const { data, error } = await supabase.from("accounts").select("id,name,is_default,is_active").order("sort_order");
+        const { error } = await supabase.from("accounts").select("id").limit(1);
         if (!alive) return;
         if (error) throw error;
-        setChecks(c => ({ ...c, accounts: {
-          state: "ok",
-          detail: `${data.length}件：${data.map(a => a.name + (a.is_default ? "（既定）" : "")).join(" / ")}`,
-        }}));
+        setChecks(c => ({ ...c, accounts: { state: "ok", detail: MSG.ok } }));
       } catch (e) {
-        if (alive) setChecks(c => ({ ...c, accounts: { state: "ng", detail: String(e.message || e) } }));
+        if (alive) setChecks(c => ({ ...c, accounts: { state: "ng", detail: MSG.ng } }));
       }
 
-      // Supabase 読み取り：posts の件数と状態
+      // Supabase 読み取り：posts（読めるかどうかだけを見る。件数・内訳は出さない）
       try {
-        const { data, error } = await supabase.from("posts").select("status,source,datetime");
+        const { error } = await supabase.from("posts").select("id").limit(1);
         if (!alive) return;
         if (error) throw error;
-        const byStatus = {};
-        const bySource = {};
-        let undated = 0;
-        data.forEach(p => {
-          byStatus[p.status] = (byStatus[p.status] || 0) + 1;
-          bySource[p.source || "(空)"] = (bySource[p.source || "(空)"] || 0) + 1;
-          if (!p.datetime) undated += 1;
-        });
-        setChecks(c => ({ ...c, posts: {
-          state: "ok",
-          detail: `全${data.length}件／状態: ${Object.entries(byStatus).map(([k, v]) => k + "=" + v).join(" ")}／登録元: ${Object.entries(bySource).map(([k, v]) => k + "=" + v).join(" ")}／日時未定=${undated}`,
-        }}));
+        setChecks(c => ({ ...c, posts: { state: "ok", detail: MSG.ok } }));
       } catch (e) {
-        if (alive) setChecks(c => ({ ...c, posts: { state: "ng", detail: String(e.message || e) } }));
+        if (alive) setChecks(c => ({ ...c, posts: { state: "ng", detail: MSG.ng } }));
       }
 
       // 書き込み権限：実際には書き込まず、書き込み可否だけを空更新で確認する
@@ -105,34 +96,29 @@ export function DiagPanel() {
         const { error } = await supabase.from("accounts").update({}).eq("id", "__diag_not_exist__");
         if (!alive) return;
         if (error) throw error;
-        setChecks(c => ({ ...c, write: { state: "ok", detail: "書き込みは許可されています（データは変更していません）" } }));
+        setChecks(c => ({ ...c, write: { state: "ok", detail: "許可されています（データは変更していません）" } }));
       } catch (e) {
-        if (alive) setChecks(c => ({ ...c, write: { state: "ng", detail: String(e.message || e) } }));
+        if (alive) setChecks(c => ({ ...c, write: { state: "ng", detail: MSG.ng } }));
       }
 
-      // MCP サーバーの疎通（shia2n-mcp の公開診断アドレス）
+      // MCP サーバーの疎通（アドレス・版は画面に表示しない）
       try {
         const res = await fetch(MCP_DIAG_URL, { method: "GET" });
         if (!alive) return;
-        if (!res.ok) throw new Error(`応答 ${res.status}`);
-        const info = await res.json();
-        setChecks(c => ({ ...c, mcp: {
-          state: "ok",
-          detail: `応答あり（版 ${info?.version ?? "不明"}）／${MCP_DIAG_URL}`,
-        }}));
+        if (!res.ok) throw new Error("応答なし");
+        await res.json();
+        setChecks(c => ({ ...c, mcp: { state: "ok", detail: MSG.ok } }));
       } catch (e) {
-        if (alive) setChecks(c => ({ ...c, mcp: {
-          state: "ng",
-          detail: `${String(e.message || e)}／${MCP_DIAG_URL}`,
-        }}));
+        if (alive) setChecks(c => ({ ...c, mcp: { state: "ng", detail: MSG.ng } }));
       }
     })();
     return () => { alive = false; };
   }, []);
 
+  // 環境変数は「設定あり／未設定」だけを出す（値もその断片も表示しない）
   const envRows = ENV_KEYS.map(([key, label]) => {
     const v = import.meta.env[key];
-    return { title: label, detail: `${key} = ${v ? mask(v) : "（未設定）"}`, state: v ? "ok" : "ng" };
+    return { title: label, detail: v ? "設定あり" : "未設定", state: v ? "ok" : "ng" };
   });
 
   const allOk = envRows.every(r => r.state === "ok")
@@ -149,10 +135,11 @@ export function DiagPanel() {
         </div>
         <div style={{ fontSize: 12, color: "#999", marginBottom: 20 }}>
           すべて OK なら、アプリの土台（設定値とデータベース）に問題はありません。
+          この画面は誰でも開けるため、中身は表示せず OK / NG だけを出しています。
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, marginBottom: 8 }}>設定値（環境変数）</div>
-        {envRows.map(r => <Row key={r.detail} {...r} />)}
+        {envRows.map(r => <Row key={r.title} {...r} />)}
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>データベース（Supabase）</div>
         <Row title="アカウントの読み取り" detail={checks.accounts.detail} state={checks.accounts.state} />
