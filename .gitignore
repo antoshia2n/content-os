@@ -1,0 +1,15 @@
+# ── 秘密の設定ファイル（絶対に Git に入れない）──
+.env
+.env.*
+!.env.example
+
+# ── 依存パッケージ・ビルド成果物 ──
+node_modules/
+dist/
+.wrangler/
+.vercel/
+
+# ── OS・エディタが作る不要ファイル ──
+.DS_Store
+Thumbs.db
+*.log
