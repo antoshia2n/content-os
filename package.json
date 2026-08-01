@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "shia2n-core": "github:antoshia2n/shia2n-core",
     "@supabase/supabase-js": "^2.0.0",
     "firebase": "^11.0.0",
     "react": "^18.3.1",

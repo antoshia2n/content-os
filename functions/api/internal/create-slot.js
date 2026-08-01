@@ -83,10 +83,12 @@ export async function onRequestPost(context) {
 
   // 4. env チェック（fill-slot.js と同一パターン）
   const SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
-  const SUPABASE_KEY = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+  // 【2026-08-01 変更】公開キーではなく管理者キーを使う。
+  // 公開キーはこのあと権限を剥がすため、ここを変えないとこの内部APIは動かなくなる。
+  const SUPABASE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return new Response(
-      JSON.stringify({ ok: false, error: 'Missing env: SUPABASE_URL or SUPABASE_ANON_KEY' }),
+      JSON.stringify({ ok: false, error: 'Missing env: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
     );
   }

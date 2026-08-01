@@ -1,7 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+// src/supabase.js
+// データベースへの接続口。
+//
+// 【2026-08-01 変更】画面は公開キーでデータベースに直接触らない方針（2026-07-30 決定）に合わせ、
+// 共通パッケージ shia2n-core の接続部品を使う形にした。
+// VITE_DB_GATEWAY（値は /api/db）が設定されているとき、表の読み書きは
+// このアプリ自身のサーバーを経由し、管理者キーはサーバー側にだけ置かれる。
+//
+// 呼び出し側のコード（src/lib/supabase.js など）は一切変わらない。
+// 添付ファイルの置き場（storage）は従来どおり直結（2026-08-20 期限の別タスク）。
 
-// .env.local に設定する環境変数
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// 共通パッケージの入口（index.js）ではなく接続部品を直接読む。
+// 入口を読むと画面部品（アイコン等）まで引き込まれ、このアプリには不要な依存が増えるため。
+export { supabase } from "shia2n-core/lib/supabase.js";

@@ -1,27 +1,28 @@
 // src/screens/DiagPanel.jsx
 // 診断画面（要件 v1.2 §7・受け入れ基準9）
-// 目的：不具合が出たときに Naoki が画面を探し回らなくて済むよう、
-//       環境変数・Supabase接続を1画面で確認できるようにする。
 // 開き方： /diag  または  ?diag=1
 //
 // 【2026-07-31 改訂】この画面はログインの外側で開くため、
 //   表示は「OK / NG」の存在確認だけに限定する。
-//   アカウント名・件数・内訳・接続先URL・キーの断片・エラー本文は
-//   画面に出さない（誰でも開ける画面から中身が読めてしまうため）。
+//   アカウント名・件数・内訳・接続先URL・キーの断片・エラー本文は画面に出さない。
+//
+// 【2026-08-01 改訂】画面から表へ直接問い合わせるのをやめた。
+//   公開キーの権限を剥がしたため、直接の問い合わせは必ず失敗し、
+//   正常な状態でも「NG」と出てしまうため。
+//   代わりにアプリ自身のサーバー（/api/diag）へ「つながるか」だけを聞く。
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase.js";
 
 // shia2n-mcp の公開診断アドレス（疎通確認にのみ使用し、画面には表示しない）
 const MCP_DIAG_URL = "https://shia2n-mcp.gameister1.workers.dev/diag";
 
 const ENV_KEYS = [
   ["VITE_SUPABASE_URL", "Supabase のURL"],
-  ["VITE_SUPABASE_ANON_KEY", "Supabase のキー"],
   ["VITE_FIREBASE_API_KEY", "Firebase のキー"],
   ["VITE_FIREBASE_AUTH_DOMAIN", "Firebase の認証ドメイン"],
   ["VITE_FIREBASE_PROJECT_ID", "Firebase のプロジェクト"],
   ["VITE_FIREBASE_APP_ID", "Firebase のアプリID"],
+  ["VITE_DB_GATEWAY", "データの出入り口の設定"],
 ];
 
 function Light({ state }) {
@@ -53,7 +54,6 @@ function Row({ title, detail, state }) {
   );
 }
 
-// 画面に出してよい文言は、この3種類だけに固定する
 const MSG = {
   pending: "確認中…",
   ok: "確認できました",
@@ -62,46 +62,36 @@ const MSG = {
 
 export function DiagPanel() {
   const [checks, setChecks] = useState({
-    accounts: { state: "pending", detail: MSG.pending },
-    posts:    { state: "pending", detail: MSG.pending },
-    write:    { state: "pending", detail: MSG.pending },
+    gateway:  { state: "pending", detail: MSG.pending },
+    internal: { state: "pending", detail: MSG.pending },
     mcp:      { state: "pending", detail: MSG.pending },
   });
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      // Supabase 読み取り：accounts（読めるかどうかだけを見る。中身は使わない）
       try {
-        const { error } = await supabase.from("accounts").select("id").limit(1);
+        const res = await fetch("/api/diag", { method: "GET" });
         if (!alive) return;
-        if (error) throw error;
-        setChecks(c => ({ ...c, accounts: { state: "ok", detail: MSG.ok } }));
+        if (!res.ok) throw new Error("応答なし");
+        const data = await res.json();
+        setChecks(c => ({
+          ...c,
+          gateway: data.gateway === "OK"
+            ? { state: "ok", detail: MSG.ok }
+            : { state: "ng", detail: MSG.ng },
+          internal: data.internal === "OK"
+            ? { state: "ok", detail: MSG.ok }
+            : { state: "ng", detail: MSG.ng },
+        }));
       } catch (e) {
-        if (alive) setChecks(c => ({ ...c, accounts: { state: "ng", detail: MSG.ng } }));
+        if (alive) setChecks(c => ({
+          ...c,
+          gateway:  { state: "ng", detail: MSG.ng },
+          internal: { state: "ng", detail: MSG.ng },
+        }));
       }
 
-      // Supabase 読み取り：posts（読めるかどうかだけを見る。件数・内訳は出さない）
-      try {
-        const { error } = await supabase.from("posts").select("id").limit(1);
-        if (!alive) return;
-        if (error) throw error;
-        setChecks(c => ({ ...c, posts: { state: "ok", detail: MSG.ok } }));
-      } catch (e) {
-        if (alive) setChecks(c => ({ ...c, posts: { state: "ng", detail: MSG.ng } }));
-      }
-
-      // 書き込み権限：実際には書き込まず、書き込み可否だけを空更新で確認する
-      try {
-        const { error } = await supabase.from("accounts").update({}).eq("id", "__diag_not_exist__");
-        if (!alive) return;
-        if (error) throw error;
-        setChecks(c => ({ ...c, write: { state: "ok", detail: "許可されています（データは変更していません）" } }));
-      } catch (e) {
-        if (alive) setChecks(c => ({ ...c, write: { state: "ng", detail: MSG.ng } }));
-      }
-
-      // MCP サーバーの疎通（アドレス・版は画面に表示しない）
       try {
         const res = await fetch(MCP_DIAG_URL, { method: "GET" });
         if (!alive) return;
@@ -115,7 +105,6 @@ export function DiagPanel() {
     return () => { alive = false; };
   }, []);
 
-  // 環境変数は「設定あり／未設定」だけを出す（値もその断片も表示しない）
   const envRows = ENV_KEYS.map(([key, label]) => {
     const v = import.meta.env[key];
     return { title: label, detail: v ? "設定あり" : "未設定", state: v ? "ok" : "ng" };
@@ -142,9 +131,8 @@ export function DiagPanel() {
         {envRows.map(r => <Row key={r.title} {...r} />)}
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>データベース（Supabase）</div>
-        <Row title="アカウントの読み取り" detail={checks.accounts.detail} state={checks.accounts.state} />
-        <Row title="投稿の読み取り"       detail={checks.posts.detail}    state={checks.posts.state} />
-        <Row title="書き込みの権限"       detail={checks.write.detail}    state={checks.write.state} />
+        <Row title="画面からの読み書き（サーバー経由）" detail={checks.gateway.detail}  state={checks.gateway.state} />
+        <Row title="AI から操作する窓口"               detail={checks.internal.detail} state={checks.internal.state} />
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>Claude との接続（MCP）</div>
         <Row title="MCP サーバーの疎通" detail={checks.mcp.detail} state={checks.mcp.state} />

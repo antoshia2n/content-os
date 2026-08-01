@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -11,7 +11,10 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// 【2026-08-01 変更】共通パッケージ側でも同じログイン基盤を使うため、
+// 二重に用意しないよう既存があればそれを使う。設定内容は同じ。
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+
 export const auth   = getAuth(app);
 export const db     = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID);
 export const googleProvider = new GoogleAuthProvider();

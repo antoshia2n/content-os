@@ -29,7 +29,7 @@ export async function onRequestPost(context) {
   if (!body?.user_id) return json({ ok: false, error: 'user_id required' }, 400);
 
   const sb = getSupabase(env);
-  if (!sb) return json({ ok: false, error: 'Missing env: SUPABASE_URL or SUPABASE_ANON_KEY' }, 500);
+  if (!sb) return json({ ok: false, error: 'Missing env: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' }, 500);
 
   let accounts;
   try {

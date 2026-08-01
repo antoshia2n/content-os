@@ -35,10 +35,17 @@ export function checkAuth(request, env) {
   return null;
 }
 
-/** Supabase の接続情報（VITE_ プレフィックス両対応） */
+/**
+ * Supabase の接続情報。
+ *
+ * 【2026-08-01 変更】内部API は公開キーではなく管理者キーを使う。
+ * 公開キーはこのあと権限を剥がすため、公開キーのままだと内部APIが動かなくなる。
+ * 管理者キーは Cloudflare の設定（Secret）にのみ置く。画面には配らない。
+ * 正本：2026-07-30 決定「画面は公開キーでデータベースに直接触らない」
+ */
 export function getSupabase(env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
-  const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return {
     url,
