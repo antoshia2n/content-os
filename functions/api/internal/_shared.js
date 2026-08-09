@@ -10,7 +10,10 @@ export const CORS_HEADERS = {
 };
 
 export const POST_COLUMNS =
-  'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at';
+  'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at,' +
+  // 2026-08-09 追加：Buffer から戻した実測の数字と、その数字から機械的に付けた成績。
+  // score（人手の評価）は残したまま、auto_score を別に持つ。
+  'buffer_post_id,impressions,reactions,replies,reposts,clicks,metrics_updated_at,metrics_fetched_at,auto_score';
 
 // 制作段階の5値（要件 v1.2 §4.3）。データベース側の制約と同じ内容
 export const VALID_STATUS = ['draft', 'review', 'waiting', 'reserved', 'published'];

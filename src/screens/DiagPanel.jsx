@@ -64,6 +64,8 @@ export function DiagPanel() {
   const [checks, setChecks] = useState({
     gateway:  { state: "pending", detail: MSG.pending },
     internal: { state: "pending", detail: MSG.pending },
+    // 2026-08-09 追加：Buffer から数字を取りに行くための鍵が入っているか
+    buffer:   { state: "pending", detail: MSG.pending },
     mcp:      { state: "pending", detail: MSG.pending },
   });
 
@@ -83,12 +85,16 @@ export function DiagPanel() {
           internal: data.internal === "OK"
             ? { state: "ok", detail: MSG.ok }
             : { state: "ng", detail: MSG.ng },
+          buffer: data.buffer === "設定あり"
+            ? { state: "ok", detail: MSG.ok }
+            : { state: "ng", detail: MSG.ng },
         }));
       } catch (e) {
         if (alive) setChecks(c => ({
           ...c,
           gateway:  { state: "ng", detail: MSG.ng },
           internal: { state: "ng", detail: MSG.ng },
+          buffer:   { state: "ng", detail: MSG.ng },
         }));
       }
 
@@ -133,6 +139,9 @@ export function DiagPanel() {
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>データベース（Supabase）</div>
         <Row title="画面からの読み書き（サーバー経由）" detail={checks.gateway.detail}  state={checks.gateway.state} />
         <Row title="AI から操作する窓口"               detail={checks.internal.detail} state={checks.internal.state} />
+
+        <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>Buffer との接続</div>
+        <Row title="反応の数字を取りに行く鍵" detail={checks.buffer.detail} state={checks.buffer.state} />
 
         <div style={{ fontSize: 11, fontWeight: 800, color: "#aaa", letterSpacing: 0.5, margin: "18px 0 8px" }}>Claude との接続（MCP）</div>
         <Row title="MCP サーバーの疎通" detail={checks.mcp.detail} state={checks.mcp.state} />

@@ -41,6 +41,7 @@ export async function onRequestGet(context) {
     gateway: "NG",         // 画面からの読み書きをサーバーで受けられるか
     gateway_switch: "NG",  // 画面が受け皿を経由する設定になっているか
     internal: "NG",        // AI から操作する内部APIの鍵が入っているか
+    buffer: "未設定",      // Buffer から数字を取りに行くための鍵が入っているか
     read_test: {},         // 公開キー／サービス用の鍵で表を読めるか
   };
 
@@ -58,6 +59,9 @@ export async function onRequestGet(context) {
 
   // 画面を受け皿経由に切り替える印が入っているか
   result.gateway_switch = env.VITE_DB_GATEWAY ? "設定あり" : "未設定";
+
+  // 2026-08-09 追加：Buffer の鍵の有無だけを返す。値も先頭数文字も返さない。
+  result.buffer = env.BUFFER_API_KEY ? "設定あり" : "未設定";
 
   const [anonRead, serviceRead] = await Promise.all([
     readTest(url, env.VITE_SUPABASE_ANON_KEY),

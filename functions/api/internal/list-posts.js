@@ -9,7 +9,10 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const SELECT_COLUMNS = 'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at';
+// 2026-08-09 追加：Buffer から戻した実測の数字と自動の成績（auto_score）を一覧にも載せる。
+const SELECT_COLUMNS =
+  'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at,' +
+  'buffer_post_id,impressions,reactions,replies,reposts,clicks,metrics_updated_at,metrics_fetched_at,auto_score';
 
 // 制作段階の5値（要件 v1.2 §4.3）
 const VALID_STATUS = ['draft', 'review', 'waiting', 'reserved', 'published'];
