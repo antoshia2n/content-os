@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, stripHtml } from "../constants.js";
+import { BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
+import { auth } from "../firebase.js";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -197,26 +198,29 @@ export function InsertModal({onClose,savedRange,bodyRef}){
     return `max-width:${w};width:${w};border-radius:8px;display:block;margin-left:${ml};margin-right:${mr};`;
   })();
   const [uploading,setUploading]=useState(false);
+  // 【2026-08-09 変更】画像の保存を、このアプリのサーバー（/api/storage/upload）経由にした。
+  // 保存先の名前はサーバーが決める。表示用の住所は返ってきた名前から作る（置き場は公開のまま）。
   const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
     if(file.size>50*1024*1024){alert("画像は50MB以下にしてください");return;}
     setUploading(true);
     try{
-      const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
-      const safeName=`${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const path=`images/${safeName}`;
-      const{error:upErr}=await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(path,file,{contentType:file.type,cacheControl:"3600",upsert:false});
-      if(upErr){
-        const msg=upErr.message||"";
-        if(msg.includes("not found")||msg.includes("bucket"))
-          throw new Error("バケット「contentos」が存在しないか非公開です。Supabase→Storageで作成してください");
-        if(msg.includes("policy")||msg.includes("violates"))
-          throw new Error("ストレージのRLSポリシーでアップロードが拒否されました。ポリシーを確認してください");
-        throw upErr;
+      const user=auth.currentUser;
+      if(!user)throw new Error("ログイン状態を確認できませんでした。ページを再読み込みしてください");
+      const token=await user.getIdToken();
+      const res=await fetch(
+        `/api/storage/upload?bucket=${encodeURIComponent(STORAGE_BUCKET)}&name=${encodeURIComponent(file.name)}`,
+        {
+          method:"POST",
+          headers:{Authorization:`Bearer ${token}`,"Content-Type":file.type||"application/octet-stream"},
+          body:file,
+        },
+      );
+      const out=await res.json().catch(()=>({}));
+      if(!res.ok||!out?.path){
+        throw new Error([out?.message,out?.hint].filter(Boolean).join(" / ")||`保存できませんでした（${res.status}）`);
       }
-      const{data:urlData}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+      const{data:urlData}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(out.path);
       if(!urlData?.publicUrl)throw new Error("公開URLの取得に失敗しました");
       insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="${imgStyleStr}"/></p>`);
       onClose();
