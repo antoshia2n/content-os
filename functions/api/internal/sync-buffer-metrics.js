@@ -11,6 +11,9 @@
 //     （Buffer 側の数字は投稿から約 19〜20 日で更新が止まるため。2026-08-09 実測・3件一致）
 //  ⑤ 上書きする。履歴は残さない。代わりに「Buffer がいつ更新した数字か」を1欄持つ
 //  ⑥ 成績は Buffer の数字だけで、直近 90 日の自分の投稿との相対順位で決める（5等分）
+//  ⑦ Buffer で送信済みになった投稿が「予約済み」のままなら「公開済み」へ上げる
+//     （2026-08-09 承認・第3便）。上げるのは「予約済み」だけで、他の段階には触れない。
+//     数字が入ったかどうかは条件にしない（投稿当日でも段階だけは上げる）。下げる動きは作らない。
 // ────────────────────────────────────────────────────────────
 
 import { checkAuth, getSupabase, json, preflight } from './_shared.js';
@@ -41,6 +44,10 @@ const RANK_WINDOW_DAYS = 90;
 const MAX_WRITES = 30;
 
 const SCORES = ['S', 'A', 'B', 'C', 'D'];
+
+// 制作段階の値（画面の表示は「予約済み」「公開済」。src/constants.js の STATUS と同じ）
+const STATUS_RESERVED = 'reserved';
+const STATUS_PUBLISHED = 'published';
 
 const POST_FIELDS =
   'id,account_id,datetime,status,memo,buffer_post_id,' +
@@ -268,6 +275,7 @@ export async function onRequestPost(context) {
     unmatched: 0,    // ContentOS 側に対応する投稿が見つからなかった
     numbers_written: 0,
     scores_written: 0,
+    status_promoted: 0,  // 予約済み → 公開済み へ上げた本数（⑦）
     skipped_by_limit: 0,
   };
 
@@ -285,6 +293,15 @@ export async function onRequestPost(context) {
     const post = found.post;
     const patch = {};
     if (found.viaMemo) patch.buffer_post_id = bp.buffer_post_id;
+
+    // ⑦ 制作段階の繰り上げ。
+    // ここへ来る投稿は Buffer 側で送信済み（filter: status [sent]）と確定している。
+    // 「予約済み」のものだけを「公開済み」へ上げる。数字の有無は条件にしない。
+    if (post.status === STATUS_RESERVED) {
+      patch.status = STATUS_PUBLISHED;
+      post.status = STATUS_PUBLISHED;
+      summary.status_promoted += 1;
+    }
 
     const ageMs = bp.due_at ? now - bp.due_at.getTime() : null;
     const tooNew = ageMs !== null && ageMs < MIN_AGE_HOURS * 3600000;

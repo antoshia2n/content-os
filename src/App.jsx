@@ -31,6 +31,9 @@ import {
   MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
 import {
+  MetricsView,
+} from "./screens/MetricsView.jsx";
+import {
   ExportModal,
 } from "./screens/ExportModal.jsx";
 import {
@@ -185,7 +188,7 @@ function App({uid}){
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":"calendar");break;
+        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":v==="list"?"metrics":"calendar");break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -349,7 +352,7 @@ function App({uid}){
             <span style={{fontSize:9.5,color:"#bbb",background:"#fff",border:BD2,borderRadius:4,padding:"1px 4px"}}>⌘K</span>
           </button>
           <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:1,flexShrink:0,border:BD2}}>
-            {[["calendar","週"],["month","月"],["list","リスト"]].map(([v,l])=>(
+            {[["calendar","週"],["month","月"],["list","リスト"],["metrics","成績"]].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#111":"#a8a09a",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",transition:"all .12s"}}>{l}</button>
             ))}
           </div>
@@ -596,6 +599,17 @@ function App({uid}){
           slots={slots}
           changeStatus={changeStatus}
           setDatetime={setDatetime}
+          postTypes={allPostTypes}
+        />
+      )}
+
+      {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
+      {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}
+      {view==="metrics"&&(
+        <MetricsView
+          posts={posts}
+          activeAcc={activeAcc||targetAcc}
+          setPreview={setPreview}
           postTypes={allPostTypes}
         />
       )}

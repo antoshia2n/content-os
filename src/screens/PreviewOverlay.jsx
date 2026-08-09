@@ -173,6 +173,22 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
 
               <span style={{fontSize:11,color:"#c4bab0",marginLeft:2}}>{post.datetime.replace("T"," ")}</span>
             </div>
+
+            {/* ── 反応の数字（Buffer から毎日取り込む。人手の評価とは別） ── */}
+            {post.impressions!==null&&post.impressions!==undefined&&(
+              <div style={{...S.row,gap:10,flexWrap:"wrap",marginTop:8,padding:"7px 10px",background:"#faf7f3",border:BD2,borderRadius:8}}>
+                {post.auto_score&&(
+                  <span style={{fontSize:11,fontWeight:800,color:SCORE[post.auto_score]?.color,background:SCORE[post.auto_score]?.bg,borderRadius:5,padding:"2px 8px"}}>
+                    自動 {post.auto_score}
+                  </span>
+                )}
+                {[["表示",post.impressions],["いいね",post.reactions],["返信",post.replies],["リポスト",post.reposts],["クリック",post.clicks]].map(([l,v])=>(
+                  <span key={l} style={{fontSize:11,color:"#777"}}>
+                    {l} <b style={{color:"#333",fontSize:12}}>{(v===null||v===undefined)?"—":Number(v).toLocaleString("ja-JP")}</b>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 右側ボタン群 */}
