@@ -63,6 +63,16 @@ export async function onRequestPost(context) {
     else return json({ ok: false, error: 'invalid score (S/A/B/C/D or null)' }, 400);
   }
 
+  if ('buffer_post_id' in body) {
+    if (body.buffer_post_id === null || body.buffer_post_id === '') {
+      patch.buffer_post_id = null;
+    } else if (typeof body.buffer_post_id === 'string') {
+      patch.buffer_post_id = body.buffer_post_id;
+    } else {
+      return json({ ok: false, error: 'buffer_post_id must be a string or null' }, 400);
+    }
+  }
+
   if ('labels' in body) {
     if (Array.isArray(body.labels)) patch.labels = body.labels;
     else return json({ ok: false, error: 'labels must be an array' }, 400);
