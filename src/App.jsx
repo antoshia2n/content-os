@@ -133,6 +133,8 @@ function App({uid}){
   ,[posts,nowDt]);
 
   const { slots, saveSlots } = useSlots({ activeAccId: targetAccId, uid, showToast });
+// 種別で絞っているときは予約枠も同じ種別だけ出す（設定画面の一覧は絞らない）
+const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s=>(s.postType||"x_post")===filterPlatform),[slots,filterPlatform]);
   const {
     saveToDb, save, del, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
@@ -216,21 +218,21 @@ function App({uid}){
         draftCnt:dayPosts.filter(p=>p.status==="draft").length,
         reservedCnt:dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length,
         publishedCnt:dayPosts.filter(p=>p.status==="published").length,
-        ghostCnt:slots.filter(s=>slotMatchesDate(s,weekDates[i])).length,
+        ghostCnt:visibleSlots.filter(s=>slotMatchesDate(s,weekDates[i])).length,
       };
     });
-  },[filtered,weekDateStrs,weekDates,slots]);
+  },[filtered,weekDateStrs,weekDates,visibleSlots]);
 
   const ghostBySlot=React.useMemo(()=>{
     const m={};
     weekDates.forEach((date,i)=>{
-      slots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
+      visibleSlots.filter(s=>slotMatchesDate(s,date)).forEach(s=>{
         const key=`${weekDateStrs[i]}_${slotTime(s).slice(0,2)}`;
         (m[key]=m[key]||[]).push(s);
       });
     });
     return m;
-  },[weekDates,weekDateStrs,slots]);
+  },[weekDates,weekDateStrs,visibleSlots]);
 
   if(loading)return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
@@ -502,7 +504,7 @@ function App({uid}){
                               <span style={{fontSize:9,color:"#888"}}>{fmtTime(p.datetime)}</span>
                               {p.score&&<span style={{fontSize:8,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
                             </div>
-                            <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3}}>{(p.title||"（タイトルなし）").slice(0,12)}{(p.title||"").length>12?"…":""}</div>
+                            <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3,whiteSpace:"normal",wordBreak:"break-word"}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
                             <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
                               style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:10,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                               {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -574,7 +576,7 @@ function App({uid}){
         <MonthView
           posts={filtered}
           today={today}
-          slots={slots}
+          slots={visibleSlots}
           openNew={openNew}
           setPreview={setPreview}
           postTypes={allPostTypes}
@@ -596,7 +598,7 @@ function App({uid}){
           handleDuplicate={handleDuplicate}
           setRepostTgt={setRepostTgt}
           openNew={openNew}
-          slots={slots}
+          slots={visibleSlots}
           changeStatus={changeStatus}
           setDatetime={setDatetime}
           postTypes={allPostTypes}
