@@ -83,7 +83,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
                           style={{...S.row,gap:3,background:pt.bg,border:`1px solid ${pt.border}`,borderLeft:`3px solid ${pt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",overflow:"hidden"}}
                           onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
                           onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                          <span style={{fontSize:8,color:pt.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{p.title||"（無題）"}</span>
+                          <span style={{fontSize:8,color:pt.color,fontWeight:700,whiteSpace:"normal",wordBreak:"break-word",flex:1}}>{(p.title||"（無題）").slice(0,32)}{(p.title||"").length>32?"…":""}</span>
                           {p.score&&<span style={{fontSize:7,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",flexShrink:0}}>{p.score}</span>}
                         </div>
                       );
@@ -300,7 +300,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
                             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                           </select>
                         </div>
-                        <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,22)}{(p.title||"").length>22?"…":""}</div>
+                        <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
                         {p.memo&&<div style={{fontSize:10,color:"#b45309",background:"#fffbeb",borderRadius:4,padding:"2px 6px",marginBottom:5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.memo}</div>}
                         <div style={{display:"flex",gap:4,marginTop:4}}>
                           <button onClick={e=>{e.stopPropagation();setEditing({...p});}}

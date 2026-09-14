@@ -93,9 +93,9 @@ export function SearchModal({posts,onClose,onSelect,onRepost}){
   );
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"48px 20px 20px"}}
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:700,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"24px 16px 16px"}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,maxHeight:"80vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.18)",border:BD2}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:960,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.18)",border:BD2}}>
 
         {/* 検索バー */}
         <div style={{padding:"14px 16px",borderBottom:BD2,display:"flex",gap:8,alignItems:"center"}}>
@@ -116,7 +116,7 @@ export function SearchModal({posts,onClose,onSelect,onRepost}){
 
         {/* フィルターパネル */}
         {showFilters&&(
-          <div style={{padding:"12px 16px",borderBottom:BD2,background:"#faf7f3",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{padding:"12px 16px",borderBottom:BD2,background:"#faf7f3",display:"flex",flexDirection:"column",gap:10,maxHeight:200,overflowY:"auto",flexShrink:0}}>
             {/* メディア */}
             <div>
               <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>メディア</div>
@@ -161,7 +161,7 @@ export function SearchModal({posts,onClose,onSelect,onRepost}){
         )}
 
         {/* 結果一覧 */}
-        <div style={{flex:1,overflowY:"auto"}}>
+        <div style={{flex:1,minHeight:240,overflowY:"auto"}}>
           {results.length===0
             ?<div style={{padding:"48px 0",textAlign:"center",color:"#ccc",fontSize:13}}>該当なし</div>
             :results.map(p=>{
