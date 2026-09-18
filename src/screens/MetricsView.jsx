@@ -7,7 +7,7 @@
 // ・数字が入っていない投稿（投稿当日・未配信・Buffer を通していないもの）は既定で隠す。
 
 import React, { useState, useMemo } from "react";
-import { POST_TYPE, SCORE, STATUS, BD, BD2, S } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, SCORE, STATUS, BD, BD2, S } from "../constants.js";
 
 // 並び替えの選び方。既定は「自動の成績」。
 const SORTS = [
@@ -130,7 +130,7 @@ export function MetricsView({ posts, activeAcc, setPreview, postTypes = POST_TYP
             </thead>
             <tbody>
               {rows.map(p => {
-                const pt = postTypes[p.postType || "x_post"] || POST_TYPE.x_post;
+                const pt = getPostTypeStyle(p.postType, postTypes);
                 const st = STATUS[p.status];
                 const auto = p.auto_score ? SCORE[p.auto_score] : null;
                 const hand = p.score ? SCORE[p.score] : null;

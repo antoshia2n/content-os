@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { POST_TYPE, STATUS, SCORE, BD, BD2, S, XFONT, SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, DAYS, HOURS, fmtDate, fmtTime, slotTime, genId, nowStr } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, SLOT_DOWS, SLOT_NTHS, SLOT_TYPES, DAYS, HOURS, fmtDate, fmtTime, slotTime, genId, nowStr } from "../constants.js";
 
 export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_TYPE}){
   const [monthBase,setMonthBase]=useState(()=>new Date());
@@ -77,7 +77,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
                     </div>
                     {/* 投稿チップ（最大3件） */}
                     {dayPosts.slice(0,3).map(p=>{
-                      const pt=postTypes[p.postType||"x_post"];
+                      const pt=getPostTypeStyle(p.postType,postTypes);
                       return(
                         <div key={p.id} onClick={e=>{e.stopPropagation();setPreview(p);}}
                           style={{...S.row,gap:3,background:pt.bg,border:`1px solid ${pt.border}`,borderLeft:`3px solid ${pt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",overflow:"hidden"}}
@@ -91,7 +91,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
                     {dayPosts.length>3&&<div style={{fontSize:8,color:"#aaa",textAlign:"right"}}>+{dayPosts.length-3}件</div>}
                     {/* 予約枠チップ */}
                     {daySlots.slice(0,2).map((s,si)=>{
-                      const gpt=postTypes[s.postType||"x_post"];
+                      const gpt=getPostTypeStyle(s.postType,postTypes);
                       return(
                         <div key={"s"+si} onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"});}}
                           style={{...S.row,gap:3,border:`1px dashed ${gpt.dot}`,borderLeft:`2px dashed ${gpt.dot}`,borderRadius:4,padding:"2px 5px",marginBottom:2,cursor:"pointer",background:gpt.bg,opacity:0.7}}
@@ -230,7 +230,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
             </div>
             <div style={{...S.col,gap:7}}>
               {undated.map(p=>{
-                const pt2=postTypes[p.postType||"x_post"];
+                const pt2=getPostTypeStyle(p.postType,postTypes);
                 return(
                   <div key={p.id} style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:9,padding:"9px 10px"}}>
                     <div onClick={()=>setPreview(p)} style={{cursor:"pointer"}}>
@@ -284,7 +284,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
                 {allItems.map((item,idx)=>{
                   if(item.type==="post"){
                     const p=item.data;
-                    const pt2=postTypes[p.postType||"x_post"];
+                    const pt2=getPostTypeStyle(p.postType,postTypes);
                     const st2=STATUS[p.status];
                     return(
                       <div key={p.id} onClick={()=>setPreview(p)}
@@ -317,7 +317,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
                   }
                   // ゴースト枠
                   const s=item.data;
-                  const gpt=postTypes[s.postType||"x_post"];
+                  const gpt=getPostTypeStyle(s.postType,postTypes);
                   return(
                     <div key={"g"+idx}
                       onClick={()=>openNew(`${date}T${slotTime(s)}`,{title:s.title||"",postType:s.postType||"x_post"})}
@@ -394,7 +394,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
   const [nth,setNth]=useState(1);
   const [time,setTime]=useState("09:00");
   const [postType,setPostType]=useState("x_post");
-  const pt=postTypes[postType];
+  const pt=getPostTypeStyle(postType,postTypes);
 
   const preview=React.useMemo(()=>{
     if(type==="daily") return `毎日 ${time}`;

@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
   PORTAL_APP_ID, PORTAL_URL,
-  POST_TYPE, STATUS, SCORE,
+  POST_TYPE, getPostTypeStyle, STATUS, SCORE,
   DAYS, HOURS, COLORS, BD, BD2, S,
   OVERDUE_STATUS,
   
@@ -489,7 +489,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       onMouseLeave={!dragId&&isEmpty?e=>{e.currentTarget.style.background=dateStr===today?"#fffcf5":"#fff";}:undefined}>
                       {/* 実投稿 */}
                       {sp.map(p=>{
-                        const pt2=allPostTypes[p.postType||"x_post"],st2=STATUS[p.status];
+                        const pt2=getPostTypeStyle(p.postType,allPostTypes),st2=STATUS[p.status];
                         return(
                           <div key={p.id}
                             draggable
@@ -521,7 +521,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                         return multi?(
                           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
                             {ghosts.map((g,gi)=>{
-                              const gpt=allPostTypes[g.postType||"x_post"];
+                              const gpt=getPostTypeStyle(g.postType,allPostTypes);
                               return(
                                 <div key={"g"+gi}
                                   onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
@@ -541,7 +541,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                           </div>
                         ):(
                           ghosts.map((g,gi)=>{
-                            const gpt=allPostTypes[g.postType||"x_post"];
+                            const gpt=getPostTypeStyle(g.postType,allPostTypes);
                             return(
                               <div key={"g"+gi}
                                 onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
@@ -639,7 +639,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               {slots.length===0
                 ?<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
                 :slots.map((s,i)=>{
-                  const pt=allPostTypes[s.postType||"x_post"];
+                  const pt=getPostTypeStyle(s.postType,allPostTypes);
                   return(
                     <div key={s.id} style={{...S.row,gap:8,background:"#f8f5f1",border:BD2,borderRadius:9,padding:"7px 10px",marginBottom:6}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>

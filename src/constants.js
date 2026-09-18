@@ -17,6 +17,16 @@ export const POST_TYPE = {
   other:     { label:"その他",  color:"#6b7280", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af" },
 };
 
+// 未登録の投稿タイプは媒体に依存しない見た目で表示する。
+export const DEFAULT_POST_TYPE = Object.freeze({
+  label:"その他", color:"#6b7280", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af",
+});
+export function getPostTypeStyle(postType, postTypes = POST_TYPE){
+  return Object.prototype.hasOwnProperty.call(postTypes, postType)
+    ? postTypes[postType] || DEFAULT_POST_TYPE
+    : DEFAULT_POST_TYPE;
+}
+
 // ── ステータス定数 ────────────────────────────────────
 export const STATUS = {
   draft:     { label:"下書き",      chip:"#f3f4f6", text:"#6b7280", border:"#d1d5db" },

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { POST_TYPE, STATUS, SCORE, BD, BD2, S, XFONT, fmtTime, stripHtml, isUrl, genId, nowStr } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, fmtTime, stripHtml, isUrl, genId, nowStr } from "../constants.js";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn, Btn } from "../components/shared.jsx";
 import { RepostModal } from "../components/modals.jsx";
 
@@ -15,7 +15,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
   const [sideW,setSideW]=useState(280);
   const dragging=useRef(false);
   const titleRef=useRef(null);
-  const pt=allPostTypes[post.postType||"x_post"]||allPostTypes.x_post||POST_TYPE.x_post;
+  const pt=getPostTypeStyle(post.postType,allPostTypes);
   const st=STATUS[post.status];
 
   const getEditPost=()=>({...post,title:titleRef.current?.value??post.title,memo,memoLinks});
