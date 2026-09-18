@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { POST_TYPE, STATUS, SCORE, BD, BD2, S, XFONT, REPOST_REPEATS, fmtDate, fmtTime, nowStr, stripHtml, genId, isUrl, nextDaySameTime } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, REPOST_REPEATS, fmtDate, fmtTime, nowStr, stripHtml, genId, isUrl, nextDaySameTime } from "../constants.js";
 
 export function RepostModal({post,onClose,onRepost}){
   const today=fmtDate(new Date());
@@ -165,7 +165,7 @@ export function SearchModal({posts,onClose,onSelect,onRepost}){
           {results.length===0
             ?<div style={{padding:"48px 0",textAlign:"center",color:"#ccc",fontSize:13}}>該当なし</div>
             :results.map(p=>{
-              const pt2=POST_TYPE[p.postType||"x_post"],st=STATUS[p.status];
+              const pt2=getPostTypeStyle(p.postType,POST_TYPE),st=STATUS[p.status];
               const sc=SCORE[p.score];
               return(
                 <div key={p.id}

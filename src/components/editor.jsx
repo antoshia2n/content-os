@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../firebase.js";
 
@@ -432,7 +432,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
           </div>
         )}
         {results.map(p=>{
-          const pt=POST_TYPE[p.postType||"x_post"];
+          const pt=getPostTypeStyle(p.postType,POST_TYPE);
           const links=(p.memoLinks||[]).filter(l=>{
             const url=typeof l==="string"?l:l.url;
             return url&&url.startsWith("http");
