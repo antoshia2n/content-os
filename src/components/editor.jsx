@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
-import { auth } from "../firebase.js";
+import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -68,18 +68,10 @@ export function BodyEditor({value,onChange,editorRef}){
       onInput={()=>{if(!isComposing.current)emit();}}
       onPaste={e=>{
         e.preventDefault();
-        const text=e.clipboardData.getData("text/plain");
-        if(!text)return;
-        // 段落（2連続改行）と行内改行を区別して変換
-        const paras=text.split(/\n{2,}/);
-        if(paras.length<=1){
-          // 単一段落 — 改行をbrに
-          document.execCommand("insertHTML",false,text.replace(/\n/g,"<br>"));
-        }else{
-          // 複数段落 — pタグで囲む
-          const html=paras.filter(p=>p.trim()).map(p=>`<p>${p.replace(/\n/g,"<br>").trim()}</p>`).join("");
-          document.execCommand("insertHTML",false,html);
-        }
+        const html=buildPasteHtml(e.clipboardData);
+        if(!html)return;
+        document.execCommand("insertHTML",false,html);
+        emit();
       }}
       onKeyDown={handleKeyDown}
       style={{minHeight:360,fontSize:17,lineHeight:1.75,color:"#0f1419",fontFamily:XFONT,wordBreak:"break-word",caretColor:"#1d9bf0",outline:"none"}}
