@@ -1,5 +1,5 @@
 import React, {useState,useEffect,useMemo,useRef} from 'react';
-import {STATUS,POST_TYPE,fmtDate,genId} from '../constants.js';
+import {STATUS,POST_TYPE,getPostTypeStyle,BD,BD2,fmtDate,genId} from '../constants.js';
 import {dbFetchSheetRows,dbCountSheetGroup,dbFetchSheetGenres,dbAddSheetGenre,dbRemoveSheetGenre,dbSaveSheetRow,dbAddSheetIdea,sheetGroupConditions} from '../lib/supabase.js';
 
 // 個人の本文・タイトル・ID は記録しない。直近50回を1操作で取り出せる。
@@ -18,14 +18,29 @@ export function sheetDatePatch(row,datetime) {
   else if (!datetime && status==='reserved') status='waiting';
   return {datetime:datetime||null,status};
 }
-function CellText({value,onSave,label}) {
-  const [draft,setDraft]=useState(value||'');
+function CellText({value,onSave,label,placeholder,disabled,type='text',className='',children}) {
+  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(value||'');
+  const cancelled=useRef(false);
   useEffect(()=>setDraft(value||''),[value]);
-  return <input aria-label={label} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={()=>{if(draft!==(value||''))onSave(draft);}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){setDraft(value||'');e.currentTarget.blur();}}}/>;
+  function finish(){setEditing(false);if(!cancelled.current&&draft!==(value||''))onSave(draft);}
+  return editing?<input autoFocus className={`cell-input ${className}`} aria-label={label} type={type} disabled={disabled} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={finish} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();if(e.key==='Escape'){cancelled.current=true;setDraft(value||'');e.currentTarget.blur();}}}/>:<button className={`cell-text ${className} ${value?'':'cell-empty'}`} aria-label={`${label}を書き換える`} disabled={disabled} onClick={()=>{cancelled.current=false;setDraft(value||'');setEditing(true);}}>{children||value||placeholder}</button>;
 }
-function TitleCell({row,onEdit,onSave}) {
+function CellSelect({value,label,disabled,onSave,style,children,options}) {
   const [editing,setEditing]=useState(false);
-  return <div style={{display:'flex',alignItems:'center',gap:4}}>{editing?<CellText value={row.title} label="タイトル" onSave={v=>{onSave(v);setEditing(false);}}/>:<button style={{border:0,padding:0,background:'transparent',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:190}} onClick={()=>onEdit(row.id)}>{row.title||'（タイトルなし）'}</button>}<button aria-label="タイトルをその場で書き換える" onClick={()=>setEditing(!editing)}>✎</button></div>;
+  return editing?<select autoFocus className="cell-input" aria-label={label} disabled={disabled} value={value} onBlur={()=>setEditing(false)} onKeyDown={e=>{if(e.key==='Escape')setEditing(false);}} onChange={e=>{onSave(e.target.value);setEditing(false);}}>{options}</select>:<button className="sheet-pill" aria-label={`${label}を選ぶ`} disabled={disabled} style={style} onClick={()=>setEditing(true)}>{children}</button>;
+}
+function TitleCell({row,onEdit,onSave,disabled}) {
+  return <div className="title-cell"><CellText value={row.title} label="タイトル" placeholder="（タイトルなし）" className="title-text" disabled={disabled} onSave={onSave}/><button className="row-edit" onClick={()=>onEdit(row.id)}>編集</button></div>;
+}
+function datePresentation(value) {
+  if(!value)return {label:'日付を入れる',color:'#b8afa5'};
+  const date=new Date(value.slice(0,10)+'T12:00:00'),day=date.getDay();
+  return {label:`${date.getMonth()+1}/${date.getDate()} ${['日','月','火','水','木','金','土'][day]} ${value.slice(11,16)}`,color:value.slice(0,10)===fmtDate(new Date())?'#f59e0b':day===0||day===6?'#ef4444':'#555'};
+}
+function weekPresentation(key) {
+  const start=new Date(key+'T12:00:00'),end=new Date(start),today=new Date();
+  end.setDate(end.getDate()+6);today.setDate(today.getDate()-((today.getDay()+6)%7));
+  return {label:`${start.getMonth()+1}/${start.getDate()} 〜 ${end.getMonth()+1}/${end.getDate()}`,current:key===fmtDate(today)};
 }
 export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revision,onChanged,onEdit}) {
   const [tab,setTab]=useState('schedule'),[month,setMonth]=useState(()=>fmtDate(new Date()).slice(0,7));
@@ -33,6 +48,8 @@ export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revisi
   const [genres,setGenres]=useState([]),[groups,setGroups]=useState([]),[rows,setRows]=useState([]),[expanded,setExpanded]=useState({}),[groupRows,setGroupRows]=useState({});
   const [busy,setBusy]=useState(true),[loadFailed,setLoadFailed]=useState(false),[error,setError]=useState(''),[reload,setReload]=useState(0),[newGenre,setNewGenre]=useState(''),[saving,setSaving]=useState({});
   const [adding,setAdding]=useState(false),[showGenres,setShowGenres]=useState(false),[diagnostic,setDiagnostic]=useState(null);
+  const [tabCounts,setTabCounts]=useState({});
+  useEffect(()=>{if(diagnostic)setTabCounts(x=>({...x,[diagnostic.operation==='month'?'schedule':'ideas']:diagnostic.count}));},[diagnostic]);
   const epoch=useRef(0),pending=useRef(new Set()),lastScope=useRef(null),expandedRef=useRef({});
   expandedRef.current=expanded;
   const ids=JSON.stringify(accountIds.filter(Boolean));
@@ -113,33 +130,89 @@ export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revisi
   function moveMonth(n){const d=new Date(month+'-01T12:00:00');d.setMonth(d.getMonth()+n);setMonth(fmtDate(d).slice(0,7));}
   function changeTab(next){setTab(next);setGroupBy(next==='ideas'?'genre':'week');}
   function renderRow(row) {
-    const st=STATUS[row.status]||STATUS.draft;
-    return <tr key={row.id} data-sheet-row={row.id}>
-      <td><input aria-label="予定日" type="datetime-local" disabled={saving[row.id]} value={(row.datetime||'').slice(0,16)} onChange={e=>update(row,sheetDatePatch(row,e.target.value))}/></td>
-      <td><select aria-label="状態" disabled={saving[row.id]} style={{color:st.text,background:st.chip}} value={row.status} onChange={e=>update(row,{status:e.target.value==='idea'&&row.datetime?'draft':e.target.value})}>{Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
-      <td><select aria-label="投稿タイプ" disabled={saving[row.id]} value={row.post_type} onChange={e=>update(row,{post_type:e.target.value})}>{!postTypes[row.post_type]&&<option value={row.post_type}>{row.post_type}</option>}{Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
-      <td><select aria-label="ジャンル" disabled={saving[row.id]} value={row.genre||''} onChange={e=>update(row,{genre:e.target.value||null})}><option value="">未設定</option>{row.genre&&!genres.some(g=>g.name===row.genre)&&<option value={row.genre}>{row.genre}（未登録）</option>}{genres.map(g=><option key={g.id} value={g.name}>{g.name}</option>)}</select></td>
-      <td><CellText value={row.theme} label="テーマ" onSave={v=>update(row,{theme:v})}/></td>
-      <td><TitleCell row={row} onEdit={onEdit} onSave={v=>update(row,{title:v})}/></td>
-      <td><CellText value={row.mm_url} label="MMの住所" onSave={v=>update(row,{mm_url:v})}/></td>
-      <td>{[row.status!=='idea'&&row.datetime?'シート':null,row.manabu?'学ぶくん':null].filter(Boolean).join('・')}</td>
-      <td>{(!seminar.length||seminar.includes(row.post_type))&&<input aria-label="学ぶくん" type="checkbox" checked={!!row.manabu} disabled={saving[row.id]} onChange={e=>update(row,{manabu:e.target.checked})}/>}</td>
+    const st=STATUS[row.status]||STATUS.draft,pt=getPostTypeStyle(row.post_type,postTypes),date=datePresentation(row.datetime),disabled=!!saving[row.id];
+    return <tr key={row.id} data-sheet-row={row.id} style={{'--type-color':pt.color}}>
+      <td style={{color:date.color}}><CellText value={(row.datetime||'').slice(0,16)} label="予定日" type="datetime-local" disabled={disabled} onSave={v=>update(row,sheetDatePatch(row,v))}>{date.label}</CellText></td>
+      <td><select className="status-select" aria-label="状態" disabled={disabled} style={{color:st.text,background:st.chip,border:`1px solid ${st.border}`}} value={row.status} onChange={e=>update(row,{status:e.target.value==='idea'&&row.datetime?'draft':e.target.value})}>{Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></td>
+      <td><CellSelect label="投稿タイプ" disabled={disabled} value={row.post_type} style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`}} onSave={v=>update(row,{post_type:v})} options={<>{!postTypes[row.post_type]&&<option value={row.post_type}>{row.post_type}</option>}{Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</>}>{postTypes[row.post_type]?.label||row.post_type||pt.label}</CellSelect></td>
+      <td><CellSelect label="ジャンル" disabled={disabled} value={row.genre||''} style={{background:row.genre?'#f5f0eb':'transparent',color:row.genre?'#555':'#b8afa5',border:row.genre?'1px solid transparent':BD2}} onSave={v=>update(row,{genre:v||null})} options={<><option value="">＋ ジャンル</option>{row.genre&&!genres.some(g=>g.name===row.genre)&&<option value={row.genre}>{row.genre}（未登録）</option>}{genres.map(g=><option key={g.id} value={g.name}>{g.name}</option>)}</>}>{row.genre||'＋ ジャンル'}</CellSelect></td>
+      <td className="theme-cell"><CellText value={row.theme} label="テーマ" placeholder="テーマ" disabled={disabled} onSave={v=>update(row,{theme:v})}/></td>
+      <td><TitleCell row={row} disabled={disabled} onEdit={onEdit} onSave={v=>update(row,{title:v})}/></td>
+      <td><div className="mm-cell">{row.mm_url&&<a className="sheet-pill mm-pill" href={row.mm_url} target="_blank" rel="noopener noreferrer">MM</a>}<CellText value={row.mm_url} label="MMの住所" placeholder="＋" className={row.mm_url?'mm-edit':'mm-add'} disabled={disabled} onSave={v=>update(row,{mm_url:v})}>{row.mm_url?'変更':'＋'}</CellText></div></td>
+      <td><div className="flow-cell">{row.status!=='idea'&&row.datetime&&<span className="sheet-pill sheet-flow">シート</span>}{(!seminar.length||seminar.includes(row.post_type))?<button className={`sheet-pill manabu-pill ${row.manabu?'is-on':''}`} aria-label="学ぶくん" aria-pressed={!!row.manabu} disabled={disabled} onClick={()=>update(row,{manabu:!row.manabu})}>学ぶ</button>:row.manabu&&<span className="sheet-pill manabu-pill is-on">学ぶ</span>}</div></td>
     </tr>;
   }
   const visibleGroups=tab==='schedule'?scheduleGroups:groups;
-  return <section className="content-sheet" aria-label="シート" style={{padding:'20px 28px'}}>
-    <style>{`.content-sheet{font-size:12px}.content-sheet button,.content-sheet select{cursor:pointer;font-family:inherit}.content-sheet button{border:1px solid #e6dfd6;border-radius:6px;background:#fff;padding:5px 10px;color:#57534e}.content-sheet input,.content-sheet select{font:inherit;color:inherit}.content-sheet table{border-collapse:collapse;width:100%;min-width:1230px;background:#fff}.content-sheet th{padding:8px;text-align:left;background:#f5f0eb;color:#78716c;font-weight:500}.content-sheet td{height:34px;padding:0 8px;border-bottom:1px solid #f1ede8;max-width:240px}.content-sheet td input:not([type=checkbox]),.content-sheet td select{border:0;outline:none;background:transparent;width:100%;min-width:60px;padding:4px 0}.content-sheet td input:focus{box-shadow:0 1px #f59e0b}.content-sheet td input[type=checkbox]{accent-color:#f59e0b}.content-sheet .group-button{width:100%;text-align:left;border-radius:0;border:0;padding:8px 12px;background:#faf7f2;font-weight:600}.content-sheet tbody tr:hover{background:#fffbeb}.content-sheet select:disabled{cursor:wait;opacity:.6}`}</style>
-    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:14}}>
-      {['schedule','ideas'].map(t=><button key={t} onClick={()=>changeTab(t)} style={{background:tab===t?'#ffedd5':'#fff',fontWeight:700}}>{t==='schedule'?'予定':'ネタ帳'}</button>)}
-      {tab==='schedule'&&<><button aria-label="前の月" onClick={()=>moveMonth(-1)}>←</button><strong>{month.replace('-','年')}月</strong><button aria-label="次の月" onClick={()=>moveMonth(1)}>→</button></>}
-      <select aria-label="まとめ方" value={groupBy} onChange={e=>setGroupBy(e.target.value)}>{(tab==='schedule'?[['week','週ごと'],['genre','ジャンルごと'],['type','投稿タイプごと']]:[['genre','ジャンルごと'],['type','投稿タイプごと'],['status','状態ごと']]).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
-      {tab==='schedule'&&<select aria-label="状態で絞る" value={status} onChange={e=>setStatus(e.target.value)}>{[['all','すべて'],['draft','下書き'],['review','レビュー待ち'],['reserved','予約済み'],['published','公開済']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>}
-      <input aria-label="テーマとタイトルで探す" placeholder="テーマ・タイトルで探す" value={search} onChange={e=>setSearch(e.target.value)} style={{padding:6,border:'1px solid #e6dfd6',borderRadius:6}}/>
-      <button disabled={!targetAccId||adding} onClick={addIdea}>＋ アイデアを追加</button><button onClick={()=>setShowGenres(!showGenres)}>ジャンルを管理</button>
+  return <section className="content-sheet" aria-label="シート" style={{padding:'20px 28px',background:'#f5f0eb'}}>
+    <style>{`
+      .content-sheet{font-size:12px;color:#555}
+      .content-sheet button,.content-sheet input,.content-sheet select{font:inherit;color:inherit}
+      .content-sheet button,.content-sheet select{cursor:pointer}
+      .content-sheet button{border:${BD2};border-radius:7px;background:#fff;padding:5px 10px}
+      .content-sheet button:disabled,.content-sheet input:disabled,.content-sheet select:disabled{cursor:wait;opacity:.6}
+      .content-sheet button:focus-visible,.content-sheet a:focus-visible{outline:2px solid #f59e0b;outline-offset:2px}
+      .content-sheet .sheet-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+      .content-sheet .sheet-tabs{display:flex;gap:1px;background:#f5f0eb;border:${BD2};border-radius:8px;padding:2px}
+      .content-sheet .sheet-tabs button{border:0;background:transparent;border-radius:6px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#a8a09a;white-space:nowrap}
+      .content-sheet .sheet-tabs button[aria-pressed=true]{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+      .content-sheet .tab-count{font-size:10px;color:#a8a09a;margin-left:5px}
+      .content-sheet .month-nav{display:flex;gap:5px;align-items:center}
+      .content-sheet .month-nav button{border:0;background:transparent;padding:3px 6px;font-size:16px}
+      .content-sheet .month-nav .this-month{font-size:11px;border:${BD2};border-radius:5px;background:#fff}
+      .content-sheet .month-label{font-size:12px;font-weight:600;white-space:nowrap}
+      .content-sheet .add-idea{border:0;border-radius:20px;background:#f59e0b;color:white;font-size:11px;font-weight:700;padding:6px 12px;white-space:nowrap}
+      .content-sheet .sheet-filters{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+      .content-sheet .sheet-filters input,.content-sheet .sheet-filters select{background:#f8f4ef;border:${BD};border-radius:7px;font-size:12px;color:#666;padding:6px 9px;max-width:100%}
+      .content-sheet .sheet-filters input{width:170px}
+      .content-sheet .genre-toggle{border:0;background:transparent;padding:4px 0;font-size:10px;color:#a8a09a;white-space:nowrap}
+      .content-sheet .sheet-table-wrap{overflow-x:auto;border:${BD2};border-radius:10px;background:#fff}
+      .content-sheet table{border-collapse:collapse;table-layout:fixed;width:100%;min-width:1150px;background:#fff}
+      .content-sheet th{padding:9px 10px;text-align:left;background:#faf7f3;color:#a8a09a;font-size:10px;font-weight:600;border-bottom:1px solid #f3eee8}
+      .content-sheet td{height:40px;padding:0 10px;border-bottom:1px solid #f3eee8}
+      .content-sheet tr[data-sheet-row]:hover{background:#fffbf5}
+      .content-sheet tr[data-sheet-row] td:first-child{border-left:3px solid var(--type-color)}
+      .content-sheet .cell-text{display:block;border:0;background:transparent;padding:4px 0;text-align:left;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .content-sheet .cell-empty{color:#b8afa5}
+      .content-sheet .cell-input{box-sizing:border-box;width:100%;min-width:0;border:1px solid #f59e0b;border-radius:5px;padding:4px;background:#fff;outline:none}
+      .content-sheet .sheet-pill{display:inline-block;border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;text-decoration:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;vertical-align:middle}
+      .content-sheet .status-select{max-width:100%;border-radius:5px;font-size:10px;font-weight:700;padding:3px 5px}
+      .content-sheet .status-select:focus{outline:1px solid #f59e0b}
+      .content-sheet .theme-cell{font-size:11.5px;color:#666}
+      .content-sheet .title-cell{display:flex;align-items:center;gap:6px;min-width:0}
+      .content-sheet .title-text{font-size:12.5px;font-weight:700;min-width:0;flex:1}
+      .content-sheet .row-edit{visibility:hidden;border:0;background:#f59e0b;color:#fff;border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;flex-shrink:0}
+      .content-sheet tr[data-sheet-row]:hover .row-edit,.content-sheet tr[data-sheet-row]:focus-within .row-edit,.content-sheet .row-edit:focus{visibility:visible}
+      @media (hover:none){.content-sheet .row-edit{visibility:visible}}
+      .content-sheet .mm-cell,.content-sheet .flow-cell{display:flex;align-items:center;gap:5px}
+      .content-sheet .flow-cell{justify-content:flex-end}
+      .content-sheet .mm-pill{color:#7c3aed;background:#ede9fe;border:1px solid #c4b5fd}
+      .content-sheet .mm-edit{width:auto;font-size:9px;color:#a8a09a;text-decoration:underline}
+      .content-sheet .mm-add{width:auto;border:1px dashed #d8d0c6;border-radius:20px;color:#b8afa5;padding:2px 9px}
+      .content-sheet .sheet-flow{color:#2563eb;background:#dbeafe;border:1px solid #93c5fd;font-size:10px}
+      .content-sheet .manabu-pill{color:#b8afa5;background:transparent;border:${BD2};font-size:10px}
+      .content-sheet .manabu-pill.is-on{color:#059669;background:#d1fae5;border:1px solid #6ee7b7}
+      .content-sheet .group-cell{padding:0;height:auto}
+      .content-sheet .group-button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border-radius:0;border:0;border-bottom:1px solid #e6dfd6;padding:10px 12px;background:#faf7f2;font-weight:600}
+      .content-sheet .group-button.current-week{border-bottom-color:#f59e0b}
+      .content-sheet .week-badge{font-size:9px;color:#f59e0b;background:#fff3df;border-radius:5px;padding:2px 5px}
+      .content-sheet .group-count{margin-left:auto;color:#b8afa5;font-size:10px;font-weight:400}
+      .content-sheet .sheet-diagnostic{margin-top:10px;color:#b8afa5;display:flex;gap:12px;align-items:center;justify-content:flex-end;font-size:10px}
+      .content-sheet .sheet-diagnostic button{font-size:10px;color:#b8afa5;border:0;background:transparent;padding:0;text-decoration:underline}
+    `}</style>
+    <div className="sheet-toolbar">
+      <div className="sheet-tabs" aria-label="表示するシート">{['schedule','ideas'].map(t=><button key={t} aria-pressed={tab===t} onClick={()=>changeTab(t)}>{t==='schedule'?'予定':'ネタ帳'}<span className="tab-count" title="最後に読み込んだ条件での件数。未読は —">{tabCounts[t]??'—'}</span></button>)}</div>
+      {tab==='schedule'&&<div className="month-nav"><button aria-label="前の月" onClick={()=>moveMonth(-1)}>‹</button><span className="month-label">{month.replace('-','年')}月</span><button aria-label="次の月" onClick={()=>moveMonth(1)}>›</button><button className="this-month" onClick={()=>setMonth(fmtDate(new Date()).slice(0,7))}>今月</button></div>}
+      <button className="add-idea" disabled={!targetAccId||adding} onClick={addIdea}>＋ アイデア</button>
+      <div className="sheet-filters">
+        <input aria-label="テーマとタイトルで探す" placeholder="テーマ・タイトルで探す" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select aria-label="まとめ方" value={groupBy} onChange={e=>setGroupBy(e.target.value)}>{(tab==='schedule'?[['week','週ごと'],['genre','ジャンルごと'],['type','投稿タイプごと']]:[['genre','ジャンルごと'],['type','投稿タイプごと'],['status','状態ごと']]).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+        {tab==='schedule'&&<select aria-label="状態で絞る" value={status} onChange={e=>setStatus(e.target.value)}>{[['all','すべてのステータス'],['draft','下書き'],['review','レビュー待ち'],['reserved','予約済み'],['published','公開済']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>}
+        <button className="genre-toggle" onClick={()=>setShowGenres(!showGenres)}>ジャンルを管理</button>
+      </div>
     </div>
     {showGenres&&<div style={{background:'#fff',padding:12,marginBottom:12,borderRadius:8}}><form onSubmit={addGenre}><input aria-label="新しいジャンル" value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="新しいジャンル"/><button>追加</button></form><div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>{genres.map(g=><span key={g.id}>{g.name} <button aria-label={`${g.name}を選択肢から外す`} onClick={()=>removeGenre(g)}>外す</button></span>)}</div></div>}
     {error&&<div role="alert" style={{color:'#b91c1c',padding:12,background:'#fef2f2',marginBottom:10}}>{error} <button onClick={()=>setReload(x=>x+1)}>再読み込み</button></div>}
-    {busy?<p role="status">読み込み中…</p>:loadFailed?<p>読み込みに失敗しました。再読み込みしてください。</p>:<div style={{overflowX:'auto'}}><table data-sheet-ready="true"><thead><tr>{['予定日','状態','投稿タイプ','ジャンル','テーマ','タイトル','MM','流れる先','学ぶくん'].map(c=><th key={c}>{c}</th>)}</tr></thead>{visibleGroups.map(g=>{const open=tab==='schedule'?expanded[g.key]!==false:!!expanded[g.key];const data=tab==='schedule'?g.rows:groupRows[g.key];return <tbody key={g.key}><tr><td colSpan={9}><button className="group-button" aria-expanded={open} onClick={()=>toggle(g)}>{open?'▾':'▸'} {g.label} <span style={{color:'#a8a29e',marginLeft:8}}>{tab==='schedule'?g.rows.length:g.count}件</span></button></td></tr>{open&&(data?data.map(renderRow):<tr><td colSpan={9}>読み込み中…</td></tr>)}</tbody>;})}{visibleGroups.length===0&&<tbody><tr><td colSpan={9} style={{padding:20,color:'#a8a29e'}}>該当する行はありません</td></tr></tbody>}</table></div>}
-    {diagnostic&&<div style={{marginTop:10,color:'#a8a29e',display:'flex',gap:12,alignItems:'center'}}><span>{diagnostic.count}件 · {diagnostic.ms}ms</span><button onClick={()=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([localStorage.getItem('contentos.sheet.events')||'[]'],{type:'application/json'}));a.href=url;a.download='contentos-sheet-events.json';a.click();URL.revokeObjectURL(url);}}>診断記録を保存</button></div>}
+    {busy?<p role="status">読み込み中…</p>:loadFailed?<p>読み込みに失敗しました。再読み込みしてください。</p>:<div className="sheet-table-wrap"><table data-sheet-ready="true"><colgroup>{[170,110,125,125,110,240,100,130].map((width,i)=><col key={i} style={{width}}/>)}</colgroup><thead><tr>{['予定日','状態','投稿タイプ','ジャンル','テーマ','タイトル','MM','流れる先'].map(c=><th key={c}>{c}</th>)}</tr></thead>{visibleGroups.map(g=>{const open=tab==='schedule'?expanded[g.key]!==false:!!expanded[g.key];const data=tab==='schedule'?g.rows:groupRows[g.key];const week=tab==='schedule'&&groupBy==='week'?weekPresentation(g.key):null;return <tbody key={g.key}><tr><td className="group-cell" colSpan={8}><button className={`group-button ${week?.current?'current-week':''}`} aria-expanded={open} onClick={()=>toggle(g)}><span>{open?'▾':'▸'}</span><span>{week?.label||g.label}</span>{week?.current&&<span className="week-badge">今週</span>}<span className="group-count">{tab==='schedule'?g.rows.length:g.count}件</span></button></td></tr>{open&&(data?data.map(renderRow):<tr><td colSpan={8}>読み込み中…</td></tr>)}</tbody>;})}{visibleGroups.length===0&&<tbody><tr><td colSpan={8} style={{padding:20,color:'#a8a29e'}}>該当する行はありません</td></tr></tbody>}</table></div>}
+    {diagnostic&&<div className="sheet-diagnostic"><span>{diagnostic.count}件 · {diagnostic.ms}ms</span><button onClick={()=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([localStorage.getItem('contentos.sheet.events')||'[]'],{type:'application/json'}));a.href=url;a.download='contentos-sheet-events.json';a.click();URL.revokeObjectURL(url);}}>診断記録を保存</button></div>}
   </section>;
 }
