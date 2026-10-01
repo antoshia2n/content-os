@@ -21,7 +21,7 @@ export function MonthView({posts,today,slots,openNew,setPreview,postTypes=POST_T
 
   const postsByDate=React.useMemo(()=>{
     const m={};
-    posts.forEach(p=>{const d=p.datetime.slice(0,10);(m[d]=m[d]||[]).push(p);});
+    posts.filter(p=>p.status!=="idea").forEach(p=>{const d=p.datetime.slice(0,10);(m[d]=m[d]||[]).push(p);});
     return m;
   },[posts]);
 
@@ -148,7 +148,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
   const byDate=React.useMemo(()=>{
     const m={};
     // 日時が空の投稿は日付の列に入れない（別枠の「日時未定」列に出す）
-    filtered.filter(p=>p.datetime).forEach(p=>{
+    filtered.filter(p=>p.status!=="idea"&&p.datetime).forEach(p=>{
       const d=p.datetime.slice(0,10);
       (m[d]=m[d]||[]).push(p);
     });
@@ -156,7 +156,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
   },[filtered]);
 
   // 日時未定（waiting）の投稿。ここから日時を入れて予約に上げられる（F3）
-  const undated=React.useMemo(()=>filtered.filter(p=>!p.datetime),[filtered]);
+  const undated=React.useMemo(()=>filtered.filter(p=>p.status!=="idea"&&!p.datetime),[filtered]);
 
   // 表示対象：週内の日付 + 予約枠がある日付
   const dates=React.useMemo(()=>{
@@ -206,7 +206,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
         <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
           style={{marginLeft:"auto",background:"#f8f4ef",border:BD,borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
           <option value="all">すべてのステータス</option>
-          {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
         <select value={filterPlatform||"all"} onChange={e=>setFilterPlatform&&setFilterPlatform(e.target.value)}
           style={{background:"#f8f4ef",border:BD,borderRadius:7,padding:"5px 9px",fontSize:12,color:"#666",outline:"none",cursor:"pointer"}}>
@@ -297,7 +297,7 @@ export function ListView({filtered,today,activeAcc,filterStatus,setFilter,filter
                           {p.score&&<span style={{fontSize:9,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:4,padding:"0 5px"}}>{p.score}</span>}
                           <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
                             style={{marginLeft:"auto",border:`1px solid ${st2?.border}`,borderRadius:6,padding:"1px 4px",fontSize:9,fontWeight:600,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-                            {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                            {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                           </select>
                         </div>
                         <div style={{fontSize:12,fontWeight:800,color:"#0f1419",lineHeight:1.35,marginBottom:4}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>

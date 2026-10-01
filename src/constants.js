@@ -29,6 +29,7 @@ export function getPostTypeStyle(postType, postTypes = POST_TYPE){
 
 // ── ステータス定数 ────────────────────────────────────
 export const STATUS = {
+  idea:      { label:"アイデア", chip:"#ffedd5", text:"#c2410c", border:"#fdba74" },
   draft:     { label:"下書き",      chip:"#f3f4f6", text:"#6b7280", border:"#d1d5db" },
   review:    { label:"レビュー待ち", chip:"#fef3c7", text:"#d97706", border:"#fcd34d" },
   waiting:   { label:"日時未定",    chip:"#dbeafe", text:"#2563eb", border:"#93c5fd" },

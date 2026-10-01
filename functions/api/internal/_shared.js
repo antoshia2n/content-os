@@ -15,8 +15,8 @@ export const POST_COLUMNS =
   // score（人手の評価）は残したまま、auto_score を別に持つ。
   'buffer_post_id,impressions,reactions,replies,reposts,clicks,metrics_updated_at,metrics_fetched_at,auto_score';
 
-// 制作段階の5値（要件 v1.2 §4.3）。データベース側の制約と同じ内容
-export const VALID_STATUS = ['draft', 'review', 'waiting', 'reserved', 'published'];
+// 制作段階の6値（要件 v1.2 §4.3）。データベース側の制約と同じ内容
+export const VALID_STATUS = ['idea', 'draft', 'review', 'waiting', 'reserved', 'published'];
 
 export function json(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
