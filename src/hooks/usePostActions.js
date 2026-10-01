@@ -44,7 +44,9 @@ export function usePostActions({
     const accId = cleanP.account_id || activeAccId;
     const record = {
       id: cleanP.id, account_id: accId, user_id: uid,
-      title: cleanP.title, status: cleanP.status,
+      title: cleanP.title, status: cleanP.datetime && cleanP.status === "idea" ? "draft" : cleanP.datetime && cleanP.status === "waiting" ? "reserved" : !cleanP.datetime && cleanP.status === "reserved" ? "waiting" : cleanP.status,
+      genre: cleanP.genre ?? null, theme: cleanP.theme ?? null,
+      mm_url: cleanP.mm_url ?? null, manabu: cleanP.manabu ?? false,
       post_type: cleanP.postType || "x_post",
       // 空の日時は「未定」としてデータベースには空で入れる（空文字を残さない）
       datetime: cleanP.datetime || null,
@@ -63,7 +65,7 @@ export function usePostActions({
     setAllPosts(prev => {
       const cur = prev[accId] || [];
       const exists = cur.find(x => x.id === cleanP.id);
-      const saved = { ...cleanP, account_id: accId };
+      const saved = { ...cleanP, status: record.status, account_id: accId };
       return { ...prev, [accId]: exists ? cur.map(x => x.id === cleanP.id ? saved : x) : [...cur, saved] };
     });
     return true;
@@ -183,7 +185,8 @@ export function usePostActions({
     if (!p) return;
     const nextDt = dt || null;
     let status = p.status;
-    if (nextDt && status === "waiting") status = "reserved";
+    if (nextDt && status === "idea") status = "draft";
+    else if (nextDt && status === "waiting") status = "reserved";
     else if (!nextDt && status === "reserved") status = "waiting";
 
     const { error } = await dbUpdatePost(id, { datetime: nextDt, status });

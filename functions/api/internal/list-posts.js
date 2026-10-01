@@ -14,8 +14,8 @@ const SELECT_COLUMNS =
   'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at,' +
   'buffer_post_id,impressions,reactions,replies,reposts,clicks,metrics_updated_at,metrics_fetched_at,auto_score';
 
-// 制作段階の5値（要件 v1.2 §4.3）
-const VALID_STATUS = ['draft', 'review', 'waiting', 'reserved', 'published'];
+// 制作段階の6値（要件 v1.2 §4.3）
+const VALID_STATUS = ['idea', 'draft', 'review', 'waiting', 'reserved', 'published'];
 
 // HTML タグ除去（body は HTML 文字列のため、統括 Claude が分析しやすいよう plain 版を併設）
 function stripHtml(html) {

@@ -20,6 +20,7 @@ import {
 import {
   EditorModal,
 } from "./screens/EditorModal.jsx";
+import { SheetView } from "./screens/SheetView.jsx";
 import { DiagPanel } from "./screens/DiagPanel.jsx";
 import {
   PreviewOverlay,
@@ -125,7 +126,7 @@ function App({uid}){
     ?Object.values(allPosts).flat()
     :(allPosts[activeAccId]||[])
   ,[allPosts,activeAccId,isAllAccounts]);
-  const filtered =React.useMemo(()=>posts.filter(p=>(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
+  const filtered =React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
@@ -180,7 +181,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowSearch(true);return;}
       // 入力中・修飾キーは無視
       const tag=e.target.tagName;
-      if(tag==="INPUT"||tag==="TEXTAREA"||e.target.contentEditable==="true")return;
+      if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||e.target.contentEditable==="true")return;
       if(e.metaKey||e.ctrlKey||e.altKey)return;
       switch(e.key){
         case"n":case"N": e.preventDefault();openNew();break;
@@ -190,7 +191,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":v==="list"?"metrics":"calendar");break;
+        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":v==="list"?"metrics":v==="metrics"?"sheet":"calendar");break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -354,7 +355,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <span style={{fontSize:9.5,color:"#bbb",background:"#fff",border:BD2,borderRadius:4,padding:"1px 4px"}}>⌘K</span>
           </button>
           <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:1,flexShrink:0,border:BD2}}>
-            {[["calendar","週"],["month","月"],["list","リスト"],["metrics","成績"]].map(([v,l])=>(
+            {[["calendar","週"],["month","月"],["list","リスト"],["metrics","成績"],["sheet","シート"]].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#111":"#a8a09a",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",transition:"all .12s"}}>{l}</button>
             ))}
           </div>
@@ -435,7 +436,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
             style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer",marginLeft:"auto"}}>
             <option value="all">すべて</option>
-            {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
           <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
             style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer"}}>
@@ -507,7 +508,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                             <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3,whiteSpace:"normal",wordBreak:"break-word"}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
                             <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
                               style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:10,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-                              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                              {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                             </select>
                           </div>
                         );
@@ -604,6 +605,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           postTypes={allPostTypes}
         />
       )}
+
+      {view==="sheet"&&<SheetView uid={uid} accountIds={isAllAccounts?switchableAccounts.map(a=>a.id):[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/> }
 
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
       {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}
