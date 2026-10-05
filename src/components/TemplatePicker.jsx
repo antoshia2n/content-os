@@ -43,7 +43,7 @@ export function TemplatePicker({templates,side,postType,postTypes,bodyRef,memoRe
   return(
     <div ref={box} style={{position:'relative',flexShrink:0}}>
       <button onMouseDown={remember} title={side==='memo'?'メモの型を差し込む':'本文・締めの型を差し込む'}
-        style={{background:open?'#fef3c7':'#fff',border:open?'1px solid #fcd34d':BD,borderRadius:20,padding:compact?'5px 12px':'6px 12px',fontSize:compact?12:11,fontWeight:700,color:open?'#b45309':'#555',cursor:'pointer',whiteSpace:'nowrap'}}>
+        style={{background:open?'#fef3c7':'#fff',border:open?'1px solid #fcd34d':BD,borderRadius:compact?20:10,padding:compact?'5px 12px':'7px 13px',fontSize:12,fontWeight:700,color:open?'#b45309':'#4b4540',cursor:'pointer',whiteSpace:'nowrap',fontFamily:'inherit'}}>
         型
       </button>
       {open&&(

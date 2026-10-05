@@ -6,6 +6,43 @@ import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/sha
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
 
+// 横の欄のアイコン（線の太さをそろえた SVG。2026-10-05 絵文字から置き換え）
+const ic=d=><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
+const ICONS={
+  memo:ic(<><path d="M5 3.5h7l3 3v10H5z"/><path d="M12 3.5v3h3"/><path d="M7.5 10h5M7.5 13h3.5"/></>),
+  search:ic(<><circle cx="9" cy="9" r="5"/><path d="M13 13l3.5 3.5"/></>),
+  history:ic(<><circle cx="10" cy="10" r="6.5"/><path d="M10 6.5V10l2.5 1.8"/></>),
+  share:ic(<><path d="M8.5 11.5l3-3"/><path d="M9.5 6.5l1.2-1.2a3 3 0 014.2 4.2L13.7 10.7"/><path d="M10.5 13.5l-1.2 1.2a3 3 0 01-4.2-4.2L6.3 9.3"/></>),
+};
+
+// 「その他」のメニュー（めったに使わない書き出しをまとめる）
+function MoreMenu({items}){
+  const [open,setOpen]=useState(false);const box=useRef(null);
+  useEffect(()=>{
+    if(!open)return;
+    const h=e=>{if(box.current&&!box.current.contains(e.target))setOpen(false);};
+    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+  },[open]);
+  return(
+    <div ref={box} style={{position:"relative",flexShrink:0}}>
+      <button className="em-icon" onClick={()=>setOpen(o=>!o)} title="その他" aria-label="その他" style={open?{background:"#f5f0eb",color:"#4b4540"}:undefined}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="12.5" cy="8" r="1.4"/></svg>
+      </button>
+      {open&&(
+        <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",zIndex:300,background:"#fff",border:BD2,borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,.12)",padding:5,minWidth:200}}>
+          {items.map(it=>(
+            <button key={it.label} disabled={it.disabled} onClick={()=>{it.onClick();}}
+              style={{display:"block",width:"100%",textAlign:"left",border:"none",background:"none",borderRadius:8,padding:"8px 11px",fontSize:12.5,fontWeight:600,color:"#333",cursor:it.disabled?"default":"pointer",fontFamily:"inherit"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
@@ -161,56 +198,43 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           </div>
         )}
 
-        {/* ヘッダー */}
-        {!compact&&<div style={{...S.row,padding:"0 14px",borderBottom:BD2,background:"#fff",height:50,gap:7,flexShrink:0}}>
-          <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
-            style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-            {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))}
-            style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
-            {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-          </select>
-          {accounts.length>0&&(
-            <div style={{...S.row,gap:6,marginRight:8}}>
-              <span style={{fontSize:10.5,color:"#999",fontWeight:700,whiteSpace:"nowrap"}}>登録先</span>
-              <select value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))}
-                style={{background:"#fff7ed",border:"1px solid #fcd34d",borderRadius:7,padding:"4px 8px",fontSize:11.5,fontWeight:700,color:"#b45309",outline:"none",cursor:"pointer",fontFamily:"inherit"}}>
+        {/* ヘッダー（広い幅）：左に投稿の属性、右に「型・コピー・その他・保存・閉じる」。2026-10-05 整理 */}
+        {!compact&&<div style={{...S.row,padding:"0 12px 0 14px",borderBottom:BD2,background:"#fff",height:54,gap:6,flexShrink:0}}>
+          <div style={{...S.row,gap:4,background:"#f7f3ee",border:BD2,borderRadius:12,padding:3,minWidth:0}}>
+            <select className="em-chip" value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))} style={{color:pt.color}}>
+              {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select className="em-chip" value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))} style={{color:st?.text}}>
+              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+            {accounts.length>0&&(
+              <select className="em-chip" title="登録先" value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))} style={{color:"#b45309"}}>
                 {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
-            </div>
-          )}
-          <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
-            style={{border:BD,borderRadius:8,padding:"4px 8px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none"}}/>
+            )}
+            <input className="em-chip" type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))} style={{color:"#555",fontWeight:600}}/>
+          </div>
           <div style={{flex:1}}/>
-          <button onClick={saveToNotion} disabled={notionState==="saving"}
-            style={{
-              background:notionState==="done"?"#00ba7c":notionState==="error"?"#ef4444":notionState==="saving"?"#9ca3af":"#000",
-              color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,
-              cursor:notionState==="saving"?"default":"pointer",whiteSpace:"nowrap",
-              transition:"background .2s",display:"flex",alignItems:"center",gap:5,
-            }}>
-            {notionState==="saving"?"⏳ 保存中…":notionState==="done"?"✅ Notion保存完了":notionState==="error"?"❌ 保存失敗":<>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952L12.21 19s0 .84-1.168.84l-3.222.186c-.093-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.456-.233 4.764 7.279v-6.44l-1.215-.14c-.093-.514.28-.887.747-.933zM1.936 1.035l13.31-.98c1.634-.14 2.055-.047 3.082.7l4.249 2.986c.7.513.934.653.934 1.213v16.378c0 1.026-.373 1.634-1.68 1.726l-15.458.934c-.98.047-1.448-.093-1.962-.747l-3.129-4.06c-.56-.747-.793-1.306-.793-1.96V2.667c0-.839.374-1.54 1.447-1.632z"/></svg>
-              Notionに保存
-            </>}
-          </button>
-          <button onClick={saveLocalFile}
-            style={{
-              background:localState==="done"?"#00ba7c":localState==="error"?"#ef4444":"#4b5563",
-              color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,
-              cursor:"pointer",whiteSpace:"nowrap",
-              transition:"background .2s",display:"flex",alignItems:"center",gap:5,
-            }}>
-            {localState==="done"?"✅ 保存完了":localState==="error"?"❌ 失敗":"💾 ローカルに保存"}
-          </button>
-          <button onClick={()=>doCopy("note")} style={{background:copyNote?"#00ba7c":"#41c9b4",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyNote?"✅ 完了":"note にコピー"}</button>
-          <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"✅ 完了":"𝕏 にコピー"}</button>
           <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
-          <div style={{width:1,height:20,background:"#e6dfd6"}}/>
-          <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
-          <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"6px 11px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer"}}>✕</button>
+          <button className="em-btn" onClick={()=>doCopy("x")} style={copyX?{background:"#ecfdf5",borderColor:"#6ee7b7",color:"#059669"}:undefined}>{copyX?"コピーしました":"コピー"}</button>
+          <MoreMenu items={[
+            {label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"},
+            {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
+          ]}/>
+          <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
+          <button className="em-icon" onClick={onClose} title="閉じる（Esc）" aria-label="閉じる">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
+          </button>
         </div>}
+        <style>{`
+          .em-chip{appearance:none;-webkit-appearance:none;border:none;background-color:transparent;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;outline:none;max-width:180px}
+          select.em-chip{padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2710%27 height=%2710%27 viewBox=%270 0 10 10%27%3E%3Cpath d=%27M2 3.5l3 3 3-3%27 fill=%27none%27 stroke=%27%23a8a09a%27 stroke-width=%271.5%27 stroke-linecap=%27round%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
+          .em-chip:hover,.em-chip:focus-visible{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+          .em-btn{background:#fff;border:1px solid #e6dfd6;border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;color:#4b4540;cursor:pointer;white-space:nowrap;font-family:inherit}
+          .em-btn:hover{border-color:#d4cbbf;background:#faf7f3}
+          .em-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:none;border-radius:9px;color:#a8a09a;cursor:pointer;flex-shrink:0}
+          .em-icon:hover{background:#f5f0eb;color:#4b4540}
+        `}</style>
 
         {/* 本体 */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
@@ -231,11 +255,11 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           </div>
 
           {/* アイコン列（細い幅では上の「本文／メモ」で切り替えるため出さない） */}
-          {!compact&&<div style={{width:50,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-            <SideIcon id="meta" icon="📝" label="メモ" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="search" icon="🔍" label="検索" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="history" icon="📋" label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="share" icon="🔗" label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+          {!compact&&<div style={{width:58,borderLeft:"1px solid #e6dfd6",background:"#fcfaf8",display:"flex",flexDirection:"column",flexShrink:0,paddingTop:6}}>
+            <SideIcon id="meta" icon={ICONS.memo} label="メモ" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="search" icon={ICONS.search} label="検索" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="history" icon={ICONS.history} label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+            <SideIcon id="share" icon={ICONS.share} label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
           </div>}
 
           {/* サイドパネル展開 */}

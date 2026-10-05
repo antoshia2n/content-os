@@ -343,12 +343,12 @@ export function fallbackCopy(plain,onDone){
 export function SideIcon({id,icon,label,sidePanel,setSidePanel}){
   const active=sidePanel===id;
   return(
-    <button onClick={()=>setSidePanel(active?null:id)} title={label}
-      style={{...S.col,alignItems:"center",gap:2,padding:"10px 0",border:"none",background:active?"#fef3c7":"none",color:active?"#d97706":"#bbb",cursor:"pointer",width:"100%",borderLeft:active?"3px solid #f59e0b":"3px solid transparent",transition:"all .1s",fontFamily:"inherit"}}
-      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#f5f0eb";e.currentTarget.style.color="#666";}}}
-      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#bbb";}}}>
-      <span style={{fontSize:"1.1em"}}>{icon}</span>
-      <span style={{fontSize:"0.52em",fontWeight:600}}>{label}</span>
+    <button onClick={()=>setSidePanel(active?null:id)} title={label} aria-pressed={active}
+      style={{...S.col,alignItems:"center",gap:4,padding:"9px 0 8px",margin:"2px 6px",border:"none",borderRadius:10,background:active?"#fef3c7":"none",color:active?"#b45309":"#a8a09a",cursor:"pointer",transition:"background .12s,color .12s",fontFamily:"inherit"}}
+      onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#f5f0eb";e.currentTarget.style.color="#4b4540";}}}
+      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#a8a09a";}}}>
+      {typeof icon==="string"?<span style={{fontSize:"1.1em"}}>{icon}</span>:icon}
+      <span style={{fontSize:10,fontWeight:700,letterSpacing:".02em"}}>{label}</span>
     </button>
   );
 }

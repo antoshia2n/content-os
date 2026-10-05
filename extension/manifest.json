@@ -2,11 +2,32 @@
   "manifest_version": 3,
   "name": "コンテンツくん",
   "description": "どのページからでも、サイドパネルでコンテンツくんを開く（ネタを足す・今後 7 日・1 行を開いて書く）",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minimum_chrome_version": "116",
-  "permissions": ["sidePanel"],
-  "host_permissions": ["https://content-os.shia2n.jp/*"],
-  "background": { "service_worker": "background.js" },
-  "side_panel": { "default_path": "panel.html" },
-  "action": { "default_title": "コンテンツくんを開く" }
+  "permissions": [
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://content-os.shia2n.jp/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "action": {
+    "default_title": "コンテンツくんを開く",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
