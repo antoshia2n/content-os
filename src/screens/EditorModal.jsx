@@ -13,7 +13,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [localState,setLocalState]=useState("idle");   // idle | done | error
   const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
-  const [sidePanel,setSidePanel]=useState(null);
+  const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":null);
   const [sideW,setSideW]=useState(248);
   const dragging=useRef(false);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null);
@@ -227,12 +227,12 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
                 {sidePanel==="meta"&&(
                   <div style={{...S.col,gap:12}}>
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>ラベル</label>
-                      <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
+                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
+                      <MemoEditor memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
                     </div>
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
-                      <MemoEditor memo={draft.memo} memoLinks={draft.memoLinks} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
+                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>ラベル</label>
+                      <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
                     </div>
                     {(draft.comments||[]).length>0&&(
                       <div>

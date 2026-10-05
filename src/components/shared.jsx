@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { BD, BD2, S, COLORS, isUrl } from "../constants.js";
+import { indentLines, handleEnter, handleBackspace, handlePaste, insertBullet as insertBulletText, isComposingKey } from "../lib/memoList.js";
 
 export function TagSelector({
   // 表示用
@@ -196,7 +197,80 @@ export function LabelEditor({labels,onChange}){
   );
 }
 
-export function MemoEditor({memo,memoLinks,onChange}){
+// メモ欄の入力欄（Notion と同じ手つきの箇条書き）。MemoEditor と PreviewOverlay の両方で使う
+export const MEMO_PLACEHOLDER="Tab で下げる・Shift+Tab で上げる・Enter で続ける";
+export function MemoTextarea({value,onChange,textareaRef,autoFocus=false,style}){
+  const innerRef=useRef(null);
+  const ref=textareaRef||innerRef;
+  const composing=useRef(false);
+  const pendingSel=useRef(null);
+  const text=value||"";
+
+  // 中身に合わせて伸ばす（最小 8 行・最大は画面の高さの 6 割）
+  useLayoutEffect(()=>{
+    const el=ref.current;if(!el)return;
+    const lh=parseFloat(getComputedStyle(el).lineHeight)||20;
+    const pad=parseFloat(getComputedStyle(el).paddingTop)+parseFloat(getComputedStyle(el).paddingBottom)+2;
+    const min=lh*8+pad, max=window.innerHeight*0.6;
+    el.style.height="auto";
+    const h=Math.max(min,Math.min(el.scrollHeight+2,max));
+    el.style.height=h+"px";
+    el.style.overflowY=el.scrollHeight+2>max?"auto":"hidden";
+    if(pendingSel.current){const {start,end}=pendingSel.current;pendingSel.current=null;el.setSelectionRange(start,end);}
+  },[text]);
+
+  useEffect(()=>{
+    if(!autoFocus)return;
+    const el=ref.current;if(!el)return;
+    const t=setTimeout(()=>{el.focus();const n=el.value.length;el.setSelectionRange(n,n);},0);
+    return()=>clearTimeout(t);
+  },[autoFocus]);
+
+  const apply=r=>{
+    if(!r)return false;
+    pendingSel.current={start:r.start,end:r.end};
+    if(r.text===text){const el=ref.current;if(el){el.setSelectionRange(r.start,r.end);}pendingSel.current=null;}
+    else onChange(r.text);
+    return true;
+  };
+
+  return(
+    <textarea ref={ref} value={text} rows={8}
+      onChange={e=>onChange(e.target.value)}
+      onCompositionStart={()=>{composing.current=true;}}
+      onCompositionEnd={()=>{composing.current=false;}}
+      onKeyDown={e=>{
+        if(isComposingKey(e,composing))return;
+        const el=e.currentTarget;
+        const s=el.selectionStart,en=el.selectionEnd;
+        if(e.key==="Tab"){
+          e.preventDefault();
+          apply(indentLines(text,s,en,e.shiftKey));
+          return;
+        }
+        if(e.key==="Enter"&&!e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
+          const r=handleEnter(text,s,en);
+          if(r){e.preventDefault();apply(r);}
+          return;
+        }
+        if(e.key==="Backspace"&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
+          const r=handleBackspace(text,s,en);
+          if(r){e.preventDefault();apply(r);}
+        }
+      }}
+      onPaste={e=>{
+        const raw=e.clipboardData?.getData("text/plain")||"";
+        const el=e.currentTarget;
+        const r=handlePaste(text,el.selectionStart,el.selectionEnd,raw);
+        if(r){e.preventDefault();apply(r);}
+      }}
+      placeholder={MEMO_PLACEHOLDER}
+      style={{width:"100%",background:"#fff",border:BD,borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"none",lineHeight:1.7,...style}}
+      onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+  );
+}
+
+export function MemoEditor({memo,memoLinks,onChange,autoFocus=false}){
   const [linkInput,setLinkInput]=useState("");
   const [labelInput,setLabelInput]=useState("");
   const textareaRef=useRef(null);
@@ -212,14 +286,9 @@ export function MemoEditor({memo,memoLinks,onChange}){
 
   const insertBullet=()=>{
     const el=textareaRef.current;if(!el)return;
-    const start=el.selectionStart,end=el.selectionEnd;
-    const before=memo.slice(0,start),after=memo.slice(end);
-    const lineStart=before.lastIndexOf("\n")+1;
-    const linePrefix=before.slice(lineStart);
-    const insert=linePrefix.startsWith("・")?"":"\n・";
-    const next=before+(start===0?"・":insert)+after;
-    onChange({memo:next,memoLinks:links});
-    setTimeout(()=>{el.focus();const pos=start+(start===0?1:insert.length);el.setSelectionRange(pos,pos);},0);
+    const r=insertBulletText(memo||"",el.selectionStart,el.selectionEnd);
+    onChange({memo:r.text,memoLinks:links});
+    setTimeout(()=>{el.focus();el.setSelectionRange(r.start,r.end);},0);
   };
 
   return(
@@ -231,50 +300,8 @@ export function MemoEditor({memo,memoLinks,onChange}){
           ・ 箇条書き
         </button>
       </div>
-      <textarea ref={textareaRef} value={memo}
-        onChange={e=>onChange({memo:e.target.value,memoLinks:links})}
-        onCompositionStart={()=>{composing.current=true;}}
-        onCompositionEnd={()=>{composing.current=false;}}
-        onKeyDown={e=>{
-          if(composing.current)return;
-          if(e.key==="Tab"){
-            e.preventDefault();
-            const el=e.currentTarget;
-            const start=el.selectionStart,end=el.selectionEnd;
-            const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
-            const lineEnd=memo.indexOf("\n",start);
-            const line=memo.slice(lineStart,lineEnd===-1?undefined:lineEnd);
-            if(line.trimStart().startsWith("・")){
-              // 行頭に全角スペースを追加（インデント）
-              const indent=e.shiftKey?"":"　";
-              const dedent=e.shiftKey&&line.startsWith("　");
-              const newLine=dedent?line.slice(1):indent+line;
-              const next=memo.slice(0,lineStart)+newLine+memo.slice(lineEnd===-1?memo.length:lineEnd);
-              onChange({memo:next,memoLinks:links});
-              const diff=dedent?-1:indent.length;
-              setTimeout(()=>{el.focus();el.setSelectionRange(start+diff,start+diff);},0);
-            } else {
-              const next=memo.slice(0,start)+"　"+memo.slice(end);
-              onChange({memo:next,memoLinks:links});
-              setTimeout(()=>{el.focus();el.setSelectionRange(start+1,start+1);},0);
-            }
-            return;
-          }
-          if(e.key==="Enter"){
-            const el=e.currentTarget;
-            const start=el.selectionStart;
-            const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
-            if(memo.slice(lineStart,lineStart+1)==="・"){
-              e.preventDefault();
-              const next=memo.slice(0,start)+"\n・"+memo.slice(start);
-              onChange({memo:next,memoLinks:links});
-              setTimeout(()=>{el.focus();el.setSelectionRange(start+2,start+2);},0);
-            }
-          }
-        }}
-        placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"} rows={4}
-        style={{width:"100%",background:"#fff",border:BD,borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"vertical",lineHeight:1.7}}
-        onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+      <MemoTextarea value={memo} textareaRef={textareaRef} autoFocus={autoFocus}
+        onChange={v=>onChange({memo:v,memoLinks:links})}/>
       {links.length>0&&(
         <div style={{...S.col,gap:3,maxHeight:180,overflowY:"auto"}}>
           {links.map((l,i)=>(

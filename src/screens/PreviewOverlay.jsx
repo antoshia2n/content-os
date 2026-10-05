@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, fmtTime, stripHtml, isUrl, genId, nowStr } from "../constants.js";
-import { TagSelector, LabelEditor, MemoEditor, CopyBtn, Btn } from "../components/shared.jsx";
+import { TagSelector, LabelEditor, MemoEditor, MemoTextarea, CopyBtn, Btn } from "../components/shared.jsx";
+import { insertBullet as insertBulletText } from "../lib/memoList.js";
 import { RepostModal } from "../components/modals.jsx";
 
 export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew,allLabels=[],allPostTypes=POST_TYPE,onAddPostType}){
@@ -60,17 +61,11 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
 
   // メモ箇条書き挿入
   const memoRef=useRef(null);
-  const memoComposing=useRef(false);
   const insertBullet=()=>{
     const el=memoRef.current;if(!el)return;
-    const start=el.selectionStart,end=el.selectionEnd;
-    const before=memo.slice(0,start),after=memo.slice(end);
-    const lineStart=before.lastIndexOf("\n")+1;
-    const linePrefix=before.slice(lineStart);
-    const insert=linePrefix.startsWith("・")?"":"\n・";
-    const next=before+(start===0?"・":insert)+after;
-    setMemo(next);setMetaDirty(true);
-    setTimeout(()=>{el.focus();const pos=start+(start===0?1:insert.length);el.setSelectionRange(pos,pos);},0);
+    const r=insertBulletText(memo,el.selectionStart,el.selectionEnd);
+    setMemo(r.text);setMetaDirty(true);
+    setTimeout(()=>{el.focus();el.setSelectionRange(r.start,r.end);},0);
   };
 
   const handleSaveMeta=()=>{
@@ -256,49 +251,9 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                   ・ 箇条書き
                 </button>
               </div>
-              <textarea ref={memoRef} value={memo}
-                onChange={e=>{setMemo(e.target.value);setMetaDirty(true);}}
-                onCompositionStart={()=>{memoComposing.current=true;}}
-                onCompositionEnd={()=>{memoComposing.current=false;}}
-                rows={5}
-                placeholder={"執筆の意図・注意点など\n・箇条書きも使えます"}
-                onKeyDown={e=>{
-                  if(memoComposing.current)return;
-                  if(e.key==="Tab"){
-                    e.preventDefault();
-                    const el=e.currentTarget;
-                    const start=el.selectionStart,end=el.selectionEnd;
-                    const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
-                    const lineEnd=memo.indexOf("\n",start);
-                    const line=memo.slice(lineStart,lineEnd===-1?undefined:lineEnd);
-                    if(line.trimStart().startsWith("・")){
-                      const dedent=e.shiftKey&&line.startsWith("　");
-                      const newLine=dedent?line.slice(1):"　"+line;
-                      const next=memo.slice(0,lineStart)+newLine+memo.slice(lineEnd===-1?memo.length:lineEnd);
-                      setMemo(next);setMetaDirty(true);
-                      const diff=dedent?-1:1;
-                      setTimeout(()=>{el.focus();el.setSelectionRange(start+diff,start+diff);},0);
-                    } else {
-                      const next=memo.slice(0,start)+"　"+memo.slice(end);
-                      setMemo(next);setMetaDirty(true);
-                      setTimeout(()=>{el.focus();el.setSelectionRange(start+1,start+1);},0);
-                    }
-                    return;
-                  }
-                  if(e.key==="Enter"){
-                    const el=e.currentTarget;
-                    const start=el.selectionStart;
-                    const lineStart=memo.slice(0,start).lastIndexOf("\n")+1;
-                    if(memo.slice(lineStart,lineStart+1)==="・"){
-                      e.preventDefault();
-                      const next=memo.slice(0,start)+"\n・"+memo.slice(start);
-                      setMemo(next);setMetaDirty(true);
-                      setTimeout(()=>{el.focus();el.setSelectionRange(start+2,start+2);},0);
-                    }
-                  }
-                }}
-                style={{width:"100%",border:BD,borderRadius:8,padding:"7px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box",resize:"vertical",lineHeight:1.7,background:"#fff"}}
-                onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
+              <MemoTextarea value={memo} textareaRef={memoRef} autoFocus={post.status==="idea"}
+                onChange={v=>{setMemo(v);setMetaDirty(true);}}
+                style={{padding:"7px 9px",fontSize:"0.77em"}}/>
             </div>
 
             {/* リンク */}
