@@ -54,6 +54,12 @@ const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 // 「全アカウント」を表す内部キー（アカウントIDと衝突しない値）
 const ALL_ACC="__all__";
 
+
+// 画面の切り替えの並び。ボタンと C キーの回る順は、この一覧 1 つから作る。
+// 2026-10-05 段 3：週・シート・成績の 3 つにした。月 ["month","月"] とリスト ["list","リスト"] の
+// 画面のコード（MonthView・ListView）は残してあるので、戻すときはこの一覧に足すだけでよい。
+const VIEWS=[["calendar","週"],["sheet","シート"],["metrics","成績"]];
+
 function App({uid}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
@@ -212,7 +218,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>v==="calendar"?"month":v==="month"?"list":v==="list"?"metrics":v==="metrics"?"sheet":"calendar");break;
+        case"c":case"C": e.preventDefault();setView(v=>{const i=VIEWS.findIndex(([k])=>k===v);return VIEWS[(i+1)%VIEWS.length][0];});break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -259,7 +265,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   if(loading)return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:22,fontWeight:900,color:"#111",marginBottom:10,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:22,fontWeight:900,color:"#111",marginBottom:10,letterSpacing:"0"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></div>
         <div style={{width:32,height:2,background:"#e6dfd6",borderRadius:99,margin:"0 auto",overflow:"hidden"}}>
           <div style={{width:"60%",height:"100%",background:"#f59e0b",borderRadius:99,animation:"slide 1s infinite"}}/>
         </div>
@@ -330,7 +336,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── ヘッダー ── */}
       <div style={{background:"#fff",borderBottom:BD2,padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
-        <span style={{fontWeight:900,fontSize:16,letterSpacing:"-0.6px",flexShrink:0,color:"#111"}}>Content<span style={{color:"#f59e0b"}}>OS</span></span>
+        <span style={{fontWeight:900,fontSize:16,letterSpacing:"0",flexShrink:0,color:"#111"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></span>
         <div style={{width:1,height:18,background:"#e6dfd6",flexShrink:0,marginLeft:2}}/>
 
         {/* 管理者：アカウントタブ */}
@@ -376,7 +382,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <span style={{fontSize:9.5,color:"#bbb",background:"#fff",border:BD2,borderRadius:4,padding:"1px 4px"}}>⌘K</span>
           </button>
           <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:1,flexShrink:0,border:BD2}}>
-            {[["calendar","週"],["month","月"],["list","リスト"],["metrics","成績"],["sheet","シート"]].map(([v,l])=>(
+            {VIEWS.map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#111":"#a8a09a",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",transition:"all .12s"}}>{l}</button>
             ))}
           </div>
@@ -839,7 +845,7 @@ function PortalAuthWrapper({children}){
   if(state==="loading") return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:12,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:12,letterSpacing:"0"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></div>
         <div style={{width:32,height:2,background:"#e6dfd6",borderRadius:99,margin:"0 auto",overflow:"hidden"}}>
           <div style={{width:"60%",height:"100%",background:"#f59e0b",borderRadius:99,animation:"slide 1s infinite"}}/>
         </div>
@@ -851,7 +857,7 @@ function PortalAuthWrapper({children}){
   if(state==="unauthed") return(
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{background:"#fff",borderRadius:16,padding:"44px 48px",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.08)",maxWidth:360,width:"100%",border:BD2}}>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:4,letterSpacing:"-0.8px"}}>Content<span style={{color:"#f59e0b"}}>OS</span></div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:4,letterSpacing:"0"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></div>
         <div style={{fontSize:12.5,color:"#a8a09a",marginBottom:32}}>コンテンツ管理ツール</div>
         <button
           onClick={()=>signInWithPopup(auth,googleProvider).catch(console.error)}
