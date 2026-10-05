@@ -114,6 +114,40 @@ function App({uid,panel=false}){
   const [showNotifySettings, setShowNotifySettings] = useState(false);
   const [notifySettings,     setNotifySettings]     = useState(null);
   const [showExport,         setShowExport]         = useState(null);
+  // 2026-10-06：同じ端末で開いているほかの画面（サイドパネルと広い画面など）と食い違わないようにする。
+  // 自分で投稿を変えたら「変わった」を知らせ、受け取った側は表から読み直す。読み直しで変わった分は知らせ返さない
+  const syncCh=useRef(null);
+  const fromRemote=useRef(false);
+  const firstPosts=useRef(true);
+  const allPostsRef=useRef(allPosts);allPostsRef.current=allPosts;
+  useEffect(()=>{
+    if(typeof BroadcastChannel==="undefined"||!uid)return;
+    const ch=new BroadcastChannel("contentos-posts");
+    syncCh.current=ch;
+    let timer=null;
+    ch.onmessage=e=>{
+      if(e.data?.type!=="posts-changed"||e.data.uid!==uid)return;
+      clearTimeout(timer);
+      timer=setTimeout(async()=>{
+        const ids=_isClient?Object.keys(allPostsRef.current):accounts.map(a=>a.id);
+        if(!ids.length)return;
+        const {data}=await dbFetchPosts(uid,ids);
+        if(!data)return;
+        const grouped={};ids.forEach(id=>{grouped[id]=[];});
+        data.forEach(p=>{(grouped[p.account_id]=grouped[p.account_id]||[]).push(dbToPost(p));});
+        fromRemote.current=true;
+        setAllPosts(grouped);
+      },300);
+    };
+    return()=>{clearTimeout(timer);ch.close();syncCh.current=null;};
+  },[uid,accounts]);
+  useEffect(()=>{
+    if(firstPosts.current){if(Object.keys(allPosts).length)firstPosts.current=false;return;}
+    if(fromRemote.current){fromRemote.current=false;return;}
+    const t=setTimeout(()=>{try{syncCh.current?.postMessage({type:"posts-changed",uid});}catch{/* 知らせられなくても動く */}},400);
+    return()=>clearTimeout(t);
+  },[allPosts]);
+
   // 段 5：本文・メモ・締めの型。読めなくても他の動きは止めない
   // 編集画面は使う見込みが高いので、起動の 1.5 秒後に裏で先に読んでおく（開いた瞬間に待たないため）
   useEffect(()=>{const t=setTimeout(()=>{loadEditor().catch(()=>{});},1500);return()=>clearTimeout(t);},[]);
