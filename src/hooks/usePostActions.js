@@ -203,7 +203,7 @@ export function usePostActions({
   }, [today, activeAccId, setPreview]);
 
   return {
-    saveToDb, save, del, changeStatus, changePostType,
+    saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
     addCustomPostType, handleDrop, openNew, setDatetime,
   };

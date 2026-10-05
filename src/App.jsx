@@ -56,6 +56,16 @@ const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 // 「全アカウント」を表す内部キー（アカウントIDと衝突しない値）
 const ALL_ACC="__all__";
 
+// 2026-10-05：空のまま閉じたネタ（状態 idea で、題名・メモ・本文・メモのリンク・MM がすべて空）を見分ける。
+// 本文は入れ物のタグや空白だけでも空とみなす
+function isEmptyIdea(p){
+  if(!p||p.status!=="idea")return false;
+  const blank=v=>!String(v||"").replace(/&nbsp;|\u00a0/g," ").trim();
+  const bodyText=String(p.body||"").replace(/<[^>]*>/g,"");
+  const links=p.memoLinks||p.memo_links||[];
+  return blank(p.title)&&blank(p.memo)&&blank(bodyText)&&links.length===0&&blank(p.mm_url);
+}
+
 
 // 画面の切り替えの並び。ボタンと C キーの回る順は、この一覧 1 つから作る。
 // 2026-10-05 段 3：週・シート・成績の 3 つにした。月 ["month","月"] とリスト ["list","リスト"] の
@@ -152,7 +162,7 @@ function App({uid,panel=false}){
 // 種別で絞っているときは予約枠も同じ種別だけ出す（設定画面の一覧は絞らない）
 const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s=>(s.postType||"x_post")===filterPlatform),[slots,filterPlatform]);
   const {
-    saveToDb, save, del, changeStatus, changePostType,
+    saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
     addCustomPostType, handleDrop, openNew, setDatetime,
   } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
@@ -181,6 +191,19 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       addingIdea.current=false;
     }
   },[uid,targetAccId,showToast,setAllPosts]);
+
+  // 編集画面を保存せずに閉じたとき、開いていた投稿が空のネタなら確認なしで消す。
+  // 判定は手元の一覧にある保存済みの中身で行う（画面で書いて保存しなかった中身は、もともと閉じると捨てられる）
+  const closeEditor=React.useCallback(async()=>{
+    const cur=editing;
+    setEditing(null);
+    if(!cur?.id)return;
+    const saved=Object.values(allPosts).flat().find(x=>x.id===cur.id);
+    if(!saved||!isEmptyIdea(saved))return;
+    const {error}=await dbDeletePost(saved.id);
+    if(error){showToast("空のネタを消せませんでした");return;}
+    removePost(saved.id);
+  },[editing,allPosts,removePost,showToast]);
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -769,7 +792,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={allPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
