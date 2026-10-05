@@ -633,7 +633,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         />
       )}
 
-      {view==="sheet"&&<SheetView uid={uid} accountIds={isAllAccounts?switchableAccounts.map(a=>a.id):[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/> }
+      {view==="sheet"&&<SheetView uid={uid} accountIds={isAllAccounts?switchableAccounts.map(a=>a.id):[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/> }
 
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
       {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}

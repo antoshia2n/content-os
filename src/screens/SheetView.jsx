@@ -29,8 +29,8 @@ function CellSelect({value,label,disabled,onSave,style,children,options}) {
   const [editing,setEditing]=useState(false);
   return editing?<select autoFocus className="cell-input" aria-label={label} disabled={disabled} value={value} onBlur={()=>setEditing(false)} onKeyDown={e=>{if(e.key==='Escape')setEditing(false);}} onChange={e=>{onSave(e.target.value);setEditing(false);}}>{options}</select>:<button className="sheet-pill" aria-label={`${label}を選ぶ`} disabled={disabled} style={style} onClick={()=>setEditing(true)}>{children}</button>;
 }
-function TitleCell({row,onEdit,onSave,disabled}) {
-  return <div className="title-cell"><CellText value={row.title} label="タイトル" placeholder="（タイトルなし）" className="title-text" disabled={disabled} onSave={onSave}/><button className="row-edit" onClick={()=>onEdit(row.id)}>編集</button></div>;
+function TitleCell({row,onEdit,onDelete,onSave,disabled}) {
+  return <div className="title-cell"><CellText value={row.title} label="タイトル" placeholder="（タイトルなし）" className="title-text" disabled={disabled} onSave={onSave}/><button className="row-edit" onClick={()=>onEdit(row.id)}>編集</button>{onDelete&&<button className="row-delete" aria-label="この行を削除する" disabled={disabled} onClick={()=>onDelete(row)}>削除</button>}</div>;
 }
 function datePresentation(value) {
   if(!value)return {label:'日付を入れる',color:'#b8afa5'};
@@ -42,7 +42,7 @@ function weekPresentation(key) {
   end.setDate(end.getDate()+6);today.setDate(today.getDate()-((today.getDay()+6)%7));
   return {label:`${start.getMonth()+1}/${start.getDate()} 〜 ${end.getMonth()+1}/${end.getDate()}`,current:key===fmtDate(today)};
 }
-export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revision,onChanged,onEdit}) {
+export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revision,onChanged,onEdit,onDelete}) {
   const [tab,setTab]=useState('schedule'),[month,setMonth]=useState(()=>fmtDate(new Date()).slice(0,7));
   const [groupBy,setGroupBy]=useState('week'),[status,setStatus]=useState('all'),[search,setSearch]=useState(''),[query,setQuery]=useState('');
   const [genres,setGenres]=useState([]),[groups,setGroups]=useState([]),[rows,setRows]=useState([]),[expanded,setExpanded]=useState({}),[groupRows,setGroupRows]=useState({});
@@ -137,7 +137,7 @@ export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revisi
       <td><CellSelect label="投稿タイプ" disabled={disabled} value={row.post_type} style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`}} onSave={v=>update(row,{post_type:v})} options={<>{!postTypes[row.post_type]&&<option value={row.post_type}>{row.post_type}</option>}{Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</>}>{postTypes[row.post_type]?.label||row.post_type||pt.label}</CellSelect></td>
       <td><CellSelect label="ジャンル" disabled={disabled} value={row.genre||''} style={{background:row.genre?'#f5f0eb':'transparent',color:row.genre?'#555':'#b8afa5',border:row.genre?'1px solid transparent':BD2}} onSave={v=>update(row,{genre:v||null})} options={<><option value="">＋ ジャンル</option>{row.genre&&!genres.some(g=>g.name===row.genre)&&<option value={row.genre}>{row.genre}（未登録）</option>}{genres.map(g=><option key={g.id} value={g.name}>{g.name}</option>)}</>}>{row.genre||'＋ ジャンル'}</CellSelect></td>
       <td className="theme-cell"><CellText value={row.theme} label="テーマ" placeholder="テーマ" disabled={disabled} onSave={v=>update(row,{theme:v})}/></td>
-      <td><TitleCell row={row} disabled={disabled} onEdit={onEdit} onSave={v=>update(row,{title:v})}/></td>
+      <td><TitleCell row={row} disabled={disabled} onEdit={onEdit} onDelete={onDelete} onSave={v=>update(row,{title:v})}/></td>
       <td><div className="mm-cell">{row.mm_url&&<a className="sheet-pill mm-pill" href={row.mm_url} target="_blank" rel="noopener noreferrer">MM</a>}<CellText value={row.mm_url} label="MMの住所" placeholder="＋" className={row.mm_url?'mm-edit':'mm-add'} disabled={disabled} onSave={v=>update(row,{mm_url:v})}>{row.mm_url?'変更':'＋'}</CellText></div></td>
       <td><div className="flow-cell">{row.status!=='idea'&&row.datetime&&<span className="sheet-pill sheet-flow">シート</span>}{(!seminar.length||seminar.includes(row.post_type))?<button className={`sheet-pill manabu-pill ${row.manabu?'is-on':''}`} aria-label="学ぶくん" aria-pressed={!!row.manabu} disabled={disabled} onClick={()=>update(row,{manabu:!row.manabu})}>学ぶ</button>:row.manabu&&<span className="sheet-pill manabu-pill is-on">学ぶ</span>}</div></td>
     </tr>;
@@ -181,8 +181,10 @@ export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revisi
       .content-sheet .title-cell{display:flex;align-items:center;gap:6px;min-width:0}
       .content-sheet .title-text{font-size:12.5px;font-weight:700;min-width:0;flex:1}
       .content-sheet .row-edit{visibility:hidden;border:0;background:#f59e0b;color:#fff;border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;flex-shrink:0}
-      .content-sheet tr[data-sheet-row]:hover .row-edit,.content-sheet tr[data-sheet-row]:focus-within .row-edit,.content-sheet .row-edit:focus{visibility:visible}
-      @media (hover:none){.content-sheet .row-edit{visibility:visible}}
+      .content-sheet .row-delete{visibility:hidden;border:1px solid #e8dfd6;background:#fff;color:#b8afa5;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;flex-shrink:0;cursor:pointer}
+      .content-sheet .row-delete:hover,.content-sheet .row-delete:focus{color:#ef4444;border-color:#fca5a5}
+      .content-sheet tr[data-sheet-row]:hover .row-edit,.content-sheet tr[data-sheet-row]:focus-within .row-edit,.content-sheet .row-edit:focus,.content-sheet tr[data-sheet-row]:hover .row-delete,.content-sheet tr[data-sheet-row]:focus-within .row-delete,.content-sheet .row-delete:focus{visibility:visible}
+      @media (hover:none){.content-sheet .row-edit,.content-sheet .row-delete{visibility:visible}}
       .content-sheet .mm-cell,.content-sheet .flow-cell{display:flex;align-items:center;gap:5px}
       .content-sheet .flow-cell{justify-content:flex-end}
       .content-sheet .mm-pill{color:#7c3aed;background:#ede9fe;border:1px solid #c4b5fd}
