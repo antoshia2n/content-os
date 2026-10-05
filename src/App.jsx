@@ -14,7 +14,7 @@ import {
 } from "./constants.js";
 import {
   dbFetchAccounts, dbInsertAccount, dbUpdateAccount, dbDeleteAccount, dbFetchAllAccounts,
-  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost,
+  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbAddSheetIdea,
   supabase,
 } from "./lib/supabase.js";
 import {
@@ -143,6 +143,25 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
     setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts });
 
+  // N キー：ネタ帳と同じ処理でアイデアを 1 件足し、そのまま編集画面を出す（メモ欄にカーソル）
+  const addingIdea=useRef(false);
+  const addIdeaAndEdit=React.useCallback(async()=>{
+    if(addingIdea.current)return;
+    if(!uid||!targetAccId){showToast("ネタを足すアカウントが決まっていません");return;}
+    addingIdea.current=true;
+    try{
+      const row=await dbAddSheetIdea(uid,targetAccId,genId());
+      const p=dbToPost(row);
+      setAllPosts(prev=>({...prev,[p.account_id]:[...(prev[p.account_id]||[]).filter(x=>x.id!==p.id),p]}));
+      setPreview(null);
+      setEditing({...p});
+    }catch(e){
+      showToast("ネタを足せませんでした");
+    }finally{
+      addingIdea.current=false;
+    }
+  },[uid,targetAccId,showToast]);
+
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
     await supabase.from("notification_settings").upsert({...s,account_id:targetAccId});
@@ -184,7 +203,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||e.target.contentEditable==="true")return;
       if(e.metaKey||e.ctrlKey||e.altKey)return;
       switch(e.key){
-        case"n":case"N": e.preventDefault();openNew();break;
+        // N：ネタ（アイデア）を足してメモ欄から書き始める／Shift+N：今までどおりの下書き
+        case"n": e.preventDefault();addIdeaAndEdit();break;
+        case"N": e.preventDefault();openNew();break;
         case"ArrowLeft":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()-7);return x;});}
           break;
@@ -200,7 +221,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       }
     };
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[view,preview,openNew]);
+  },[view,preview,openNew,addIdeaAndEdit]);
 
   const postsBySlot=React.useMemo(()=>{
     const m={};

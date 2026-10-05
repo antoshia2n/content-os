@@ -251,8 +251,9 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                   ・ 箇条書き
                 </button>
               </div>
-              <MemoTextarea value={memo} textareaRef={memoRef} autoFocus={post.status==="idea"}
+              <MemoTextarea value={memo} textareaRef={memoRef}
                 onChange={v=>{setMemo(v);setMetaDirty(true);}}
+                onPasteUrl={url=>{setMemoLinks(prev=>prev.some(l=>l.url===url)?prev:[...prev,{label:"",url}]);setMetaDirty(true);}}
                 style={{padding:"7px 9px",fontSize:"0.77em"}}/>
             </div>
 

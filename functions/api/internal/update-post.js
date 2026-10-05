@@ -73,6 +73,17 @@ export async function onRequestPost(context) {
     }
   }
 
+  // mm_url：マインドマップ（Whimsical など）の住所。空の文字か null で空に戻す
+  if ('mm_url' in body) {
+    if (body.mm_url === null || body.mm_url === '') {
+      patch.mm_url = null;
+    } else if (typeof body.mm_url === 'string') {
+      patch.mm_url = body.mm_url.trim();
+    } else {
+      return json({ ok: false, error: 'mm_url must be a string or null' }, 400);
+    }
+  }
+
   if ('labels' in body) {
     if (Array.isArray(body.labels)) patch.labels = body.labels;
     else return json({ ok: false, error: 'labels must be an array' }, 400);
@@ -88,7 +99,7 @@ export async function onRequestPost(context) {
   const params = new URLSearchParams();
   params.set('id', `eq.${body.id}`);
   params.set('user_id', `eq.${body.user_id}`);
-  params.set('select', POST_COLUMNS);
+  params.set('select', `${POST_COLUMNS},memo,mm_url`);
 
   let res;
   try {

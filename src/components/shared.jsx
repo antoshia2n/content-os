@@ -199,7 +199,7 @@ export function LabelEditor({labels,onChange}){
 
 // メモ欄の入力欄（Notion と同じ手つきの箇条書き）。MemoEditor と PreviewOverlay の両方で使う
 export const MEMO_PLACEHOLDER="Tab で下げる・Shift+Tab で上げる・Enter で続ける";
-export function MemoTextarea({value,onChange,textareaRef,autoFocus=false,style}){
+export function MemoTextarea({value,onChange,onPasteUrl,textareaRef,autoFocus=false,style}){
   const innerRef=useRef(null);
   const ref=textareaRef||innerRef;
   const composing=useRef(false);
@@ -260,6 +260,9 @@ export function MemoTextarea({value,onChange,textareaRef,autoFocus=false,style})
       }}
       onPaste={e=>{
         const raw=e.clipboardData?.getData("text/plain")||"";
+        // URL だけの 1 行は本文に入れず、メモのリンクの一覧へ回す
+        const one=raw.trim();
+        if(onPasteUrl&&one&&!/\s/.test(one)&&isUrl(one)){e.preventDefault();onPasteUrl(one);return;}
         const el=e.currentTarget;
         const r=handlePaste(text,el.selectionStart,el.selectionEnd,raw);
         if(r){e.preventDefault();apply(r);}
@@ -301,7 +304,8 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false}){
         </button>
       </div>
       <MemoTextarea value={memo} textareaRef={textareaRef} autoFocus={autoFocus}
-        onChange={v=>onChange({memo:v,memoLinks:links})}/>
+        onChange={v=>onChange({memo:v,memoLinks:links})}
+        onPasteUrl={url=>{if(!links.some(l=>l.url===url))onChange({memo,memoLinks:[...links,{label:"",url}]});}}/>
       {links.length>0&&(
         <div style={{...S.col,gap:3,maxHeight:180,overflowY:"auto"}}>
           {links.map((l,i)=>(
