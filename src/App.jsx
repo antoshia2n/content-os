@@ -195,7 +195,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     if(!cur?.id)return;
     if(cur._unsaved){
       const d=latest&&latest.id===cur.id?latest:cur;
-      if(!hasContent(d))return;
+      if(!hasContent(d)){
+        // 裏の保存で一度表に入ったあと中身を消して閉じた場合は、その行も消す
+        const stored=Object.values(allPosts).flat().find(x=>x.id===cur.id);
+        if(stored){const {error}=await dbDeletePost(cur.id);if(!error)removePost(cur.id);}
+        return;
+      }
       const ok=await saveToDb(markSaved({...d,history:[...(d.history||[]),{at:new Date().toISOString(),note:"閉じたときに保存"}]}));
       if(ok)showToast("ネタを保存しました ✅");
       return;
@@ -206,6 +211,17 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     if(error){showToast("空のネタを消せませんでした");return;}
     removePost(saved.id);
   },[editing,allPosts,removePost,saveToDb,showToast]);
+
+  // 新しいネタの裏の保存。中身があるときだけ表へ書く（空のネタは作らない）。前回と同じ中身なら書かない
+  const lastAuto=useRef("");
+  const autoSaveIdea=React.useCallback(p=>{
+    if(!hasContent(p))return;
+    const clean=markSaved(p);
+    const key=JSON.stringify([clean.id,clean.title,clean.memo,clean.body,clean.memoLinks,clean.mm_url,clean.status,clean.datetime,clean.postType,clean.account_id]);
+    if(key===lastAuto.current)return;
+    lastAuto.current=key;
+    saveToDb(clean);
+  },[saveToDb]);
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -794,7 +810,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={allPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}

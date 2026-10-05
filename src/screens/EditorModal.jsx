@@ -46,11 +46,26 @@ function MoreMenu({items}){
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
-  const close=()=>onClose(draftRef.current);
+  const onCloseRef=useRef(onClose);onCloseRef.current=onClose;
+  const close=()=>onCloseRef.current(draftRef.current);
+  // まだ表に無い新しいネタだけ、書いた中身を 0.8 秒ごとに裏で保存する（パネルやタブごと閉じても残すため）。
+  // 画面が隠れたとき（パネルを閉じる・タブを切り替える）は待たずにすぐ保存する
+  useEffect(()=>{
+    if(!post._unsaved||!onAutoSave)return;
+    const t=setTimeout(()=>onAutoSave(draftRef.current),800);
+    return()=>clearTimeout(t);
+  },[draft]);
+  useEffect(()=>{
+    if(!post._unsaved||!onAutoSave)return;
+    const flush=()=>{if(document.visibilityState==="hidden")onAutoSave(draftRef.current);};
+    const hide=()=>onAutoSave(draftRef.current);
+    document.addEventListener("visibilitychange",flush);window.addEventListener("pagehide",hide);
+    return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",hide);};
+  },[]);
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [localState,setLocalState]=useState("idle");   // idle | done | error
