@@ -120,8 +120,43 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
       {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef}/>}
       <div style={{background:"#fff",borderRadius:compact?0:18,width:"100%",maxWidth:1100,height:compact?"100vh":"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
 
+        {/* ヘッダー（細い幅）：戻る・コピー・保存の 3 つと、種類・状態・登録先・日時だけ */}
+        {compact&&(
+          <div style={{borderBottom:BD2,background:"#fff",flexShrink:0,padding:"8px 10px",display:"flex",flexDirection:"column",gap:7}}>
+            <div style={{...S.row,gap:6}}>
+              <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,color:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>← 一覧</button>
+              <div style={{flex:1}}/>
+              <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
+              <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
+            </div>
+            <div style={{...S.row,gap:5,flexWrap:"wrap"}}>
+              <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
+                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}>
+                {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))}
+                style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              </select>
+              {accounts.length>1&&(
+                <select value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))}
+                  style={{background:"#fff7ed",border:"1px solid #fcd34d",borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:"#b45309",outline:"none",cursor:"pointer",fontFamily:"inherit",maxWidth:"100%"}}>
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
+              <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
+                style={{border:BD,borderRadius:8,padding:"3px 6px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}/>
+            </div>
+            <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:2,border:BD2}}>
+              {[[null,"本文"],["meta","メモ"]].map(([k,l])=>(
+                <button key={l} onClick={()=>setSidePanel(k)} style={{flex:1,padding:"5px 0",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:sidePanel===k?"#fff":"transparent",color:sidePanel===k?"#111":"#a8a09a",boxShadow:sidePanel===k?"0 1px 2px rgba(0,0,0,.06)":"none"}}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ヘッダー */}
-        <div style={compact?{...S.row,padding:"8px 10px",borderBottom:BD2,background:"#fff",gap:6,flexShrink:0,flexWrap:"wrap"}:{...S.row,padding:"0 14px",borderBottom:BD2,background:"#fff",height:50,gap:7,flexShrink:0}}>
+        {!compact&&<div style={{...S.row,padding:"0 14px",borderBottom:BD2,background:"#fff",height:50,gap:7,flexShrink:0}}>
           <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
             style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -168,7 +203,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           <div style={{width:1,height:20,background:"#e6dfd6"}}/>
           <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
           <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"6px 11px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer"}}>✕</button>
-        </div>
+        </div>}
 
         {/* 本体 */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
@@ -188,13 +223,13 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             </div>
           </div>
 
-          {/* アイコン列 */}
-          <div style={{width:50,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-            <SideIcon id="meta" icon="⚙️" label="設定" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
+          {/* アイコン列（細い幅では上の「本文／メモ」で切り替えるため出さない） */}
+          {!compact&&<div style={{width:50,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+            <SideIcon id="meta" icon="📝" label="メモ" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="search" icon="🔍" label="検索" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="history" icon="📋" label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
             <SideIcon id="share" icon="🔗" label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-          </div>
+          </div>}
 
           {/* サイドパネル展開 */}
           {sidePanel&&(
@@ -204,12 +239,12 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-              <div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
+              {!compact&&<div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
-                  {sidePanel==="meta"?"設定":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
+                  {sidePanel==="meta"?"メモ":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
                 </span>
                 <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>✕</button>
-              </div>
+              </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
                 {sidePanel==="search"&&(
                   <PostSearchPanel

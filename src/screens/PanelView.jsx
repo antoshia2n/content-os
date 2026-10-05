@@ -5,7 +5,7 @@ import {STATUS,POST_TYPE,getPostTypeStyle,BD2,fmtDate} from '../constants.js';
 // 拡張機能は枠だけで、機能はすべてここに置く（直すたびに拡張機能を入れ直さないため）。
 const WD=['日','月','火','水','木','金','土'];
 
-export function PanelView({posts,accounts=[],postTypes=POST_TYPE,onAddIdea,onOpen}){
+export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TYPE,onAddIdea,onOpen}){
   const today=fmtDate(new Date());
   const days=React.useMemo(()=>{
     const list=[];
@@ -25,8 +25,6 @@ export function PanelView({posts,accounts=[],postTypes=POST_TYPE,onAddIdea,onOpe
     Object.values(m).forEach(a=>a.sort((x,y)=>x.datetime.localeCompare(y.datetime)));
     return m;
   },[posts]);
-  const accColor=id=>accounts.find(a=>a.id===id)?.color;
-  const multi=accounts.length>1;
   const total=days.reduce((n,d)=>n+(byDay[d.key]||[]).length,0);
 
   return(
@@ -54,7 +52,10 @@ export function PanelView({posts,accounts=[],postTypes=POST_TYPE,onAddIdea,onOpe
         .cpanel-title.is-empty{color:#b8afa5;font-weight:600}
         .cpanel-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
         .cpanel-pill{display:inline-block;border-radius:99px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-        .cpanel-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+        .cpanel-acc{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:8px;padding:2px;overflow-x:auto}
+        .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:1 0 auto;border:none;background:transparent;border-radius:6px;padding:4px 9px;font-size:11.5px;font-weight:600;color:#a8a09a;cursor:pointer;white-space:nowrap;font-family:inherit}
+        .cpanel-acc button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+        .cpanel-acc i{width:6px;height:6px;border-radius:50%;display:inline-block}
         .cpanel-foot{padding:10px 12px 14px;text-align:center}
         .cpanel-foot a{font-size:11.5px;font-weight:700;color:#6b6560;text-decoration:none;border:${BD2};background:#fff;border-radius:99px;padding:6px 14px;display:inline-block}
         .cpanel-foot a:hover{color:#111;border-color:#d4cbbf}
@@ -64,6 +65,11 @@ export function PanelView({posts,accounts=[],postTypes=POST_TYPE,onAddIdea,onOpe
         <button className="cpanel-add" onClick={onAddIdea}>ネタを足す<kbd>N</kbd></button>
       </div>
       <div className="cpanel-body">
+        {accounts.length>1&&(
+          <div className="cpanel-acc">
+            {accounts.map(a=><button key={a.id} className={account?.id===a.id?'is-on':''} onClick={()=>onAccount(a.id)}><i style={{background:account?.id===a.id?a.color:'#ccc'}}/>{a.name}</button>)}
+          </div>
+        )}
         <div className="cpanel-cap"><span>今後 7 日</span><span>{total} 件</span></div>
         {days.map(d=>{
           const rows=byDay[d.key]||[];
@@ -83,7 +89,6 @@ export function PanelView({posts,accounts=[],postTypes=POST_TYPE,onAddIdea,onOpe
                     <span className="cpanel-time">{p.datetime.slice(11,16)}</span>
                     <span className={`cpanel-title ${p.title?'':'is-empty'}`}>{p.title||'（タイトルなし）'}</span>
                     <span className="cpanel-meta">
-                      {multi&&accColor(p.account_id)&&<span className="cpanel-dot" style={{background:accColor(p.account_id)}}/>}
                       <span className="cpanel-pill" style={{color:st.text,background:st.chip,border:`1px solid ${st.border}`}}>{st.label}</span>
                       <span className="cpanel-pill" style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`}}>{postTypes[p.postType]?.label||pt.label}</span>
                     </span>

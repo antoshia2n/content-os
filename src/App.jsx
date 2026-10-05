@@ -152,12 +152,17 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
   // N キー：ネタ帳と同じ処理でアイデアを 1 件足し、そのまま編集画面を出す（メモ欄にカーソル）
   const addingIdea=useRef(false);
-  const addIdeaAndEdit=React.useCallback(async()=>{
+  // 段 4：/panel は広い画面と別にアカウントを 1 つ選んで持つ（広い画面の選択を動かさないため）
+  const [panelAccId,setPanelAccIdRaw]=useState(()=>{try{return localStorage.getItem("contentos.panel.account")||null;}catch{return null;}});
+  const setPanelAccId=React.useCallback(id=>{setPanelAccIdRaw(id);try{localStorage.setItem("contentos.panel.account",id);}catch{/* 覚えられなくても動く */}},[]);
+  const panelAcc=switchableAccounts.find(a=>a.id===panelAccId)||defaultAcc;
+  const addIdeaAndEdit=React.useCallback(async(accId)=>{
     if(addingIdea.current)return;
-    if(!uid||!targetAccId){showToast("ネタを足すアカウントが決まっていません");return;}
+    const to=accId||targetAccId;
+    if(!uid||!to){showToast("ネタを足すアカウントが決まっていません");return;}
     addingIdea.current=true;
     try{
-      const row=await dbAddSheetIdea(uid,targetAccId,genId());
+      const row=await dbAddSheetIdea(uid,to,genId());
       const p=dbToPost(row);
       setAllPosts(prev=>({...prev,[p.account_id]:[...(prev[p.account_id]||[]).filter(x=>x.id!==p.id),p]}));
       setPreview(null);
@@ -167,7 +172,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     }finally{
       addingIdea.current=false;
     }
-  },[uid,targetAccId,showToast]);
+  },[uid,targetAccId,showToast,setAllPosts]);
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -211,7 +216,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       if(e.metaKey||e.ctrlKey||e.altKey)return;
       switch(e.key){
         // N：ネタ（アイデア）を足してメモ欄から書き始める／Shift+N：今までどおりの下書き
-        case"n": e.preventDefault();addIdeaAndEdit();break;
+        case"n": e.preventDefault();addIdeaAndEdit(panel?panelAcc?.id:undefined);break;
         case"N": e.preventDefault();openNew();break;
         case"ArrowLeft":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()-7);return x;});}
@@ -228,7 +233,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       }
     };
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[view,preview,openNew,addIdeaAndEdit]);
+  },[view,preview,openNew,addIdeaAndEdit,panel,panelAcc]);
 
   const postsBySlot=React.useMemo(()=>{
     const m={};
@@ -336,7 +341,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
-      {panel&&<PanelView posts={Object.values(allPosts).flat()} accounts={switchableAccounts} postTypes={allPostTypes} onAddIdea={addIdeaAndEdit} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
+      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={allPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
       {!panel&&<>
       {/* ── ヘッダー ── */}
       <div style={{background:"#fff",borderBottom:BD2,padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
