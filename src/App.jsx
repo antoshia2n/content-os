@@ -56,6 +56,13 @@ const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
 // 「全アカウント」を表す内部キー（アカウントIDと衝突しない値）
 const ALL_ACC="__all__";
 
+// 固定の投稿タイプに、そのアカウント独自の投稿タイプを混ぜた対応表を作る
+function mergePostTypes(acc){
+  const merged={...POST_TYPE};
+  (acc?.custom_post_types||[]).forEach(c=>{merged[c.key]={label:c.label,color:c.color,bg:c.bg||"#f3f4f6",border:c.border||"#d1d5db",dot:c.color};});
+  return merged;
+}
+
 // 2026-10-05：空のまま閉じたネタ（状態 idea で、題名・メモ・本文・メモのリンク・MM がすべて空）を見分ける。
 // 本文は入れ物のタグや空白だけでも空とみなす
 // 保存したあとは「未保存」の印を外す（保存後のプレビューが未保存の表示にならないため）
@@ -145,12 +152,7 @@ function App({uid,panel=false}){
   const targetAccId  =isAllAccounts?(defaultAcc?.id||null):activeAccId;
   const targetAcc    =React.useMemo(()=>accounts.find(a=>a.id===targetAccId)||null,[accounts,targetAccId]);
   // アカウント固有のカスタム投稿タイプ（POST_TYPEにマージして使う）
-  const allPostTypes =React.useMemo(()=>{
-    const custom=((activeAcc||targetAcc)?.custom_post_types||[]);
-    const merged={...POST_TYPE};
-    custom.forEach(c=>{merged[c.key]={label:c.label,color:c.color,bg:c.bg||"#f3f4f6",border:c.border||"#d1d5db",dot:c.color};});
-    return merged;
-  },[activeAcc,targetAcc]);
+  const allPostTypes =React.useMemo(()=>mergePostTypes(activeAcc||targetAcc),[activeAcc,targetAcc]);
   const posts    =React.useMemo(()=>isAllAccounts
     ?Object.values(allPosts).flat()
     :(allPosts[activeAccId]||[])
@@ -177,6 +179,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   const [panelAccId,setPanelAccIdRaw]=useState(()=>{try{return localStorage.getItem("contentos.panel.account")||null;}catch{return null;}});
   const setPanelAccId=React.useCallback(id=>{setPanelAccIdRaw(id);try{localStorage.setItem("contentos.panel.account",id);}catch{/* 覚えられなくても動く */}},[]);
   const panelAcc=switchableAccounts.find(a=>a.id===panelAccId)||defaultAcc;
+  // パネルでは、パネルで選んだアカウントの独自の投稿タイプを混ぜる（広い画面の選択に引きずられないため）
+  const panelPostTypes=React.useMemo(()=>mergePostTypes(panelAcc),[panelAcc]);
+  const shownPostTypes=panel?panelPostTypes:allPostTypes;
   // 2026-10-05 直し：ネタは「保存」を押すまで表に作らない（_unsaved）。
   // 押した瞬間に作ると、サイドパネルやタブを閉じたときに空の行が残るため。保存は saveToDb の upsert が新しく作る
   const addIdeaAndEdit=React.useCallback((accId)=>{
@@ -390,7 +395,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
-      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={allPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
+      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
       {!panel&&<>
       {/* ── ヘッダー ── */}
       <div style={{background:"#fff",borderBottom:BD2,padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
@@ -810,8 +815,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
-      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={allPostTypes} onClose={()=>setShowTemplates(false)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
