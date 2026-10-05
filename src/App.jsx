@@ -22,6 +22,7 @@ import {
 } from "./screens/EditorModal.jsx";
 import { SheetView } from "./screens/SheetView.jsx";
 import { DiagPanel } from "./screens/DiagPanel.jsx";
+import { PanelView } from "./screens/PanelView.jsx";
 import {
   PreviewOverlay,
 } from "./screens/PreviewOverlay.jsx";
@@ -60,7 +61,7 @@ const ALL_ACC="__all__";
 // 画面のコード（MonthView・ListView）は残してあるので、戻すときはこの一覧に足すだけでよい。
 const VIEWS=[["calendar","週"],["sheet","シート"],["metrics","成績"]];
 
-function App({uid}){
+function App({uid,panel=false}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
@@ -334,6 +335,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         .btn-primary:hover{background:var(--accent-hover);}
       `}</style>
 
+      {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
+      {panel&&<PanelView posts={Object.values(allPosts).flat()} accounts={switchableAccounts} postTypes={allPostTypes} onAddIdea={addIdeaAndEdit} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
+      {!panel&&<>
       {/* ── ヘッダー ── */}
       <div style={{background:"#fff",borderBottom:BD2,padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
         <span style={{fontWeight:900,fontSize:16,letterSpacing:"0",flexShrink:0,color:"#111"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></span>
@@ -646,6 +650,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         />
       )}
 
+      </>}
+
       {/* ── 予約枠設定モーダル ── */}
       {showSlotSettings&&isAdmin&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
@@ -717,7 +723,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       )}
 
       {/* ── モーダル群 ── */}
-      {preview&&<PreviewOverlay post={preview} onClose={()=>setPreview(null)}
+      {preview&&!panel&&<PreviewOverlay post={preview} onClose={()=>setPreview(null)}
         onEdit={async p=>{
           setPreview(null);
           if(p._unsaved){
@@ -749,7 +755,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts} compact={panel}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}
@@ -893,9 +899,11 @@ export default function AppWithAuth(){
     const hasQuery=new URLSearchParams(window.location.search).has("diag");
     if(path==="/diag"||hasQuery)return <DiagPanel/>;
   }
+  // 段 4：拡張機能のサイドパネルが枠で開く細い画面。ログインと権限は今と同じ
+  const isPanel=typeof window!=="undefined"&&window.location.pathname.replace(/\/+$/,"")==="/panel";
   return(
     <PortalAuthWrapper>
-      {uid=><App uid={uid}/>}
+      {uid=><App uid={uid} panel={isPanel}/>}
     </PortalAuthWrapper>
   );
 }

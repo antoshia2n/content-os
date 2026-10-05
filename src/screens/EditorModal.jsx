@@ -7,7 +7,8 @@ import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
+// compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
@@ -115,12 +116,12 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
   const st=STATUS[draft.status];
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:compact?0:14}}>
       {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef}/>}
-      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:1100,height:"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
+      <div style={{background:"#fff",borderRadius:compact?0:18,width:"100%",maxWidth:1100,height:compact?"100vh":"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
 
         {/* ヘッダー */}
-        <div style={{...S.row,padding:"0 14px",borderBottom:BD2,background:"#fff",height:50,gap:7,flexShrink:0}}>
+        <div style={compact?{...S.row,padding:"8px 10px",borderBottom:BD2,background:"#fff",gap:6,flexShrink:0,flexWrap:"wrap"}:{...S.row,padding:"0 14px",borderBottom:BD2,background:"#fff",height:50,gap:7,flexShrink:0}}>
           <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
             style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
             {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -172,13 +173,13 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
         {/* 本体 */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 記事エリア */}
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <Toolbar onInsertOpen={openInsert}/>
+          <div style={{flex:1,display:compact&&sidePanel?"none":"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+            {compact?<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>:<Toolbar onInsertOpen={openInsert}/>}
             <div style={{flex:1,overflowY:"auto"}}>
-              <div ref={articleAreaRef} style={{padding:"28px 32px 100px"}}>
+              <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px"}}>
                 <input type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
-                  style={{width:"100%",border:"none",outline:"none",fontSize:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:18,paddingBottom:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
+                  style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
               </div>
             </div>
@@ -198,11 +199,11 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[]}){
           {/* サイドパネル展開 */}
           {sidePanel&&(
             <>
-              <div onMouseDown={startResize}
+              {!compact&&<div onMouseDown={startResize}
                 style={{width:4,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .15s"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>
-              <div style={{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
+              <div style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               <div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
                   {sidePanel==="meta"?"設定":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
