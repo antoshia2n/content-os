@@ -42,7 +42,15 @@ export async function dbFetchAllAccounts() {
  * @param {string[]} accountIds - account_id の配列
  */
 export async function dbFetchPosts(uid, accountIds) {
-  return supabase.from("posts").select("*").eq("user_id", uid).in("account_id", accountIds);
+  // 2026-10-06：1,000 件ずつ区切って最後まで読む（1 回に返る行の上限で古い投稿を落とさないため。シート画面と同じ作り）
+  const all = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase.from("posts").select("*").eq("user_id", uid).in("account_id", accountIds)
+      .order("id").range(start, start + 999);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < 1000) return { data: all, error: null };
+  }
 }
 
 /** 投稿を保存（新規 or 更新）*/

@@ -17,34 +17,31 @@ import {
   dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbFetchTemplates,
   supabase,
 } from "./lib/supabase.js";
-import {
-  EditorModal,
-} from "./screens/EditorModal.jsx";
-import { SheetView } from "./screens/SheetView.jsx";
-import { DiagPanel } from "./screens/DiagPanel.jsx";
 import { PanelView } from "./screens/PanelView.jsx";
-import { TemplatesModal } from "./screens/TemplatesModal.jsx";
-import {
-  PreviewOverlay,
-} from "./screens/PreviewOverlay.jsx";
-import {
-  AccountSettings,
-} from "./screens/AccountSettings.jsx";
 import {
   MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
-import {
-  MetricsView,
-} from "./screens/MetricsView.jsx";
-import {
-  ExportModal,
-} from "./screens/ExportModal.jsx";
-import {
-  NotifySettingsModal,
-} from "./screens/NotifySettingsModal.jsx";
-import {
-  RepostModal, SearchModal,
-} from "./components/modals.jsx";
+
+// 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
+// それぞれ自分の Suspense を持つので、読み込み中もほかの画面は消えない
+function lazyNamed(loader,name){
+  const C=React.lazy(()=>loader().then(m=>({default:m[name]})));
+  const W=props=><React.Suspense fallback={null}><C {...props}/></React.Suspense>;
+  W.displayName=name;
+  return W;
+}
+const loadEditor=()=>import("./screens/EditorModal.jsx");
+const EditorModal        =lazyNamed(loadEditor,"EditorModal");
+const SheetView          =lazyNamed(()=>import("./screens/SheetView.jsx"),"SheetView");
+const DiagPanel          =lazyNamed(()=>import("./screens/DiagPanel.jsx"),"DiagPanel");
+const TemplatesModal     =lazyNamed(()=>import("./screens/TemplatesModal.jsx"),"TemplatesModal");
+const PreviewOverlay     =lazyNamed(()=>import("./screens/PreviewOverlay.jsx"),"PreviewOverlay");
+const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),"AccountSettings");
+const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
+const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
+const NotifySettingsModal=lazyNamed(()=>import("./screens/NotifySettingsModal.jsx"),"NotifySettingsModal");
+const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
+const SearchModal        =lazyNamed(()=>import("./components/modals.jsx"),"SearchModal");
 import { Btn } from "./components/shared.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
 import { useSlots } from "./hooks/useSlots.js";
@@ -118,6 +115,8 @@ function App({uid,panel=false}){
   const [notifySettings,     setNotifySettings]     = useState(null);
   const [showExport,         setShowExport]         = useState(null);
   // 段 5：本文・メモ・締めの型。読めなくても他の動きは止めない
+  // 編集画面は使う見込みが高いので、起動の 1.5 秒後に裏で先に読んでおく（開いた瞬間に待たないため）
+  useEffect(()=>{const t=setTimeout(()=>{loadEditor().catch(()=>{});},1500);return()=>clearTimeout(t);},[]);
   const [templates,          setTemplates]          = useState([]);
   const [showTemplates,      setShowTemplates]      = useState(false);
   useEffect(()=>{
