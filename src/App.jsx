@@ -60,13 +60,15 @@ const ALL_ACC="__all__";
 // 本文は入れ物のタグや空白だけでも空とみなす
 // 保存したあとは「未保存」の印を外す（保存後のプレビューが未保存の表示にならないため）
 function markSaved(p){const {_unsaved,...rest}=p;return rest;}
-function isEmptyIdea(p){
-  if(!p||p.status!=="idea")return false;
+// 題名・メモ・本文・メモのリンク・MM のどれかに中身があるか（本文はタグや空白だけなら中身なし）
+function hasContent(p){
+  if(!p)return false;
   const blank=v=>!String(v||"").replace(/&nbsp;|\u00a0/g," ").trim();
   const bodyText=String(p.body||"").replace(/<[^>]*>/g,"");
   const links=p.memoLinks||p.memo_links||[];
-  return blank(p.title)&&blank(p.memo)&&blank(bodyText)&&links.length===0&&blank(p.mm_url);
+  return !(blank(p.title)&&blank(p.memo)&&blank(bodyText)&&links.length===0&&blank(p.mm_url));
 }
+function isEmptyIdea(p){return !!p&&p.status==="idea"&&!hasContent(p);}
 
 
 // 画面の切り替えの並び。ボタンと C キーの回る順は、この一覧 1 つから作る。
@@ -184,18 +186,26 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     setEditing({id:genId(),account_id:to,status:"idea",datetime:"",title:"",postType:"x_post",body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],genre:null,theme:null,mm_url:null,manabu:false,_unsaved:true});
   },[uid,targetAccId,showToast]);
 
-  // 編集画面を保存せずに閉じたとき、開いていた投稿が空のネタなら確認なしで消す。
-  // 判定は手元の一覧にある保存済みの中身で行う（画面で書いて保存しなかった中身は、もともと閉じると捨てられる）
-  const closeEditor=React.useCallback(async()=>{
+  // 編集画面を閉じたとき（← 一覧・×・Esc）
+  // まだ表に無いネタ（_unsaved）：中身があれば保存して残す、空なら何もしない（表に作らない）
+  // 表にある投稿：保存済みの中身が空のネタなら確認なしで消す。それ以外は今までどおり閉じるだけ
+  const closeEditor=React.useCallback(async(latest)=>{
     const cur=editing;
     setEditing(null);
     if(!cur?.id)return;
+    if(cur._unsaved){
+      const d=latest&&latest.id===cur.id?latest:cur;
+      if(!hasContent(d))return;
+      const ok=await saveToDb(markSaved({...d,history:[...(d.history||[]),{at:new Date().toISOString(),note:"閉じたときに保存"}]}));
+      if(ok)showToast("ネタを保存しました ✅");
+      return;
+    }
     const saved=Object.values(allPosts).flat().find(x=>x.id===cur.id);
     if(!saved||!isEmptyIdea(saved))return;
     const {error}=await dbDeletePost(saved.id);
     if(error){showToast("空のネタを消せませんでした");return;}
     removePost(saved.id);
-  },[editing,allPosts,removePost,showToast]);
+  },[editing,allPosts,removePost,saveToDb,showToast]);
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);

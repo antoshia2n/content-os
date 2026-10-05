@@ -48,6 +48,9 @@ const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in w
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
 export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
+  // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
+  const draftRef=useRef(draft);draftRef.current=draft;
+  const close=()=>onClose(draftRef.current);
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [localState,setLocalState]=useState("idle");   // idle | done | error
@@ -68,7 +71,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   };
 
   useEffect(()=>{
-    const h=e=>{if(e.key==="Escape"&&!insertOpen)onClose();};
+    const h=e=>{if(e.key==="Escape"&&!insertOpen)close();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
   },[insertOpen]);
 
@@ -166,7 +169,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
         {compact&&(
           <div style={{borderBottom:BD2,background:"#fff",flexShrink:0,padding:"8px 10px",display:"flex",flexDirection:"column",gap:7}}>
             <div style={{...S.row,gap:6}}>
-              <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,color:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>← 一覧</button>
+              <button onClick={close} style={{background:"none",border:BD,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,color:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>← 一覧</button>
               <div style={{flex:1}}/>
               <TemplatePicker compact templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
               <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
@@ -222,7 +225,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
           ]}/>
           <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
-          <button className="em-icon" onClick={onClose} title="閉じる（Esc）" aria-label="閉じる">
+          <button className="em-icon" onClick={close} title="閉じる（Esc）" aria-label="閉じる">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
           </button>
         </div>}
