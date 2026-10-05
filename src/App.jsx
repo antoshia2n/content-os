@@ -14,7 +14,7 @@ import {
 } from "./constants.js";
 import {
   dbFetchAccounts, dbInsertAccount, dbUpdateAccount, dbDeleteAccount, dbFetchAllAccounts,
-  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbAddSheetIdea, dbFetchTemplates,
+  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbFetchTemplates,
   supabase,
 } from "./lib/supabase.js";
 import {
@@ -58,6 +58,8 @@ const ALL_ACC="__all__";
 
 // 2026-10-05：空のまま閉じたネタ（状態 idea で、題名・メモ・本文・メモのリンク・MM がすべて空）を見分ける。
 // 本文は入れ物のタグや空白だけでも空とみなす
+// 保存したあとは「未保存」の印を外す（保存後のプレビューが未保存の表示にならないため）
+function markSaved(p){const {_unsaved,...rest}=p;return rest;}
 function isEmptyIdea(p){
   if(!p||p.status!=="idea")return false;
   const blank=v=>!String(v||"").replace(/&nbsp;|\u00a0/g," ").trim();
@@ -169,28 +171,18 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts });
 
   // N キー：ネタ帳と同じ処理でアイデアを 1 件足し、そのまま編集画面を出す（メモ欄にカーソル）
-  const addingIdea=useRef(false);
   // 段 4：/panel は広い画面と別にアカウントを 1 つ選んで持つ（広い画面の選択を動かさないため）
   const [panelAccId,setPanelAccIdRaw]=useState(()=>{try{return localStorage.getItem("contentos.panel.account")||null;}catch{return null;}});
   const setPanelAccId=React.useCallback(id=>{setPanelAccIdRaw(id);try{localStorage.setItem("contentos.panel.account",id);}catch{/* 覚えられなくても動く */}},[]);
   const panelAcc=switchableAccounts.find(a=>a.id===panelAccId)||defaultAcc;
-  const addIdeaAndEdit=React.useCallback(async(accId)=>{
-    if(addingIdea.current)return;
+  // 2026-10-05 直し：ネタは「保存」を押すまで表に作らない（_unsaved）。
+  // 押した瞬間に作ると、サイドパネルやタブを閉じたときに空の行が残るため。保存は saveToDb の upsert が新しく作る
+  const addIdeaAndEdit=React.useCallback((accId)=>{
     const to=accId||targetAccId;
     if(!uid||!to){showToast("ネタを足すアカウントが決まっていません");return;}
-    addingIdea.current=true;
-    try{
-      const row=await dbAddSheetIdea(uid,to,genId());
-      const p=dbToPost(row);
-      setAllPosts(prev=>({...prev,[p.account_id]:[...(prev[p.account_id]||[]).filter(x=>x.id!==p.id),p]}));
-      setPreview(null);
-      setEditing({...p});
-    }catch(e){
-      showToast("ネタを足せませんでした");
-    }finally{
-      addingIdea.current=false;
-    }
-  },[uid,targetAccId,showToast,setAllPosts]);
+    setPreview(null);
+    setEditing({id:genId(),account_id:to,status:"idea",datetime:"",title:"",postType:"x_post",body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],genre:null,theme:null,mm_url:null,manabu:false,_unsaved:true});
+  },[uid,targetAccId,showToast]);
 
   // 編集画面を保存せずに閉じたとき、開いていた投稿が空のネタなら確認なしで消す。
   // 判定は手元の一覧にある保存済みの中身で行う（画面で書いて保存しなかった中身は、もともと閉じると捨てられる）
@@ -792,7 +784,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={allPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
