@@ -17,6 +17,7 @@ export const onRequest = createDbGateway({
     slots:                 { owner: "user_id" },
     notification_settings: { owner: "user_id" },
     sheet_genres:          { owner: "user_id" },
+    content_templates:     { owner: "user_id" },
   },
   functions: [],
 });

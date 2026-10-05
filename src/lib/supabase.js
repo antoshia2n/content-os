@@ -132,3 +132,25 @@ export async function dbAddSheetIdea(uid,accountId,id) {
   if (error) throw error;
   return data;
 }
+
+// ── 段 5：本文・メモ・締めの型（content_templates）。sheet_genres と同じく利用者ごとに持つ ──
+const TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order';
+export async function dbFetchTemplates(uid) {
+  const {data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order');
+  if (error) throw error;
+  return data||[];
+}
+export async function dbAddTemplate(uid,fields) {
+  const {data,error} = await supabase.from('content_templates').insert({...fields,user_id:uid}).select(TEMPLATE_COLUMNS).single();
+  if (error) throw error;
+  return data;
+}
+export async function dbUpdateTemplate(uid,id,fields) {
+  const {data,error} = await supabase.from('content_templates').update({...fields,updated_at:new Date().toISOString()}).eq('user_id',uid).eq('id',id).select(TEMPLATE_COLUMNS).single();
+  if (error) throw error;
+  return data;
+}
+export async function dbRemoveTemplate(uid,id) {
+  const {error} = await supabase.from('content_templates').delete().eq('user_id',uid).eq('id',id);
+  if (error) throw error;
+}

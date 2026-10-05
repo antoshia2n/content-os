@@ -273,10 +273,11 @@ export function MemoTextarea({value,onChange,onPasteUrl,textareaRef,autoFocus=fa
   );
 }
 
-export function MemoEditor({memo,memoLinks,onChange,autoFocus=false}){
+export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:outerRef}){
   const [linkInput,setLinkInput]=useState("");
   const [labelInput,setLabelInput]=useState("");
-  const textareaRef=useRef(null);
+  const ownRef=useRef(null);
+  const textareaRef=outerRef||ownRef;
   const composing=useRef(false);
   const links=(memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l);
 

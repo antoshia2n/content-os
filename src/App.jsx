@@ -14,7 +14,7 @@ import {
 } from "./constants.js";
 import {
   dbFetchAccounts, dbInsertAccount, dbUpdateAccount, dbDeleteAccount, dbFetchAllAccounts,
-  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbAddSheetIdea,
+  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbAddSheetIdea, dbFetchTemplates,
   supabase,
 } from "./lib/supabase.js";
 import {
@@ -23,6 +23,7 @@ import {
 import { SheetView } from "./screens/SheetView.jsx";
 import { DiagPanel } from "./screens/DiagPanel.jsx";
 import { PanelView } from "./screens/PanelView.jsx";
+import { TemplatesModal } from "./screens/TemplatesModal.jsx";
 import {
   PreviewOverlay,
 } from "./screens/PreviewOverlay.jsx";
@@ -95,6 +96,13 @@ function App({uid,panel=false}){
   const [showNotifySettings, setShowNotifySettings] = useState(false);
   const [notifySettings,     setNotifySettings]     = useState(null);
   const [showExport,         setShowExport]         = useState(null);
+  // 段 5：本文・メモ・締めの型。読めなくても他の動きは止めない
+  const [templates,          setTemplates]          = useState([]);
+  const [showTemplates,      setShowTemplates]      = useState(false);
+  useEffect(()=>{
+    if(!uid)return;
+    dbFetchTemplates(uid).then(setTemplates).catch(e=>console.warn("[ContentOS templates]",e?.message||e));
+  },[uid]);
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -415,6 +423,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                   <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:BD2,borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
+                      ["型の一覧",()=>{setShowTemplates(true);setShowShare(false);}],
                       ["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}],
                       ["AIコンテキスト出力",()=>{setShowExport("ai");setShowShare(false);}],
                       ["ローカル保存",()=>{setShowExport("file");setShowShare(false);}],
@@ -760,7 +769,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts} compact={panel}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(p);setPreview(null);}):save} onClose={()=>setEditing(null)} allPosts={posts} accounts={switchableAccounts} compact={panel} templates={templates} postTypes={allPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={allPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
         onSelect={p=>{setShowSearch(false);setPreview(p);}}

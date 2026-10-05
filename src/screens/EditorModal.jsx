@@ -4,11 +4,12 @@ import { supabase } from "../lib/supabase.js";
 import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText } from "../components/editor.jsx";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
+import { TemplatePicker } from "../components/TemplatePicker.jsx";
 
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
@@ -40,6 +41,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     else setSavedRange(null);
     setInsertOpen(true);
   };
+  // 段 5：型の差し込み先。細い幅は「本文／メモ」の切り替え、広い幅は最後に触った側
+  const memoRef=useRef(null);
+  const [lastSide,setLastSide]=useState(post.status==="idea"?"memo":"body");
+  const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="meta"?lastSide:"body");
   const handleSave=()=>onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});
   const doCopy=target=>{
     const html=draft.body||"";
@@ -126,6 +131,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             <div style={{...S.row,gap:6}}>
               <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,color:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>← 一覧</button>
               <div style={{flex:1}}/>
+              <TemplatePicker compact templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
               <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
               <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
             </div>
@@ -200,6 +206,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           </button>
           <button onClick={()=>doCopy("note")} style={{background:copyNote?"#00ba7c":"#41c9b4",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyNote?"✅ 完了":"note にコピー"}</button>
           <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#1d9bf0",color:"#fff",border:"none",borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"✅ 完了":"𝕏 にコピー"}</button>
+          <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
           <div style={{width:1,height:20,background:"#e6dfd6"}}/>
           <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
           <button onClick={onClose} style={{background:"none",border:BD,borderRadius:20,padding:"6px 11px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer"}}>✕</button>
@@ -208,7 +215,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
         {/* 本体 */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 記事エリア */}
-          <div style={{flex:1,display:compact&&sidePanel?"none":"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+          <div onFocusCapture={()=>setLastSide("body")} style={{flex:1,display:compact&&sidePanel?"none":"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
             {compact?<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>:<Toolbar onInsertOpen={openInsert}/>}
             <div style={{flex:1,overflowY:"auto"}}>
               <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px"}}>
@@ -238,7 +245,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 style={{width:4,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .15s"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
-              <div style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
+              <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
                   {sidePanel==="meta"?"メモ":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
@@ -264,7 +271,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                   <div style={{...S.col,gap:12}}>
                     <div>
                       <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
-                      <MemoEditor memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
+                      <MemoEditor textareaRef={memoRef} memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
                     </div>
                     <div>
                       <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>ラベル</label>
