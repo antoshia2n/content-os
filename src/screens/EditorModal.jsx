@@ -51,7 +51,41 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
   const onCloseRef=useRef(onClose);onCloseRef.current=onClose;
-  const close=()=>onCloseRef.current(draftRef.current);
+  // 2026-10-06：既にある投稿の書きかけを、表ではなくこの端末の中に一時保存する（パネルやタブごと閉じても失わないため）。
+  // 本番の投稿は勝手に変えない。次に開いたとき「戻す／捨てる」を選んでもらう
+  const draftKey=post._unsaved?null:`contentos.draft.${post.id}`;
+  const pickDraft=d=>({title:d.title||"",body:d.body||"",memo:d.memo||"",memoLinks:d.memoLinks||[],postType:d.postType,status:d.status,datetime:d.datetime||"",account_id:d.account_id||null});
+  const sameAsPost=d=>JSON.stringify(pickDraft(d))===JSON.stringify(pickDraft({...post,memoLinks:post.memoLinks||[]}));
+  const [restore,setRestore]=useState(()=>{
+    if(!draftKey)return null;
+    try{
+      const saved=JSON.parse(localStorage.getItem(draftKey)||"null");
+      if(!saved?.fields||sameAsPost(saved.fields))return null;
+      return saved;
+    }catch{return null;}
+  });
+  const restoreRef=useRef(restore);restoreRef.current=restore;
+  const writeLocal=()=>{
+    if(!draftKey||restoreRef.current)return; // 戻すか捨てるかを選ぶまでは上書きしない
+    try{
+      if(sameAsPost(draftRef.current))localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey,JSON.stringify({at:Date.now(),base:post.updated_at||null,fields:pickDraft(draftRef.current)}));
+    }catch{/* 保存できなくても編集は続けられる */}
+  };
+  const dropLocal=()=>{if(draftKey){try{localStorage.removeItem(draftKey);}catch{/* 無視 */}}};
+  useEffect(()=>{
+    if(!draftKey)return;
+    const t=setTimeout(writeLocal,800);
+    return()=>clearTimeout(t);
+  },[draft]);
+  useEffect(()=>{
+    if(!draftKey)return;
+    const flush=()=>{if(document.visibilityState==="hidden")writeLocal();};
+    document.addEventListener("visibilitychange",flush);window.addEventListener("pagehide",writeLocal);
+    return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",writeLocal);};
+  },[]);
+  // 閉じる操作で閉じたときは、保存しない選択として書きかけも捨てる（戻すか選んでいない書きかけは残す）
+  const close=()=>{if(!restoreRef.current)dropLocal();onCloseRef.current(draftRef.current);};
   // まだ表に無い新しいネタだけ、書いた中身を 0.8 秒ごとに裏で保存する（パネルやタブごと閉じても残すため）。
   // 画面が隠れたとき（パネルを閉じる・タブを切り替える）は待たずにすぐ保存する
   useEffect(()=>{
@@ -100,7 +134,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const memoRef=useRef(null);
   const [lastSide,setLastSide]=useState(post.status==="idea"?"memo":"body");
   const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="meta"?lastSide:"body");
-  const handleSave=()=>onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});
+  const handleSave=()=>{dropLocal();onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});};
   const doCopy=target=>{
     const html=draft.body||"";
     const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
@@ -254,6 +288,15 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           .em-icon:hover{background:#f5f0eb;color:#4b4540}
         `}</style>
 
+        {restore&&(
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"8px 14px",background:"#fffbeb",borderBottom:"1px solid #fcd34d",fontSize:12,color:"#92400e",flexShrink:0}}>
+            <span style={{fontWeight:700}}>保存していない書きかけがあります（{new Date(restore.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}）</span>
+            {restore.base!==(post.updated_at||null)&&<span style={{color:"#b45309"}}>このあと別の場所で保存されています。戻すとその分を上書きします</span>}
+            <span style={{flex:1}}/>
+            <button onClick={()=>{setDraft(d=>({...d,...restore.fields}));setRestore(null);}} style={{background:"#f59e0b",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:800,cursor:"pointer"}}>戻す</button>
+            <button onClick={()=>{dropLocal();setRestore(null);}} style={{background:"#fff",color:"#92400e",border:"1px solid #fcd34d",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>捨てる</button>
+          </div>
+        )}
         {/* 本体 */}
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 記事エリア */}
