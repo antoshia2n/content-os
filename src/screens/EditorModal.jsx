@@ -5,6 +5,7 @@ import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlai
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
+import { auth } from "../firebase.js";
 
 // 横の欄のアイコン（線の太さをそろえた SVG。2026-10-05 絵文字から置き換え）
 const ic=d=><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
@@ -46,7 +47,7 @@ function MoreMenu({items}){
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
@@ -88,15 +89,17 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const close=()=>{if(!restoreRef.current)dropLocal();onCloseRef.current(draftRef.current);};
   // まだ表に無い新しいネタだけ、書いた中身を 0.8 秒ごとに裏で保存する（パネルやタブごと閉じても残すため）。
   // 画面が隠れたとき（パネルを閉じる・タブを切り替える）は待たずにすぐ保存する
+  // Notion へ送ったあとは、コンテンツくんへの裏の保存を止める（送ったメモを表に残さないため）
+  const sentRef=useRef(false);
   useEffect(()=>{
     if(!post._unsaved||!onAutoSave)return;
-    const t=setTimeout(()=>onAutoSave(draftRef.current),800);
+    const t=setTimeout(()=>{if(!sentRef.current)onAutoSave(draftRef.current);},800);
     return()=>clearTimeout(t);
   },[draft]);
   useEffect(()=>{
     if(!post._unsaved||!onAutoSave)return;
-    const flush=()=>{if(document.visibilityState==="hidden")onAutoSave(draftRef.current);};
-    const hide=()=>onAutoSave(draftRef.current);
+    const flush=()=>{if(document.visibilityState==="hidden"&&!sentRef.current)onAutoSave(draftRef.current);};
+    const hide=()=>{if(!sentRef.current)onAutoSave(draftRef.current);};
     document.addEventListener("visibilitychange",flush);window.addEventListener("pagehide",hide);
     return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",hide);};
   },[]);
@@ -203,6 +206,33 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
       setNotionState("error");
       setTimeout(()=>setNotionState("idle"),4000);
       console.error(e);
+    }
+  };
+
+  // 2026-10-06：アイデアメモを Notion の inbox／インプット／アウトプットへ送る。送ったメモはコンテンツくんに残さない
+  const [sendTo,setSendTo]=useState(null),[sendErr,setSendErr]=useState(null);
+  const canSend=!!(post._unsaved&&onSentToNotion);
+  const hasMemo=!!((draft.title||"").trim()||(draft.memo||"").trim()||(draft.memoLinks||[]).length||stripHtml(draft.body||""));
+  const sendToNotion=async dest=>{
+    if(sendTo||!hasMemo)return;
+    setSendTo(dest);setSendErr(null);
+    try{
+      const user=auth.currentUser;
+      if(!user)throw new Error("ログインを確認できませんでした。パネルを開き直してください");
+      const token=await user.getIdToken();
+      const links=(draft.memoLinks||[]).map(l=>l.label&&l.label!==l.url?`${l.label} ${l.url}`:l.url);
+      const bodyText=draft.body?htmlToPlain(draft.body,false).trim():"";
+      const memo=[(draft.memo||"").trim(),links.join("\n"),bodyText].filter(Boolean).join("\n\n");
+      const title=(draft.title||"").trim();
+      const res=await fetch("/api/notion-memo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({dest,title,memo})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||`送れませんでした（${res.status}）`);
+      sentRef.current=true;
+      dropLocal();
+      onSentToNotion({id:post.id,label:data.label,url:data.url});
+    }catch(e){
+      setSendErr(e.message);
+      setSendTo(null);
     }
   };
 
@@ -354,6 +384,22 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 )}
                 {sidePanel==="meta"&&(
                   <div style={{...S.col,gap:12}}>
+                    {canSend&&(
+                      <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:6}}>
+                          <span style={{fontSize:"0.7em",fontWeight:800,color:"#6b6560"}}>Notion へ送る</span>
+                          <span style={{fontSize:"0.64em",fontWeight:600,color:"#a8a09a"}}>送るとコンテンツくんには残りません</span>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
+                          {[["inbox","inbox"],["input","インプット"],["output","アウトプット"]].map(([k,l])=>{
+                            const off=!hasMemo||!!sendTo;
+                            return <button key={k} disabled={off} onClick={()=>sendToNotion(k)}
+                              style={{border:BD2,background:"#fff",borderRadius:8,padding:"7px 4px",fontSize:12,fontWeight:800,color:off&&sendTo!==k?"#c8bfb5":"#333",cursor:off?"default":"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sendTo===k?"送信中…":l}</button>;
+                          })}
+                        </div>
+                        {sendErr&&<div style={{fontSize:"0.72em",fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px"}}>{sendErr}</div>}
+                      </div>
+                    )}
                     <div>
                       <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
                       <MemoEditor textareaRef={memoRef} memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
