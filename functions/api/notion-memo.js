@@ -82,11 +82,13 @@ export async function onRequestPost({ request, env }) {
   const dest = DEST[body?.dest];
   if (!dest) return out({ ok: false, error: "送り先が正しくありません" }, 400);
   const memo = typeof body?.memo === "string" ? body.memo.replace(/\r\n?/g, "\n").trim() : "";
-  if (!memo) return out({ ok: false, error: "メモが空です" }, 400);
+  const given = typeof body?.title === "string" ? body.title.trim() : "";
+  if (!memo && !given) return out({ ok: false, error: "メモが空です" }, 400);
 
+  // タイトルが別に来たら（アイデアメモの画面）それを使い、メモは全部本文へ。来なければ 1 行目がタイトル
   const lines = memo.split("\n");
-  const title = lines[0].trim().slice(0, 200);
-  const rest = lines.slice(1).join("\n").replace(/^\n+/, "");
+  const title = (given || lines[0].trim().replace(/^[-・*]\s*/, "")).slice(0, 200);
+  const rest = given ? memo : lines.slice(1).join("\n").replace(/^\n+/, "");
   const url = (memo.match(/https?:\/\/[^\s<>"）)]+/) || [])[0];
   const today = todayTokyo();
 

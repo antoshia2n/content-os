@@ -212,6 +212,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   const [panelAccId,setPanelAccIdRaw]=useState(()=>{try{return localStorage.getItem("contentos.panel.account")||null;}catch{return null;}});
   const setPanelAccId=React.useCallback(id=>{setPanelAccIdRaw(id);try{localStorage.setItem("contentos.panel.account",id);}catch{/* 覚えられなくても動く */}},[]);
   const panelAcc=switchableAccounts.find(a=>a.id===panelAccId)||defaultAcc;
+  const panelAccRef=useRef(panelAcc);panelAccRef.current=panelAcc;
   // パネルでは、パネルで選んだアカウントの独自の投稿タイプを混ぜる（広い画面の選択に引きずられないため）
   const panelPostTypes=React.useMemo(()=>mergePostTypes(panelAcc),[panelAcc]);
   const shownPostTypes=panel?panelPostTypes:allPostTypes;
@@ -219,7 +220,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   // 押した瞬間に作ると、サイドパネルやタブを閉じたときに空の行が残るため。保存は saveToDb の upsert が新しく作る
   const addIdeaAndEdit=React.useCallback((accId)=>{
     const to=accId||targetAccId;
-    if(!uid||!to){showToast("ネタを足すアカウントが決まっていません");return;}
+    if(!uid||!to){showToast("アイデアメモを足すアカウントが決まっていません");return;}
     setPreview(null);
     setEditing({id:genId(),account_id:to,status:"idea",datetime:"",title:"",postType:"x_post",body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],genre:null,theme:null,mm_url:null,manabu:false,_unsaved:true});
   },[uid,targetAccId,showToast]);
@@ -240,7 +241,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         return;
       }
       const ok=await saveToDb(markSaved({...d,history:[...(d.history||[]),{at:new Date().toISOString(),note:"閉じたときに保存"}]}));
-      if(ok)showToast("ネタを保存しました ✅");
+      if(ok)showToast("アイデアメモを保存しました ✅");
       return;
     }
     const saved=Object.values(allPosts).flat().find(x=>x.id===cur.id);
@@ -252,14 +253,36 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
   // 新しいネタの裏の保存。中身があるときだけ表へ書く（空のネタは作らない）。前回と同じ中身なら書かない
   const lastAuto=useRef("");
+  const pendingAuto=useRef(Promise.resolve()); // 走っている裏の保存（Notion へ送ったあと、終わるのを待ってから消すため）
   const autoSaveIdea=React.useCallback(p=>{
     if(!hasContent(p))return;
     const clean=markSaved(p);
     const key=JSON.stringify([clean.id,clean.title,clean.memo,clean.body,clean.memoLinks,clean.mm_url,clean.status,clean.datetime,clean.postType,clean.account_id]);
     if(key===lastAuto.current)return;
     lastAuto.current=key;
-    saveToDb(clean);
+    pendingAuto.current=Promise.resolve(saveToDb(clean)).catch(()=>{});
   },[saveToDb]);
+
+  // 2026-10-06：アイデアメモを Notion へ送ったとき。裏の保存で表に入っていたら消し、コンテンツくんには残さない。
+  // パネルでは続けて書けるよう、新しいアイデアメモをすぐ開く
+  const sentToNotion=React.useCallback(async({id,label})=>{
+    setEditing(null);
+    await pendingAuto.current;
+    lastAuto.current="";
+    // 表に入っていたかは画面の手元の写しでは確かめきれないため、id を指定して必ず消す（無ければ何も起きない）
+    const {error}=await dbDeletePost(id);
+    if(!error)removePost(id);
+    showToast(`${label} に入れました ✅`);
+    if(panel)setTimeout(()=>addIdeaAndEdit(panelAccRef.current?.id),0);
+  },[removePost,showToast,panel,addIdeaAndEdit]);
+
+  // 2026-10-06：サイドパネルは開いたらまずアイデアメモ（一覧は「← 一覧」で見る）。開いたときの 1 回だけ
+  const panelOpened=useRef(false);
+  useEffect(()=>{
+    if(!panel||panelOpened.current||!uid||!panelAcc?.id)return;
+    panelOpened.current=true;
+    addIdeaAndEdit(panelAcc.id);
+  },[panel,uid,panelAcc?.id,addIdeaAndEdit]);
 
   const saveNotifySettings=React.useCallback(async(s)=>{
     setNotifySettings(s);
@@ -848,7 +871,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel?sentToNotion:undefined} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
       {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
