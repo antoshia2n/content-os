@@ -60,7 +60,17 @@ function paragraphs(text) {
   }));
 }
 
-export async function onRequestPost({ request, env }) {
+// 2026-10-06 直し：どこで落ちても、画面に理由が出る形（JSON）で返す。
+// 失敗も 200 で返す（5xx は途中で Cloudflare の画面に置き換わることがあり、理由が画面に届かないため）
+export async function onRequestPost(context) {
+  try {
+    return await handle(context);
+  } catch (e) {
+    return out({ ok: false, error: `中で止まりました（${String(e?.message || e).slice(0, 200)}）` });
+  }
+}
+
+async function handle({ request, env }) {
   const secret = env.NOTION_SECRET;
   const projectId = env.FIREBASE_PROJECT_ID ?? env.VITE_FIREBASE_PROJECT_ID ?? "";
   if (!secret || !projectId) return out({ ok: false, error: "設定の値（NOTION_SECRET か FIREBASE_PROJECT_ID）が入っていません" }, 500);
@@ -122,7 +132,7 @@ export async function onRequestPost({ request, env }) {
         ? `Notion の鍵が「${dest.label}」につながっていません`
         : `Notion が受け付けませんでした（${data?.message || res.status}）`,
       code: data?.code || null,
-    }, 502);
+    });
   }
   return out({ ok: true, dest: body.dest, label: dest.label, url: data.url || null });
 }

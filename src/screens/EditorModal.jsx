@@ -225,8 +225,9 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
       const memo=[(draft.memo||"").trim(),links.join("\n"),bodyText].filter(Boolean).join("\n\n");
       const title=(draft.title||"").trim();
       const res=await fetch("/api/notion-memo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({dest,title,memo})});
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok||!data.ok)throw new Error(data.error||`送れませんでした（${res.status}）`);
+      const raw=await res.text();
+      let data={};try{data=JSON.parse(raw);}catch{/* JSON でない返事は、そのまま一部を見せる */}
+      if(!res.ok||!data.ok)throw new Error(data.error||`送れませんでした（${res.status}）${raw?`：${raw.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,120)}`:""}`);
       sentRef.current=true;
       dropLocal();
       onSentToNotion({id:post.id,label:data.label,url:data.url});
