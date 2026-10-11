@@ -82,7 +82,7 @@ export async function onRequestPost(context) {
 
   const supabaseHeaders = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
+    ...(/^eyJ/.test(String(SUPABASE_KEY || "")) ? { Authorization: `Bearer ${SUPABASE_KEY}` } : {}),
     'Content-Type': 'application/json',
   };
 

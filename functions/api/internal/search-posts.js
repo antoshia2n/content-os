@@ -104,7 +104,7 @@ export async function onRequestPost(context) {
       method: 'GET',
       headers: {
         apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+        ...(/^eyJ/.test(String(SUPABASE_KEY || "")) ? { Authorization: `Bearer ${SUPABASE_KEY}` } : {}),
       },
     });
   } catch (err) {

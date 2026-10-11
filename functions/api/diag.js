@@ -23,7 +23,7 @@ async function readTest(url, key) {
   if (!url || !key) return "確認できず";
   try {
     const res = await fetch(`${url}/rest/v1/${READ_TEST_TABLE}?select=id&limit=1`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      headers: { apikey: key, ...(/^eyJ/.test(String(key || "")) ? { Authorization: `Bearer ${key}` } : {}) },
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) return "読めた";
