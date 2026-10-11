@@ -55,7 +55,7 @@ export function getSupabase(env) {
     key,
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...(/^eyJ/.test(String(key || "")) ? { Authorization: `Bearer ${key}` } : {}),
       'Content-Type': 'application/json',
     },
   };
@@ -79,7 +79,7 @@ export async function fetchAccounts(sb, userId) {
   params.set('order', 'sort_order.asc');
   const res = await fetch(`${sb.url}/rest/v1/accounts?${params.toString()}`, {
     method: 'GET',
-    headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` },
+    headers: { apikey: sb.key, ...(/^eyJ/.test(String(sb.key || "")) ? { Authorization: `Bearer ${sb.key}` } : {}) },
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');

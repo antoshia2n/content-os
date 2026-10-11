@@ -142,7 +142,7 @@ async function fetchContentOsPosts(sb, userId) {
 
   const res = await fetch(`${sb.url}/rest/v1/posts?${params.toString()}`, {
     method: 'GET',
-    headers: { apikey: sb.key, Authorization: `Bearer ${sb.key}` },
+    headers: { apikey: sb.key, ...(/^eyJ/.test(String(sb.key || "")) ? { Authorization: `Bearer ${sb.key}` } : {}) },
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) {
