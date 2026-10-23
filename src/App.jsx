@@ -18,7 +18,8 @@ import {
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
-import { StockView, CK_CSS, AccountPill, QuickModal, ToOutModal, BRAND_ICON } from "./screens/StockView.jsx";
+import { StockView, CK_CSS, AccountPill, QuickModal, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
+import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
 import {
   MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
@@ -107,6 +108,11 @@ function App({uid,panel=false}){
   const [quickOpen,setQuickOpen]=useState(false);
   const [toOut,setToOut]=useState(null);
   const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
+  // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
+  const [calMode,setCalModeRaw]=useState(()=>{const narrow=typeof window!=="undefined"&&window.innerWidth<=760;try{return localStorage.getItem("contentos.calmode")||(narrow?"list":"week");}catch{return narrow?"list":"week";}});
+  const setCalMode=m=>{setCalModeRaw(m);try{localStorage.setItem("contentos.calmode",m);}catch{/* 覚えられなくても動く */}};
+  const [trayOn,setTrayOn]=useState(()=>typeof window==="undefined"||window.innerWidth>900);
+  const [bufferFor,setBufferFor]=useState(null);
   const [week,               setWeek]               = useState(new Date());
   const [preview,            setPreview]            = useState(null);
   const [editing,            setEditing]            = useState(null);
@@ -237,6 +243,61 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     showToast(datetime?"アウトプットにしました（次の空き枠に置きました）":"アウトプットにしました");
     setPreview(null);setEditing({...next});
   },[toOut,saveToDb,showToast]);
+
+  // ── 2便：置く・入れ替える・次の空き枠・Buffer ──
+  const fmtShort=dt=>`${+dt.slice(5,7)}/${+dt.slice(8,10)} ${dt.slice(11,16)}`;
+  // Buffer に入っている投稿は、こちらで日時を変えても Buffer 側が動かないので止める
+  const bufLocked=p=>{if(p?.buffer_post_id){showToast("Buffer に入っている投稿は、日時を Buffer の画面で変えてください");return true;}return false;};
+  // 投稿 1 本を日時 dt に置く。ネタなら下書きになり（仮置き）、枠の種類に合わせる
+  const placeAt=React.useCallback(async(id,dt,slotType)=>{
+    const p=posts.find(x=>x.id===id);if(!p||!dt||p.datetime===dt)return;
+    if(bufLocked(p))return;
+    const wasIdea=p.status==="idea";
+    const n=new Date(),z=x=>String(x).padStart(2,"0"),localNow=`${fmtDate(n)}T${z(n.getHours())}:${z(n.getMinutes())}`;
+    if(wasIdea&&dt<=localNow){showToast("過ぎた日時には仮置きできません");return;}
+    const status=wasIdea?"draft":p.status==="waiting"?"reserved":p.status;
+    const next={...p,datetime:dt,status,postType:wasIdea&&slotType?slotType:p.postType,
+      history:[...(p.history||[]),{at:nowStr(),note:wasIdea?`ネタを ${dt} に仮置きした`:`${p.datetime||"日時なし"}→${dt}`}]};
+    const ok=await saveToDb(next);
+    if(ok)showToast(wasIdea?`仮置きしました（下書き・${fmtShort(dt)}）`:`${fmtShort(dt)} に動かしました`);
+  },[posts,saveToDb,showToast]);// eslint-disable-line react-hooks/exhaustive-deps
+  // 2 本の日時を入れ替える。片方に日時が無いときは、その 1 本を相手と同じ時刻に置く
+  const swapAt=React.useCallback(async(aId,bId)=>{
+    const a=posts.find(x=>x.id===aId),b=posts.find(x=>x.id===bId);if(!a||!b||a.id===b.id)return;
+    if(!a.datetime||a.status==="idea"){await placeAt(a.id,b.datetime,b.postType);return;}
+    if(bufLocked(a)||bufLocked(b))return;
+    const okA=await saveToDb({...a,datetime:b.datetime,history:[...(a.history||[]),{at:nowStr(),note:`${a.datetime}→${b.datetime}（入れ替え）`}]});
+    const okB=okA&&await saveToDb({...b,datetime:a.datetime,history:[...(b.history||[]),{at:nowStr(),note:`${b.datetime}→${a.datetime}（入れ替え）`}]});
+    if(okA&&okB)showToast(`入れ替えました（${fmtShort(b.datetime)} ⇄ ${fmtShort(a.datetime)}）`);
+  },[posts,saveToDb,showToast,placeAt]);// eslint-disable-line react-hooks/exhaustive-deps
+  // 週の表のマスに落としたとき：そのマスに予約枠があれば枠の時刻、無ければ ちょうどの時刻
+  const placeCell=(id,dateStr,hour)=>{
+    const p=posts.find(x=>x.id===id);
+    const g=(ghostBySlotRef.current[`${dateStr}_${String(hour).padStart(2,"0")}`]||[]);
+    const pick=g.find(s=>(s.postType||"x_post")===(p?.postType||"x_post"))||g[0];
+    placeAt(id,`${dateStr}T${pick?slotTime(pick):String(hour).padStart(2,"0")+":00"}`,pick?.postType||"x_post");
+  };
+  const toNextSlot=p=>{
+    const dt=nextFreeSlot({slots,posts,postType:p.postType||"x_post",today});
+    if(!dt){showToast("この種類の予約枠がありません（設定の予約枠で足せます）");return;}
+    placeAt(p.id,dt,p.postType||"x_post");
+  };
+  // 状態の切り替え：予約済みにしたとき、Buffer に入れられる 1 本なら確認の窓を出す（自動では入れない）
+  const changeStatusB=React.useCallback(async(id,s,score)=>{
+    await changeStatus(id,s,score);
+    if(s!=="reserved")return;
+    const p=posts.find(x=>x.id===id);
+    if(p&&p.status!=="reserved"&&!bufferReason({...p,status:"reserved"}))setBufferFor({...p,status:"reserved"});
+  },[changeStatus,posts]);
+  const bufferDone=(id,bid,warn)=>{
+    setAllPosts(prev=>{const n={};for(const k in prev)n[k]=(prev[k]||[]).map(x=>x.id===id?{...x,buffer_post_id:bid}:x);return n;});
+    setBufferFor(null);
+    showToast(warn||"Buffer に入れました");
+  };
+  const trayIdeas=React.useMemo(()=>posts.filter(p=>p.status==="idea"&&!(p.labels||[]).includes("寝かせ")).sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||"")||b.id-a.id),[posts]);
+  const trayUndated=React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&p.status!=="published"&&!p.datetime),[posts]);
+  const trayDragStart=p=>e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/ck",String(p.id));setDragId(p.id);e.currentTarget.classList.add("dragging");};
+  const trayDragEnd=e=>{e.currentTarget.classList.remove("dragging");setDragId(null);setDragOver(null);};
 
   // N キー：ネタ帳と同じ処理でアイデアを 1 件足し、そのまま編集画面を出す（メモ欄にカーソル）
   // 段 4：/panel は広い画面と別にアカウントを 1 つ選んで持つ（広い画面の選択を動かさないため）
@@ -398,6 +459,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     });
   },[filtered,weekDateStrs,weekDates,visibleSlots]);
 
+  const ghostBySlotRef=useRef({});
   const ghostBySlot=React.useMemo(()=>{
     const m={};
     weekDates.forEach((date,i)=>{
@@ -406,6 +468,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         (m[key]=m[key]||[]).push(s);
       });
     });
+    ghostBySlotRef.current=m;
     return m;
   },[weekDates,weekDateStrs,visibleSlots]);
 
@@ -573,7 +636,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
         <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
-          onOpen={openPost} saveToDb={saveToDb} changeStatus={changeStatus} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
+          onOpen={openPost} saveToDb={saveToDb} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
           onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
           renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
@@ -584,19 +647,24 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── カレンダーナビ ── */}
       {view==="calendar"&&(
-        <div style={{background:"#fff",borderBottom:BD2,padding:"5px 16px",display:"flex",alignItems:"center",gap:7,flexShrink:0}}>
+        <div style={{background:"#fff",borderBottom:BD2,padding:"5px 16px",display:"flex",alignItems:"center",gap:7,flexShrink:0,flexWrap:"wrap",rowGap:4}}>
           {activeAcc&&<span style={{width:7,height:7,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
-          <span style={{fontWeight:700,fontSize:12.5,color:"#555"}}>{activeAcc?.name}</span>
+          <span style={{fontWeight:700,fontSize:12.5,color:"#555",whiteSpace:"nowrap"}}>{activeAcc?.name}</span>
           <div style={{...S.row,gap:4,marginLeft:4}}>
             <button onClick={()=>{const d=new Date(week);d.setDate(d.getDate()-7);setWeek(d);}}
               style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-            <span style={{fontWeight:600,fontSize:12.5,minWidth:165,textAlign:"center",color:"#333"}}>
+            <span style={{fontWeight:600,fontSize:12.5,minWidth:165,textAlign:"center",whiteSpace:"nowrap",color:"#333"}}>
               {weekDates[0].getMonth()+1}月{weekDates[0].getDate()}日 〜 {weekDates[6].getMonth()+1}月{weekDates[6].getDate()}日
             </span>
             <button onClick={()=>{const d=new Date(week);d.setDate(d.getDate()+7);setWeek(d);}}
               style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
             <button onClick={()=>setWeek(new Date())}
               style={{border:BD2,background:"#fff",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:11,color:"#555",fontFamily:"inherit"}}>今週</button>
+          </div>
+          <div className="ck" style={{display:"inline-flex",gap:2,marginLeft:6}}>
+            <button className={`ck-vtab ${calMode==="week"?"on":""}`} onClick={()=>setCalMode("week")}>週</button>
+            <button className={`ck-vtab ${calMode==="list"?"on":""}`} onClick={()=>setCalMode("list")}>リスト</button>
+            <button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button>
           </div>
           <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
             style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer",marginLeft:"auto"}}>
@@ -613,6 +681,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── カレンダービュー ── */}
       {view==="calendar"&&(
+        <div className="ck"><style>{PLAN_CSS}</style><div className="ck-cal"><div className="ck-cal-main">
+        {calMode==="list"?(
+          <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} slots={visibleSlots} postTypes={allPostTypes}
+            dragId={dragId} setDragId={setDragId} onPlace={placeAt} onSwap={swapAt} onOpen={openPost} openNew={openNew}
+            changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)}/>
+        ):(
         <div style={{height:"calc(100vh - 100px)",overflow:"auto"}}>
           <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860}}>
             <div style={{background:"#fff",position:"sticky",top:0,zIndex:20,borderRight:"1px solid #e6dfd6",borderBottom:BD2}}/>
@@ -646,7 +720,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       onClick={isEmpty?()=>openNew(`${dateStr}T${String(hour).padStart(2,"0")}:00`):undefined}
                       onDragOver={dragId?e=>{e.preventDefault();setDragOver(key);}:undefined}
                       onDragLeave={dragId?()=>setDragOver(null):undefined}
-                      onDrop={dragId?e=>{e.preventDefault();handleDrop(dragId,dateStr,hour);}:undefined}
+                      onDrop={dragId?e=>{e.preventDefault();const id=dragId;setDragId(null);setDragOver(null);placeCell(id,dateStr,hour);}:undefined}
                       style={{borderTop:"1px solid #ede8e0",borderRight:"1px solid #e6dfd6",padding:"3px",minHeight:42,
                         background:dragOver===key?"#fef9e7":dragId?"#fffdf5":dateStr===today?"#fffcf5":"#fff",
                         cursor:dragId?"copy":isEmpty?"pointer":"default",transition:"background .1s",
@@ -661,17 +735,20 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                             draggable
                             onDragStart={e=>{e.stopPropagation();setDragId(p.id);e.dataTransfer.effectAllowed="move";}}
                             onDragEnd={()=>{setDragId(null);setDragOver(null);}}
+                            onDragOver={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();setDragOver("p"+p.id);}:undefined}
+                            onDrop={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();const id=dragId;setDragId(null);setDragOver(null);swapAt(id,p.id);}:undefined}
                             onClick={e=>{e.stopPropagation();setPreview(p);}}
-                            style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"grab",transition:"all .1s",opacity:dragId===p.id?0.5:1}}
+                            style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"grab",transition:"all .1s",opacity:dragId===p.id?0.5:1,outline:dragOver==="p"+p.id?"2px solid #f59e0b":"none"}}
                             onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px #0000001a";e.currentTarget.style.borderColor=pt2.color;}}
                             onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=pt2.border;}}>
                             <div style={{...S.row,gap:3,marginBottom:1}}>
                               <span style={{width:5,height:5,borderRadius:"50%",background:pt2.dot,flexShrink:0}}/>
                               <span style={{fontSize:9,color:"#888"}}>{fmtTime(p.datetime)}</span>
+                              {p.buffer_post_id&&<span title="Buffer に入っています" style={{fontSize:8,fontWeight:800,color:"#047857",background:"#d1fae5",borderRadius:3,padding:"0 3px",marginLeft:p.score?0:"auto"}}>Buf</span>}
                               {p.score&&<span style={{fontSize:8,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
                             </div>
                             <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3,whiteSpace:"normal",wordBreak:"break-word"}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
-                            <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatus(p.id,e.target.value,p.score);}}
+                            <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatusB(p.id,e.target.value,p.score);}}
                               style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:10,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                               {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                             </select>
@@ -735,7 +812,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             ))}
           </div>
         </div>
+        )}
+        </div>
+        <IdeaTray open={trayOn} ideas={trayIdeas} undated={trayUndated} postTypes={allPostTypes} dragStart={trayDragStart} dragEnd={trayDragEnd} onOpen={openPost} onNext={toNextSlot}/>
+        </div></div>
       )}
+      {bufferFor&&<BufferModal post={bufferFor} onClose={()=>setBufferFor(null)} onDone={(bid,warn)=>bufferDone(bufferFor.id,bid,warn)}/>}
 
       {/* ── マンスリービュー ── */}
       {view==="month"&&(
