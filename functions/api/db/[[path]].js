@@ -21,6 +21,8 @@ export const onRequest = createDbGateway({
     // 2026-10-23 3便：スワイプくん・思考整理くんの表を「探す」ために読むだけ（書き換えはここで断る）
     sw_swipes:             { owner: "user_id", readOnly: true },
     mm_maps:               { owner: "user_id", readOnly: true },
+    // 2026-10-23 4便：1 日 1 行の記録（書いた字数・計画・チェック・ひとこと）
+    cos_days:              { owner: "user_id" },
   },
   functions: [],
 });

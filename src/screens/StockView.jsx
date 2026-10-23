@@ -355,6 +355,17 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
     return patch(p, { genre: g, labels: (p.labels || []).filter(l => !/^案[:：]/.test(l)), history: [...(p.history || []), { at: nowStr(), note: `Claude の案で「${g}」へ振り分けた` }] }, quiet ? null : `「${g}」へ入れました`);
   };
   const rejectAn = (p, l) => patch(p, { labels: (p.labels || []).filter(x => x !== l) });
+  // 4便：今日の掘り起こし（受け箱の上に 1 件だけ）。評価 S の公開済みか、寝かせたネタから日替わりで選ぶ
+  const [digOff, setDigOff] = useState(() => store.get("contentos.dig.off", "") === today);
+  const dig = useMemo(() => {
+    const best = posts.filter(p => p.status === "published" && p.score === "S");
+    const sleep = posts.filter(p => p.status === "idea" && stageOf(p) === "sleep");
+    const all = [...best.map(p => ({ k: "post", p })), ...sleep.map(p => ({ k: "idea", p }))];
+    if (!all.length) return null;
+    const n = Math.floor(new Date(today + "T00:00").getTime() / 864e5);
+    return all[n % all.length];
+  }, [posts, today]);
+  const digAgain = async p => { if (await addIdea({ title: `（もう一度）${headOf(p)}`, memo: `前に出した 1 本を、切り口を変えてもう一度。${p.datetime ? `前回 ${fmtDt(p.datetime)}` : ""}${p.impressions != null ? `・${kNum(p.impressions)} インプ` : ""}` })) { setDigOff(true); store.set("contentos.dig.off", today); } };
   const addGenre = async name => { const n = name.trim(); setAddingGenre(false); if (!n || genreNames.includes(n)) return; try { const g = await dbAddSheetGenre(uid, n, genres.length); setGenres(x => [...x, g]); setLoc(`it:${loc.split(":")[1]}:${n}`); } catch (e) { showToast("表を足せませんでした：" + (e.message || e)); } };
 
   // ── 左のメニュー ──
@@ -457,6 +468,13 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
     body = <>
       <div className="ck-crumb">ネタ帳</div><h1 className="ck-title">受け箱</h1>
       <p className="ck-note">入れるときは何も決めない。分けるのは後でまとめて、キー 1 つで。サイドパネルや Claude から入れたネタもここに入る。たまったら、Claude とのチャットで「受け箱を振り分けて」と言うと、各ネタに「案」が付く。</p>
+      {!readOnly && dig && !digOff && <div className="ck-cap" style={{ borderStyle: "dashed", gap: 6 }}>
+        <div className="ck-capft" style={{ fontWeight: 700, color: "var(--accent-ink)" }}>今日の掘り起こし</div>
+        <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, cursor: "pointer" }} onClick={() => onOpen(dig.p)}>{headOf(dig.p) || "（タイトルなし）"}</div>
+        <div className="ck-capft">{dig.k === "post" ? `${dig.p.datetime ? fmtDt(dig.p.datetime) + " に出して" : ""}${dig.p.impressions != null ? " " + kNum(dig.p.impressions) + " インプ" : ""}・評価 S。切り口を変えて、もう一度？` : "寝かせていたネタ。今なら書ける？"}
+          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6 }}>{dig.k === "post" ? <button className="ck-go" onClick={() => digAgain(dig.p)}>ネタにする</button> : <button className="ck-go" onClick={() => toggleLabel(dig.p, SLEEP, false).then(ok => { if (ok) { showToast("起こしました"); setDigOff(true); store.set("contentos.dig.off", today); } })}>起こす</button>}
+            <button className="ck-ghost" style={{ minHeight: 28 }} onClick={() => { setDigOff(true); store.set("contentos.dig.off", today); }}>今日はいい</button></span></div>
+      </div>}
       {!readOnly && inbox.some(p => anOf(p).length) && <div className="ck-vrow"><span className="ck-note" style={{ margin: 0 }}>Claude の案が {inbox.filter(p => anOf(p).length).length} 件</span>
         <button className="ck-ghost" onClick={async () => { const list = inbox.filter(p => anOf(p).length); let n = 0; for (const p of list) { if (await adoptAn(p, anOf(p)[0].g, true)) n++; } showToast(`${n} 件を案のとおり振り分けました`); }}>案をすべて採用</button></div>}
       {!readOnly && <div className="ck-cap"><textarea value={cap} onChange={e => setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱に入る（1 行目がタイトル、2 行目からメモ）"

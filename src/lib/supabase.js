@@ -162,3 +162,15 @@ export async function dbRemoveTemplate(uid,id) {
   const {error} = await supabase.from('content_templates').delete().eq('user_id',uid).eq('id',id);
   if (error) throw error;
 }
+
+// ── cos_days（2026-10-23 4便：1 日 1 行。書いた字数・計画・チェック・ひとこと） ──
+export const DAY_COLUMNS = 'day,chars,saves,goal,plan,note,extra,updated_at';
+export async function dbFetchDays(uid, fromDay) {
+  const {data,error} = await supabase.from('cos_days').select(DAY_COLUMNS).eq('user_id',uid).gte('day',fromDay).order('day');
+  if (error) throw error;
+  return data||[];
+}
+export async function dbUpsertDay(uid, row) {
+  const {error} = await supabase.from('cos_days').upsert({...row,user_id:uid,updated_at:new Date().toISOString()},{onConflict:'user_id,day'});
+  if (error) throw error;
+}
