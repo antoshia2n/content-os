@@ -18,6 +18,9 @@ export const onRequest = createDbGateway({
     notification_settings: { owner: "user_id" },
     sheet_genres:          { owner: "user_id" },
     content_templates:     { owner: "user_id" },
+    // 2026-10-23 3便：スワイプくん・思考整理くんの表を「探す」ために読むだけ（書き換えはここで断る）
+    sw_swipes:             { owner: "user_id", readOnly: true },
+    mm_maps:               { owner: "user_id", readOnly: true },
   },
   functions: [],
 });
