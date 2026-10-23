@@ -2,7 +2,7 @@
 // 2026-10-23 作り直し 4便：振り返りの上に「書く人」の記録を置く。
 //   今日（目安の字数・仕上げる投稿のチェック・ひとこと）／4 週間の字数／月はじめだけ「先月のあなた」
 // 数字（インプなど）は今までの画面（MetricsView）をこの下にそのまま出す。
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, stripHtml, fmtDate } from "../constants.js";
 import { DEFAULT_GOAL } from "../hooks/useDays.js";
 
@@ -46,7 +46,6 @@ export const REVIEW_CSS = `
 .ck-bar{background:var(--accent-line);border-radius:3px 3px 0 0;min-height:2px;position:relative}
 .ck-bar.today{background:var(--accent)}
 .ck-bar.zero{background:var(--hair)}
-.ck-bars-x{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;font-size:11px;color:var(--faint)}
 .ck-weeks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .ck-wk{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:11.5px;color:var(--muted)}
 .ck-wk b{display:block;font-size:16px;color:var(--fg);font-variant-numeric:tabular-nums}
@@ -67,8 +66,11 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
   const [goalIn, setGoalIn] = useState(String(goal));
   const [note, setNote] = useState(todayRow.note || "");
   const [pick, setPick] = useState("");
-  useEffect(() => { setGoalIn(String(todayRow.goal || DEFAULT_GOAL)); setNote(todayRow.note || ""); }, [todayRow.day]); // eslint-disable-line react-hooks/exhaustive-deps
-  const plan = todayRow.plan || [];
+  // 表から読み込んだ値（あとから届く）や、ほかの画面で変えた値に合わせる。いま入力している欄は動かさない
+  const goalRef = useRef(null), noteRef = useRef(null);
+  useEffect(() => { if (document.activeElement !== goalRef.current) setGoalIn(String(todayRow.goal || DEFAULT_GOAL)); }, [todayRow.day, todayRow.goal]);
+  useEffect(() => { if (document.activeElement !== noteRef.current) setNote(todayRow.note || ""); }, [todayRow.day, todayRow.note]);
+  const plan = useMemo(() => todayRow.plan || [], [todayRow.plan]);
   const drafts = useMemo(() => posts.filter(p => ["draft", "review"].includes(p.status) && !plan.some(x => x.id === p.id)), [posts, plan]);
   const byId = useMemo(() => { const m = {}; posts.forEach(p => { m[p.id] = p; }); return m; }, [posts]);
   const todayOut = useMemo(() => posts.filter(p => (p.datetime || "").startsWith(today) && ["reserved", "published"].includes(p.status)).length, [posts, today]);
@@ -108,7 +110,7 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
         <div className="ck-today"><TodayRing chars={todayRow.chars} goal={goal} size={72} stroke={8} />
           <div><div className="big">{(todayRow.chars || 0).toLocaleString()}<small>/ {goal.toLocaleString()} 字</small></div>
             <div className="sub">保存 {todayRow.saves || 0} 回・今日の予約と公開 {todayOut} 本</div>
-            <label className="ck-goal" style={{ marginTop: 6 }}>今日の目安<input inputMode="numeric" value={goalIn} onChange={e => setGoalIn(e.target.value.replace(/[^\d]/g, ""))} onBlur={() => { const n = Math.max(100, Math.min(50000, Number(goalIn) || DEFAULT_GOAL)); setGoalIn(String(n)); if (n !== todayRow.goal) saveDay(today, { goal: n }); }} />字</label></div></div>
+            <label className="ck-goal" style={{ marginTop: 6 }}>今日の目安<input ref={goalRef} inputMode="numeric" disabled={!ready} value={goalIn} onChange={e => setGoalIn(e.target.value.replace(/[^\d]/g, ""))} onBlur={() => { const n = Math.max(100, Math.min(50000, Number(goalIn) || DEFAULT_GOAL)); setGoalIn(String(n)); if (n !== todayRow.goal) saveDay(today, { goal: n }); }} />字</label></div></div>
         <div className="ck-sep" style={{ padding: 0 }}>今日仕上げる投稿</div>
         <div className="ck-plan">{plan.map(x => { const p = byId[x.id]; return <div key={x.id} className={`ck-pl ${x.done ? "done" : ""}`}>
           <input type="checkbox" checked={!!x.done} onChange={() => setPlan(plan.map(y => y.id === x.id ? { ...y, done: !y.done } : y))} />
@@ -119,7 +121,7 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
         {drafts.length > 0 && plan.length < 6 && <div className="ck-vrow"><select className="ck-sel" style={{ maxWidth: 320 }} value={pick} onChange={e => setPick(e.target.value)}><option value="">書きかけから選ぶ</option>{drafts.map(p => <option key={p.id} value={p.id}>{(headOf(p) || "（タイトルなし）").slice(0, 36)}</option>)}</select>
           <button className="ck-ghost" disabled={!pick} onClick={() => { const p = byId[pick]; if (!p) return; setPlan([...plan, { id: p.id, title: headOf(p).slice(0, 80), done: false }]); setPick(""); }}>今日に足す</button></div>}
         <div className="ck-sep" style={{ padding: 0 }}>ひとこと（夜に）</div>
-        <textarea className="ck-note-ta" value={note} onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (todayRow.note || "")) saveDay(today, { note }); }} placeholder="今日はどうだった？ 何が書きやすく、何が詰まった？" />
+        <textarea ref={noteRef} className="ck-note-ta" disabled={!ready && !err} value={note} onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (todayRow.note || "")) saveDay(today, { note }); }} placeholder="今日はどうだった？ 何が書きやすく、何が詰まった？" />
       </div>
       <div className="ck-box"><h2>この 4 週間<small>1 日の字数</small></h2>
         <div className="ck-bars">{span.map(x => <div key={x.k} className={`ck-bar ${x.k === today ? "today" : ""} ${x.n ? "" : "zero"}`} style={{ height: `${Math.max(2, Math.round(x.n / max * 100))}%` }} title={`${x.d.getMonth() + 1}/${x.d.getDate()}（${W[x.d.getDay()]}）${x.n.toLocaleString()} 字`} />)}</div>

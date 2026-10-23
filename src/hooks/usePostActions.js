@@ -3,11 +3,8 @@
 
 import { useCallback, useRef } from "react";
 import { dbUpsertPost, dbDeletePost, dbUpdatePost, dbUpdateAccount } from "../lib/supabase.js";
-import { genId, nowStr, nextDaySameTime, dbToPost, COLORS } from "../constants.js";
+import { genId, nowStr, nextDaySameTime, COLORS } from "../constants.js";
 
-// 公開済とみなすステータスキー
-// v1.1 で popular は status から廃止（成績は score / labels へ）
-const PUBLISHED_STATUSES = new Set(["published"]);
 
 export function usePostActions({
   activeAccId, uid, showToast,
@@ -43,7 +40,8 @@ export function usePostActions({
     });
   }, [setAllPosts]);
 
-  const saveToDb = useCallback(async (p) => {
+  // opts.count=false：複製・再投稿・よそから取り込んだ文など、自分で書いていない字数は数えない
+  const saveToDb = useCallback(async (p, opts = {}) => {
     const { _unsaved, ...cleanP } = p;
     const before = Object.values(allRef.current || {}).flat().find(x => x.id === cleanP.id);
     // 既存投稿は元のアカウントに保存する（宛先に引っ越さないようにするため）
@@ -75,9 +73,25 @@ export function usePostActions({
       return { ...prev, [accId]: exists ? cur.map(x => x.id === cleanP.id ? saved : x) : [...cur, saved] };
     });
     const grew = textLen(cleanP) - textLen(before);
-    if (grew > 0 && wroteRef.current) { try { wroteRef.current(grew); } catch { /* 数えられなくても保存は済んでいる */ } }
+    if (opts.count !== false && grew > 0 && wroteRef.current) { try { wroteRef.current(grew); } catch { /* 数えられなくても保存は済んでいる */ } }
     return true;
   }, [activeAccId, uid, showToast, setAllPosts]);
+
+  // 2026-10-23 5便：一覧からの小さな変更（ジャンル・ラベル・日時・状態など）は、変えた欄だけを書く。
+  // 行ごと書き直すと、開いたままの画面の古い中身で、Claude が付けた印などを上書きしてしまうため。
+  const FIELD_COL = { title: "title", memo: "memo", genre: "genre", theme: "theme", labels: "labels", history: "history", status: "status", postType: "post_type", mm_url: "mm_url", memoLinks: "memo_links", score: "score" };
+  const patchFields = useCallback(async (p, fields) => {
+    const upd = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (k === "datetime") upd.datetime = v || null;
+      else if (FIELD_COL[k]) upd[FIELD_COL[k]] = v;
+    }
+    const { error } = await dbUpdatePost(p.id, upd);
+    if (error) { showToast("更新に失敗しました"); return false; }
+    patchPost(p.id, { ...fields, ...(fields.datetime !== undefined ? { datetime: fields.datetime || "" } : {}) });
+    setPreview(prev => prev && prev.id === p.id ? { ...prev, ...fields } : prev);
+    return true;
+  }, [patchPost, showToast, setPreview]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useCallback(async (p) => {
     const ok = await saveToDb(p);
@@ -136,7 +150,7 @@ export function usePostActions({
       // 再投稿は新規 Notion レコードとして作成
       notion_page_id: null,
     };
-    const ok = await saveToDb(newPost);
+    const ok = await saveToDb(newPost, { count: false });
     if (!ok) return;
     setRepostTgt(null);
     showToast("再投稿を作成しました ✅");
@@ -153,7 +167,7 @@ export function usePostActions({
       // 複製は新規 Notion レコードとして作成
       notion_page_id: null,
     };
-    const ok = await saveToDb(newPost);
+    const ok = await saveToDb(newPost, { count: false });
     if (!ok) return;
     setPreview(null);
     showToast("翌日同時刻に複製しました ✅");
@@ -176,35 +190,6 @@ export function usePostActions({
     showToast(`「${label}」を追加しました`);
   }, [activeAccId, activeAcc, showToast, setAccounts]);
 
-  const handleDrop = useCallback(async (postId, dateStr, hour) => {
-    const p = posts.find(x => x.id === postId);
-    if (!p) return;
-    const newDt = `${dateStr}T${String(hour).padStart(2, "0")}:00`;
-    if (p.datetime === newDt) return;
-    const updated = { ...p, datetime: newDt, history: [...(p.history || []), { at: nowStr(), note: `${p.datetime}→${newDt} (DnD)` }] };
-    await saveToDb(updated);
-    showToast("日時を変更しました 📅");
-  }, [posts, saveToDb, showToast]);
-
-  // 日時未定 → 日時を入れて予約に上げる（要件 v1.2 F3）
-  // 日時を消したときは予約 → 日時未定に戻す。下書き・レビュー待ち・公開済は動かさない
-  const setDatetime = useCallback(async (id, dt) => {
-    const p = (posts || []).find(x => x.id === id);
-    if (!p) return;
-    const nextDt = dt || null;
-    let status = p.status;
-    if (nextDt && status === "idea") status = "draft";
-    else if (nextDt && status === "waiting") status = "reserved";
-    else if (!nextDt && status === "reserved") status = "waiting";
-
-    const { error } = await dbUpdatePost(id, { datetime: nextDt, status });
-    if (error) { showToast("日時の保存に失敗しました"); return; }
-    const patch = { datetime: nextDt || "", status };
-    patchPost(id, patch);
-    setPreview(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
-    showToast(nextDt ? "予約に上げました 📅" : "日時未定に戻しました");
-  }, [posts, patchPost, showToast, setPreview]);
-
   const openNew = useCallback((datetime, { title = "", postType = "x_post" } = {}) => {
     const newPost = { id: genId(), title, status: "draft", postType, datetime: datetime || `${today}T07:00`, body: "", memo: "", memoLinks: [], comments: [], history: [], labels: [], notion_page_id: null, account_id: activeAccId, _unsaved: true };
     setPreview(newPost);
@@ -213,6 +198,6 @@ export function usePostActions({
   return {
     saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
-    addCustomPostType, handleDrop, openNew, setDatetime,
+    addCustomPostType, openNew, patchFields,
   };
 }

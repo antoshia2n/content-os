@@ -5,16 +5,13 @@ import { doc, getDoc } from "firebase/firestore";
 import {
   PORTAL_APP_ID, PORTAL_URL,
   POST_TYPE, getPostTypeStyle, STATUS, SCORE,
-  DAYS, HOURS, COLORS, BD, BD2, S,
+  DAYS, HOURS, BD, BD2, S,
   OVERDUE_STATUS,
-  
-  
   fmtDate, fmtTime, slotTime, genId, nowStr,
-  nextDaySameTime, getWeekDates, dbToPost, getUrlParams,
+  getWeekDates, dbToPost, getUrlParams,
 } from "./constants.js";
 import {
-  dbFetchAccounts, dbInsertAccount, dbUpdateAccount, dbDeleteAccount, dbFetchAllAccounts,
-  dbFetchPosts, dbUpsertPost, dbDeletePost, dbUpdatePost, dbFetchTemplates,
+  dbFetchPosts, dbDeletePost, dbFetchTemplates,
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
@@ -22,7 +19,7 @@ import { StockView, CK_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } 
 import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
 import { FindModal, FindPanel, ideaFrom, linkFrom } from "./screens/FindView.jsx";
 import {
-  MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
+  SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
 
 // 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
@@ -44,7 +41,6 @@ const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"Met
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
 const NotifySettingsModal=lazyNamed(()=>import("./screens/NotifySettingsModal.jsx"),"NotifySettingsModal");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
-const SearchModal        =lazyNamed(()=>import("./components/modals.jsx"),"SearchModal");
 import { Btn } from "./components/shared.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
 import { useDays } from "./hooks/useDays.js";
@@ -82,7 +78,6 @@ function isEmptyIdea(p){return !!p&&p.status==="idea"&&!hasContent(p);}
 
 // 画面の切り替えの並び。ボタンと C キーの回る順は、この一覧 1 つから作る。
 // 2026-10-05 段 3：週・シート・成績の 3 つにした。月 ["month","月"] とリスト ["list","リスト"] の
-// 画面のコード（MonthView・ListView）は残してあるので、戻すときはこの一覧に足すだけでよい。
 // 2026-10-23 作り直し 1便：上の帯を ネタ帳／アウトプット／カレンダー／振り返り にした。
 // シートはアウトプットの見せ方（表・流れ・シート）の 1 つへ移した。月・リストのコードは残してある
 const VIEWS=[["idea","ネタ帳"],["out","アウトプット"],["calendar","カレンダー"],["metrics","振り返り"]];
@@ -123,7 +118,6 @@ function App({uid,panel=false}){
   const [filterPlatform,     setFilterPlatform]     = useState("all");
   const [showShare,          setShowShare]          = useState(false);
   const [showAccountSettings,setShowAccountSettings]= useState(false);
-  const [showSearch,         setShowSearch]         = useState(false);
   const [repostTgt,          setRepostTgt]          = useState(null);
   const [deleteConfirm,      setDeleteConfirm]      = useState(null);
   const [showSlotSettings,   setShowSlotSettings]   = useState(false);
@@ -184,11 +178,13 @@ function App({uid,panel=false}){
   },[showShare]);
 
   const [today,setToday]=useState(()=>fmtDate(new Date()));
-  const [nowDt,setNowDt] =useState(()=>new Date().toISOString().slice(0,16));
+  // 「今」は端末の時刻（日本時間）で持つ。投稿の日時も日本時間の文字なので、世界標準時で比べると 9 時間ずれる
+  const localNowDt=()=>{const n=new Date(),z=x=>String(x).padStart(2,"0");return `${fmtDate(n)}T${z(n.getHours())}:${z(n.getMinutes())}`;};
+  const [nowDt,setNowDt] =useState(localNowDt);
   useEffect(()=>{
     const tick=()=>{
       setToday(fmtDate(new Date()));
-      setNowDt(new Date().toISOString().slice(0,16));
+      setNowDt(localNowDt());
     };
     const id=setInterval(tick,60000);
     return()=>clearInterval(id);
@@ -223,7 +219,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   const {
     saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
-    addCustomPostType, handleDrop, openNew, setDatetime,
+    addCustomPostType, openNew, patchFields,
   } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
     setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts,
     allPosts, onWrote: n=>dayApi.addChars(n) });
@@ -233,15 +229,15 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
   // ⌘K・受け箱：ネタを 1 件入れる（状態＝アイデア・ジャンル空＝受け箱）
-  const quickAdd=React.useCallback(async({title,memo,memoLinks=[],mm_url=null,accId,note="受け箱に入れた"})=>{
+  const quickAdd=React.useCallback(async({title,memo,memoLinks=[],mm_url=null,accId,note="受け箱に入れた",count=true})=>{
     const to=accId||targetAccId;
     if(!to){showToast("ネタを入れるアカウントが決まっていません");return false;}
-    const ok=await saveToDb({id:genId(),account_id:to,status:"idea",datetime:"",title,memo,postType:"x_post",body:"",memoLinks,comments:[],history:[{at:nowStr(),note}],labels:[],genre:null,theme:null,mm_url,manabu:false});
+    const ok=await saveToDb({id:genId(),account_id:to,status:"idea",datetime:"",title,memo,postType:"x_post",body:"",memoLinks,comments:[],history:[{at:nowStr(),note}],labels:[],genre:null,theme:null,mm_url,manabu:false},{count});
     if(ok)showToast(`${(accounts.find(a=>a.id===to)||targetAcc)?.name||""} の受け箱に入れました`);
     return ok;
   },[targetAccId,targetAcc,accounts,saveToDb,showToast]);
   // 3便：探した結果（スワイプ・思考整理）を受け箱へ／書きかけの投稿の素材に足す
-  const toInboxFrom=(r,accId)=>{const f=ideaFrom(r);if(f)quickAdd({...f,accId,note:r.k==="swipe"?"スワイプから受け箱に入れた":"思考整理から受け箱に入れた"});};
+  const toInboxFrom=(r,accId)=>{const f=ideaFrom(r);if(f)quickAdd({...f,accId,count:false,note:r.k==="swipe"?"スワイプから受け箱に入れた":"思考整理から受け箱に入れた"});};
   const addLinkTo=async(target,r)=>{
     const l=linkFrom(r);if(!l)return;
     if((target.memoLinks||[]).some(x=>x.url===l.url)){showToast("もう素材に入っています");return;}
@@ -271,20 +267,19 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     const n=new Date(),z=x=>String(x).padStart(2,"0"),localNow=`${fmtDate(n)}T${z(n.getHours())}:${z(n.getMinutes())}`;
     if(wasIdea&&dt<=localNow){showToast("過ぎた日時には仮置きできません");return;}
     const status=wasIdea?"draft":p.status==="waiting"?"reserved":p.status;
-    const next={...p,datetime:dt,status,postType:wasIdea&&slotType?slotType:p.postType,
-      history:[...(p.history||[]),{at:nowStr(),note:wasIdea?`ネタを ${dt} に仮置きした`:`${p.datetime||"日時なし"}→${dt}`}]};
-    const ok=await saveToDb(next);
+    const ok=await patchFields(p,{datetime:dt,status,postType:wasIdea&&slotType?slotType:p.postType,
+      history:[...(p.history||[]),{at:nowStr(),note:wasIdea?`ネタを ${dt} に仮置きした`:`${p.datetime||"日時なし"}→${dt}`}]});
     if(ok)showToast(wasIdea?`仮置きしました（下書き・${fmtShort(dt)}）`:`${fmtShort(dt)} に動かしました`);
-  },[posts,saveToDb,showToast]);// eslint-disable-line react-hooks/exhaustive-deps
+  },[posts,patchFields,showToast]);// eslint-disable-line react-hooks/exhaustive-deps
   // 2 本の日時を入れ替える。片方に日時が無いときは、その 1 本を相手と同じ時刻に置く
   const swapAt=React.useCallback(async(aId,bId)=>{
     const a=posts.find(x=>x.id===aId),b=posts.find(x=>x.id===bId);if(!a||!b||a.id===b.id)return;
     if(!a.datetime||a.status==="idea"){await placeAt(a.id,b.datetime,b.postType);return;}
     if(bufLocked(a)||bufLocked(b))return;
-    const okA=await saveToDb({...a,datetime:b.datetime,history:[...(a.history||[]),{at:nowStr(),note:`${a.datetime}→${b.datetime}（入れ替え）`}]});
-    const okB=okA&&await saveToDb({...b,datetime:a.datetime,history:[...(b.history||[]),{at:nowStr(),note:`${b.datetime}→${a.datetime}（入れ替え）`}]});
+    const okA=await patchFields(a,{datetime:b.datetime,history:[...(a.history||[]),{at:nowStr(),note:`${a.datetime}→${b.datetime}（入れ替え）`}]});
+    const okB=okA&&await patchFields(b,{datetime:a.datetime,history:[...(b.history||[]),{at:nowStr(),note:`${b.datetime}→${a.datetime}（入れ替え）`}]});
     if(okA&&okB)showToast(`入れ替えました（${fmtShort(b.datetime)} ⇄ ${fmtShort(a.datetime)}）`);
-  },[posts,saveToDb,showToast,placeAt]);// eslint-disable-line react-hooks/exhaustive-deps
+  },[posts,patchFields,showToast,placeAt]);// eslint-disable-line react-hooks/exhaustive-deps
   // 週の表のマスに落としたとき：そのマスに予約枠があれば枠の時刻、無ければ ちょうどの時刻
   const placeCell=(id,dateStr,hour)=>{
     const p=posts.find(x=>x.id===id);
@@ -460,6 +455,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     });
     return m;
   },[filtered]);
+  // 枠が空いているかは、絞り込みに関係なく全部の予定で見る（絞り込み中に埋まった枠へ二重に入れないため）
+  const takenSlot=React.useMemo(()=>{
+    const m=new Set();
+    posts.forEach(p=>{if(p.status!=="idea"&&p.datetime)m.add(`${p.datetime.slice(0,10)}_${p.datetime.slice(11,13)}_${p.postType||"x_post"}`);});
+    return m;
+  },[posts]);
 
   // 週ビューヘッダー統計（毎レンダーfilterを7×4回走らせないためuseMemoに）
   const weekStats=React.useMemo(()=>{
@@ -657,7 +658,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
         <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
-          onOpen={openPost} saveToDb={saveToDb} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
+          onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
+          keysOff={!!editing||!!deleteConfirm||!!toOut||quickOpen||!!bufferFor||!!preview}
           onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
           renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
@@ -704,7 +706,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {view==="calendar"&&(
         <div className="ck"><style>{PLAN_CSS}</style><div className="ck-cal"><div className="ck-cal-main">
         {calMode==="list"?(
-          <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} slots={visibleSlots} postTypes={allPostTypes}
+          <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} occupied={posts} slots={visibleSlots} postTypes={allPostTypes}
             dragId={dragId} setDragId={setDragId} onPlace={placeAt} onSwap={swapAt} onOpen={openPost} openNew={openNew}
             changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)}/>
         ):(
@@ -754,7 +756,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                         return(
                           <div key={p.id}
                             draggable
-                            onDragStart={e=>{e.stopPropagation();setDragId(p.id);e.dataTransfer.effectAllowed="move";}}
+                            onDragStart={e=>{e.stopPropagation();setDragId(p.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/ck",String(p.id));}}
                             onDragEnd={()=>{setDragId(null);setDragOver(null);}}
                             onDragOver={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();setDragOver("p"+p.id);}:undefined}
                             onDrop={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();const id=dragId;setDragId(null);setDragOver(null);swapAt(id,p.id);}:undefined}
@@ -778,8 +780,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       })}
                       {/* ゴースト枠（実投稿で埋まっていないもののみ表示） */}
                       {(()=>{
-                        const filledTypes=new Set(sp.map(p=>p.postType||"x_post"));
-                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!filledTypes.has(g.postType||"x_post"));
+                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!takenSlot.has(`${key}_${g.postType||"x_post"}`));
                         if(ghosts.length===0)return null;
                         const multi=ghosts.length>1;
                         return multi?(
@@ -839,40 +840,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         </div></div>
       )}
       {bufferFor&&<BufferModal post={bufferFor} onClose={()=>setBufferFor(null)} onDone={(bid,warn)=>bufferDone(bufferFor.id,bid,warn)}/>}
-
-      {/* ── マンスリービュー ── */}
-      {view==="month"&&(
-        <MonthView
-          posts={filtered}
-          today={today}
-          slots={visibleSlots}
-          openNew={openNew}
-          setPreview={setPreview}
-          postTypes={allPostTypes}
-        />
-      )}
-
-      {/* ── リストビュー ── */}
-      {view==="list"&&(
-        <ListView
-          filtered={filtered}
-          today={today}
-          activeAcc={activeAcc}
-          filterStatus={filterStatus}
-          setFilter={setFilter}
-          filterPlatform={filterPlatform}
-          setFilterPlatform={setFilterPlatform}
-          setPreview={setPreview}
-          setEditing={setEditing}
-          handleDuplicate={handleDuplicate}
-          setRepostTgt={setRepostTgt}
-          openNew={openNew}
-          slots={visibleSlots}
-          changeStatus={changeStatus}
-          setDatetime={setDatetime}
-          postTypes={allPostTypes}
-        />
-      )}
 
       {/* シートはアウトプットの「シート」へ移した（2026-10-23） */}
 
@@ -997,9 +964,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel?sentToNotion:undefined} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
-      {showSearch&&<SearchModal posts={filtered} onClose={()=>setShowSearch(false)}
-        onSelect={p=>{setShowSearch(false);setPreview(p);}}
-        onRepost={p=>{setShowSearch(false);setRepostTgt(p);}}/>}
 
       {repostTgt&&<RepostModal post={repostTgt} onClose={()=>setRepostTgt(null)}
         onRepost={(dt,r)=>handleRepost(repostTgt,dt,r)}/>}
@@ -1042,26 +1006,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   );
 }
 
-// ── リストビュー ──
-// ════════════════════════════════════════════════════════
-// マンスリービュー
-// ════════════════════════════════════════════════════════
-
-// ════════════════════════════════════════════════════════
-// ローカル保存（エクスポート）モーダル
-// ════════════════════════════════════════════════════════
-const FS_SUPPORTED=typeof window!=="undefined"&&"showDirectoryPicker" in window;
-
-// ════════════════════════════════════════════════════════
-// 通知設定モーダル
-// ════════════════════════════════════════════════════════
-
-// ── ⑦ キーボードショートカット一覧（ヘルプ） ──
-// （将来的にモーダルとして表示）
-// N=新規, ←/→=週移動, C=ビュー切替, E=編集, ⌘K=検索
-
-// ── 共通UIコンポーネント ──
-const INP={width:"100%",background:"#fff",border:BD2,borderRadius:8,padding:"7px 10px",color:"#111",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color .12s"};
 // ════════════════════════════════════════════════════════
 // PortalAuthWrapper — Firebase認証 + Firestore権限チェック
 // ════════════════════════════════════════════════════════

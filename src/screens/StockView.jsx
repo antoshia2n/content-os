@@ -39,7 +39,6 @@ export const CK_CSS = `
 .ck-hm button:hover{color:var(--fg)}
 .ck-hm button.on{color:var(--fg);border-bottom-color:var(--accent)!important}
 .ck-hm .n{font-size:11px;color:var(--faint);font-weight:600}
-.ck-right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
 .ck-q{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px!important;border:1px solid var(--line)!important;border-radius:8px;color:var(--faint);font-size:12.5px;background:var(--soft)!important;min-width:170px}
 .ck-q:hover{color:var(--muted)}
 .ck-kbd{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;line-height:16px;background:var(--panel);margin-left:auto}
@@ -161,9 +160,12 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 @keyframes ckpop{0%{transform:scale(0)}55%{transform:scale(1.25)}100%{transform:scale(1)}}
 @keyframes ckchk{to{transform:rotate(45deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){.ck-pop::after,.ck-pop::before{animation:none;transform:rotate(45deg) scale(1)}}
+.ck-nav.off{display:none}
+/* 小さなボタン（PlanView・FindView でも使う。2 か所に別々にあった決まりを 1 つにした） */
+.ck-mini{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:6px;padding:1px 7px!important;margin-left:auto;white-space:nowrap}
+.ck-mini:hover{filter:brightness(.97)}
 @media (max-width:860px){
   .ck-nav{position:fixed;left:0;top:55px;bottom:0;height:auto;z-index:60;box-shadow:var(--shadow)}
-  .ck-nav.off{display:none}
   .ck-q .ql,.ck-q .ck-kbd{display:none}.ck-q{min-width:0}
   .ck-acc small{display:none}
   .ck-irow{grid-template-columns:minmax(0,1fr)}.ck-ia{justify-content:flex-start}.ck-keys{display:none}
@@ -266,7 +268,7 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
   useEffect(() => { ref.current?.focus(); }, []);
   const go = () => onGo({ type, datetime: when === "slot" && slot ? slot : "" });
   return <div className="ck-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="ck-modal" role="dialog" aria-label="アウトプットにする" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape") onClose(); if (e.key === "Enter" && !e.nativeEvent.isComposing) go(); }}>
+    <div className="ck-modal" role="dialog" aria-label="アウトプットにする" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape") onClose(); if (e.key === "Enter" && !e.nativeEvent.isComposing && e.target.tagName !== "BUTTON") go(); }}>
       <div className="ck-mti">{headOf(post) || "（空のネタ）"}</div>
       <div className="ck-mrow"><span>何にする</span><div className="ck-pick">{keys.map(k => <button key={k} className={`ck-pk ${k === type ? "on" : ""}`} onClick={() => setType(k)}>{postTypes[k].label}</button>)}</div></div>
       <div className="ck-mrow"><span>いつ出す</span><div className="ck-pick">
@@ -278,39 +280,9 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
   </div>;
 }
 
-// ── ⌘K：ネタを入れる・探す ─────────────────────────────
-export function QuickModal({ posts, accountName, postTypes, onClose, onAdd, onOpen }) {
-  const [v, setV] = useState("");
-  const [sel, setSel] = useState(-1);
-  const ref = useRef(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-  const found = useMemo(() => {
-    const q = v.trim().toLowerCase(); if (!q) return [];
-    return posts.filter(p => (headOf(p) + " " + (p.memo || "") + " " + textOf(p)).toLowerCase().includes(q)).slice(0, 8);
-  }, [v, posts]);
-  const add = () => { const t = v.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); onAdd({ title: first.trim(), memo: rest.join("\n").trim() }); };
-  return <div className="ck-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="ck-modal" role="dialog" aria-label="ネタ・検索">
-      <textarea ref={ref} value={v} onChange={e => { setV(e.target.value); setSel(-1); }} placeholder={`ネタを書く（Enter は改行・⌘＋Enter で ${accountName} の受け箱へ）／過去のネタやアウトプットを探す`}
-        onKeyDown={e => {
-          if (e.key === "Escape") { onClose(); return; }
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); add(); return; }
-          if (e.key === "ArrowDown" && found.length && (sel >= 0 || !v.includes("\n"))) { e.preventDefault(); setSel(s => Math.min(s + 1, found.length - 1)); return; }
-          if (e.key === "ArrowUp" && sel >= 0) { e.preventDefault(); setSel(s => Math.max(s - 1, -1)); return; }
-          if (e.key === "Enter" && sel >= 0 && !e.nativeEvent.isComposing) { e.preventDefault(); onOpen(found[sel]); }
-        }} />
-      {found.length > 0 && <div className="ck-hits">{found.map((p, j) => <button key={p.id} className={`ck-hit ${j === sel ? "on" : ""}`} onClick={() => onOpen(p)}>
-        {p.status === "idea" ? <span className="ck-src" style={{ color: "var(--s-idea)", background: "#ffedd5" }}>ネタ</span> : <StTag s={p.status} />}
-        <span className="t">{headOf(p) || "（空）"}</span><TypeTag t={p.postType} postTypes={postTypes} />
-      </button>)}</div>}
-      <div className="ck-mft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ　<span className="ck-kbd">↓</span>探した結果を開く<button className="ck-ink" onClick={add} disabled={!v.trim()}>受け箱へ</button></div>
-    </div>
-  </div>;
-}
-
 // ── ネタ帳とアウトプットの画面 ────────────────────────────
 export function StockView({ mode, uid, accountId, posts, postTypes, slots, today, readOnly,
-  onOpen, saveToDb, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn }) {
+  onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff }) {
   const keyBase = `contentos.stock.${accountId}`;
   const [loc, setLocRaw] = useState(() => store.get(`${keyBase}.${mode}`, mode === "idea" ? "inbox" : "week"));
   const setLoc = l => { setLocRaw(l); store.set(`${keyBase}.${mode}`, l); setFSt(null); setQ(""); if (window.innerWidth <= 860) setNavOn(false); };
@@ -339,11 +311,11 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
     await changeStatus(p.id, next, p.score ?? null);
     if (next === "reserved") { setPop(p.id); setTimeout(() => setPop(x => x === p.id ? null : x), 900); }
   }, [changeStatus, showToast]);
-  const patch = useCallback(async (p, fields, msg) => { const ok = await saveToDb({ ...p, ...fields }); if (ok && msg) showToast(msg); return ok; }, [saveToDb, showToast]);
+  const patch = useCallback(async (p, fields, msg) => { const ok = patchFields ? await patchFields(p, fields) : await saveToDb({ ...p, ...fields }); if (ok && msg) showToast(msg); return ok; }, [patchFields, saveToDb, showToast]);
   const toggleLabel = useCallback((p, label, on) => { const ls = new Set(p.labels || []); if (on) ls.add(label); else ls.delete(label); if (label === SLEEP && on) ls.delete(GROW); if (label === GROW && on) ls.delete(SLEEP); return patch(p, { labels: [...ls] }); }, [patch]);
-  const addIdea = useCallback(async ({ title, memo, genre = null, postType = "x_post" }) => {
+  const addIdea = useCallback(async ({ title, memo, genre = null, postType = "x_post", count = true }) => {
     const p = { id: genId(), account_id: accountId, status: "idea", datetime: "", title, memo, postType, body: "", memoLinks: [], comments: [], history: [{ at: nowStr(), note: "受け箱に入れた" }], labels: [], genre, theme: null, mm_url: null, manabu: false };
-    const ok = await saveToDb(p);
+    const ok = await saveToDb(p, { count });
     if (ok) showToast(genre ? `「${genre}」に入れました` : "受け箱に入れました");
     return ok;
   }, [accountId, saveToDb, showToast]);
@@ -365,7 +337,7 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
     const n = Math.floor(new Date(today + "T00:00").getTime() / 864e5);
     return all[n % all.length];
   }, [posts, today]);
-  const digAgain = async p => { if (await addIdea({ title: `（もう一度）${headOf(p)}`, memo: `前に出した 1 本を、切り口を変えてもう一度。${p.datetime ? `前回 ${fmtDt(p.datetime)}` : ""}${p.impressions != null ? `・${kNum(p.impressions)} インプ` : ""}` })) { setDigOff(true); store.set("contentos.dig.off", today); } };
+  const digAgain = async p => { if (await addIdea({ title: `（もう一度）${headOf(p)}`, memo: `前に出した 1 本を、切り口を変えてもう一度。${p.datetime ? `前回 ${fmtDt(p.datetime)}` : ""}${p.impressions != null ? `・${kNum(p.impressions)} インプ` : ""}`, count: false })) { setDigOff(true); store.set("contentos.dig.off", today); } };
   const addGenre = async name => { const n = name.trim(); setAddingGenre(false); if (!n || genreNames.includes(n)) return; try { const g = await dbAddSheetGenre(uid, n, genres.length); setGenres(x => [...x, g]); setLoc(`it:${loc.split(":")[1]}:${n}`); } catch (e) { showToast("表を足せませんでした：" + (e.message || e)); } };
 
   // ── 左のメニュー ──
@@ -441,9 +413,10 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
   const inboxRef = useRef({ inbox, sel });
   inboxRef.current = { inbox, sel };
   useEffect(() => {
-    if (mode !== "idea" || loc !== "inbox" || readOnly) return;
+    if (mode !== "idea" || loc !== "inbox" || readOnly || keysOff) return;
     const h = e => {
       const tag = e.target.tagName; if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target.isContentEditable) return;
+      if (tag === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;   // ボタンを押す Enter と重ねない
       if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector(".ck-scrim")) return;
       const { inbox: rs, sel: s } = inboxRef.current; const cur = rs[s];
       if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); setSel(x => Math.min(x + 1, rs.length - 1)); }
@@ -456,7 +429,7 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
       else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); onDelete(cur); }
     };
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
-  }, [mode, loc, readOnly, onToOut, onOpen, onDelete, toggleLabel, showToast]);
+  }, [mode, loc, readOnly, keysOff, onToOut, onOpen, onDelete, toggleLabel, showToast]);
   useEffect(() => { if (sel >= inbox.length) setSel(Math.max(0, inbox.length - 1)); }, [inbox.length, sel]);
 
   const dragStart = p => e => { e.dataTransfer.setData("text/ck", String(p.id)); e.currentTarget.classList.add("dragging"); };
