@@ -485,35 +485,18 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
       {!panel&&<>
       {/* ── ヘッダー ── */}
-      <div style={{background:"#fff",borderBottom:BD2,padding:"0 16px",display:"flex",alignItems:"center",gap:8,height:50,boxShadow:"0 1px 3px rgba(0,0,0,.04)",flexShrink:0,position:"relative",zIndex:50}}>
-        <span style={{fontWeight:900,fontSize:16,letterSpacing:"0",flexShrink:0,color:"#111"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></span>
-        <div style={{width:1,height:18,background:"#e6dfd6",flexShrink:0,marginLeft:2}}/>
+      <div className="ck"><style>{CK_CSS}</style>
+      <div className="ck-top">
+        {(view==="idea"||view==="out")&&<button className="ck-ghost" style={{width:32,padding:0,justifyContent:"center",border:"0"}} aria-label="メニュー" onClick={()=>setNavOn(o=>!o)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>}
+        <span className="ck-brand">{BRAND_ICON}<span>コンテンツくん<b>.</b></span></span>
+        {isAdmin&&<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)}/>}
 
-        {/* 管理者：アカウントタブ */}
-        {isAdmin&&(
-          <div style={{display:"flex",gap:2,background:"#f5f0eb",borderRadius:8,padding:2,maxWidth:400,overflow:"auto",flexShrink:0}}>
-            {switchableAccounts.length>1&&(
-              <button onClick={()=>{setActiveAccId(ALL_ACC);setPreview(null);}}
-                style={{...S.row,gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:isAllAccounts?"#fff":"transparent",color:isAllAccounts?"#111":"#a8a09a",boxShadow:isAllAccounts?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
-                全アカウント
-              </button>
-            )}
-            {switchableAccounts.map(acc=>(
-              <button key={acc.id} onClick={()=>{setActiveAccId(acc.id);setPreview(null);}}
-                style={{...S.row,gap:5,padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontWeight:600,fontSize:11.5,background:activeAccId===acc.id?"#fff":"transparent",color:activeAccId===acc.id?"#111":"#a8a09a",boxShadow:activeAccId===acc.id?"0 1px 4px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",fontFamily:"inherit",transition:"all .12s"}}>
-                <span style={{width:6,height:6,borderRadius:"50%",background:activeAccId===acc.id?acc.color:"#ccc",display:"inline-block",flexShrink:0}}/>
-                {acc.name}
-              </button>
-            ))}
-            <button onClick={addAccount}
-              style={{padding:"4px 8px",borderRadius:6,border:"1px dashed #ccc",cursor:"pointer",fontSize:11,background:"transparent",color:"#bbb",whiteSpace:"nowrap"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="#ccc";e.currentTarget.style.color="#bbb";}}>
-              + 追加
-            </button>
-          </div>
-        )}
-
+        <nav className="ck-hm" aria-label="機能">
+          {VIEWS.map(([v,l])=>{
+            const n=v==="idea"?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:v==="out"?posts.filter(p=>p.status==="draft").length:0;
+            return <button key={v} className={view===v?"on":""} onClick={()=>setView(v)}>{l}{n>0&&<span className="n">{v==="out"?`書きかけ ${n}`:n}</span>}</button>;
+          })}
+        </nav>
         {/* 共有リンクバッジ */}
         {isClient&&(
           <div style={{...S.row,gap:6,flexShrink:0}}>
@@ -525,17 +508,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
-          <button onClick={()=>setShowSearch(true)}
-            style={{...S.row,gap:5,border:BD2,background:"#f5f0eb",borderRadius:8,padding:"5px 10px",fontSize:11.5,color:"#6b6560",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6.5" cy="6.5" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
-            検索
-            <span style={{fontSize:9.5,color:"#bbb",background:"#fff",border:BD2,borderRadius:4,padding:"1px 4px"}}>⌘K</span>
-          </button>
-          <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:1,flexShrink:0,border:BD2}}>
-            {VIEWS.map(([v,l])=>(
-              <button key={v} onClick={()=>setView(v)} style={{padding:"4px 10px",borderRadius:6,border:"none",cursor:"pointer",fontSize:11.5,fontWeight:600,background:view===v?"#fff":"transparent",color:view===v?"#111":"#a8a09a",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.08)":"none",whiteSpace:"nowrap",transition:"all .12s"}}>{l}</button>
-            ))}
-          </div>
+          <button className="ck-q" onClick={()=>setQuickOpen(true)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg><span className="ql">ネタ・検索</span><span className="ck-kbd">⌘K</span></button>
           {isAdmin&&(
             <>
               {overdueCount>0&&(
@@ -593,6 +566,20 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             + 新規
           </button>
         </div>
+      </div>
+      <div className="ck-accline" style={{background:(activeAcc||targetAcc)?.color||"#f59e0b"}}/>
+
+      {/* ── ネタ帳・アウトプット（2026-10-23 作り直し 1便） ── */}
+      {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
+        <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
+          slots={slots} today={today} readOnly={isClient}
+          onOpen={openPost} saveToDb={saveToDb} changeStatus={changeStatus} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
+          onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
+          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
+      )}
+      {quickOpen&&!panel&&<QuickModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
+        onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpen={p=>{setQuickOpen(false);openPost(p);}}/>}
+      {toOut&&<ToOutModal post={toOut} postTypes={allPostTypes} slots={slots} posts={posts} today={today} onClose={()=>setToOut(null)} onGo={goOut}/>}
       </div>
 
       {/* ── カレンダーナビ ── */}
@@ -784,7 +771,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         />
       )}
 
-      {view==="sheet"&&<SheetView uid={uid} accountIds={isAllAccounts?switchableAccounts.map(a=>a.id):[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/> }
+      {/* シートはアウトプットの「シート」へ移した（2026-10-23） */}
 
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
       {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}
