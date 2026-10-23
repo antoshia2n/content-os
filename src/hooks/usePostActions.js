@@ -1,7 +1,7 @@
 // src/hooks/usePostActions.js
 // 投稿の CRUD・再投稿・複製・ドラッグ操作を担うカスタムフック
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { dbUpsertPost, dbDeletePost, dbUpdatePost, dbUpdateAccount } from "../lib/supabase.js";
 import { genId, nowStr, nextDaySameTime, dbToPost, COLORS } from "../constants.js";
 
@@ -13,7 +13,12 @@ export function usePostActions({
   activeAccId, uid, showToast,
   setAllPosts, setPreview, setEditing, setDeleteConfirm, setRepostTgt,
   today, posts, activeAcc, setAccounts,
+  allPosts, onWrote,
 }) {
+  // 2026-10-23 4便：保存のたびに増えた字数を数える（題・本文・メモの空白を除いた字数の差。減った分は数えない）
+  const allRef = useRef(allPosts); allRef.current = allPosts;
+  const wroteRef = useRef(onWrote); wroteRef.current = onWrote;
+  const textLen = p => !p ? 0 : ((p.title || "") + (p.body || "").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ") + (p.memo || "")).replace(/\s/g, "").length;
   // 投稿1件を、どのアカウントの引き出しに入っていても正しく書き換える
   // （「全アカウント」表示では引き出しが1つに決まらないため）
   const patchPost = useCallback((id, patch) => {
@@ -40,6 +45,7 @@ export function usePostActions({
 
   const saveToDb = useCallback(async (p) => {
     const { _unsaved, ...cleanP } = p;
+    const before = Object.values(allRef.current || {}).flat().find(x => x.id === cleanP.id);
     // 既存投稿は元のアカウントに保存する（宛先に引っ越さないようにするため）
     const accId = cleanP.account_id || activeAccId;
     const record = {
@@ -68,6 +74,8 @@ export function usePostActions({
       const saved = { ...cleanP, status: record.status, account_id: accId };
       return { ...prev, [accId]: exists ? cur.map(x => x.id === cleanP.id ? saved : x) : [...cur, saved] };
     });
+    const grew = textLen(cleanP) - textLen(before);
+    if (grew > 0 && wroteRef.current) { try { wroteRef.current(grew); } catch { /* 数えられなくても保存は済んでいる */ } }
     return true;
   }, [activeAccId, uid, showToast, setAllPosts]);
 
