@@ -47,6 +47,8 @@ const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"Repos
 const SearchModal        =lazyNamed(()=>import("./components/modals.jsx"),"SearchModal");
 import { Btn } from "./components/shared.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
+import { useDays } from "./hooks/useDays.js";
+import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
 
@@ -216,12 +218,15 @@ function App({uid,panel=false}){
   const { slots, saveSlots } = useSlots({ activeAccId: targetAccId, uid, showToast });
 // 種別で絞っているときは予約枠も同じ種別だけ出す（設定画面の一覧は絞らない）
 const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s=>(s.postType||"x_post")===filterPlatform),[slots,filterPlatform]);
+  // 2026-10-23 4便：1 日 1 行の記録（書いた字数・計画・ひとこと）
+  const dayApi = useDays(isClient?null:uid);
   const {
     saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
     addCustomPostType, handleDrop, openNew, setDatetime,
   } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
-    setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts });
+    setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts,
+    allPosts, onWrote: n=>dayApi.addChars(n) });
 
   // 2026-10-23 1便：アカウントは 1 つずつ開く。前に「全アカウント」を開いていたら既定のアカウントへ戻す
   useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
@@ -585,6 +590,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+          {!isClient&&<button style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
+            <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>今日 {dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
           <button className="ck-q" onClick={()=>setQuickOpen(true)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg><span className="ql">ネタ・検索</span><span className="ck-kbd">⌘K</span></button>
           {isAdmin&&(
             <>
@@ -871,6 +878,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
       {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}
+      {view==="metrics"&&!isClient&&<ReviewView days={dayApi.days} today={dayApi.today} todayRow={dayApi.todayRow} ready={dayApi.ready} err={dayApi.err} saveDay={dayApi.saveDay}
+        posts={posts} postTypes={allPostTypes} onOpen={openPost}/>}
       {view==="metrics"&&(
         <MetricsView
           posts={posts}
