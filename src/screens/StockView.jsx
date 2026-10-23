@@ -75,6 +75,10 @@ export const CK_CSS = `
 .ck-vtab.on{background:var(--panel)!important;color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
 .ck-chip-f{font-size:12px;font-weight:600;color:var(--muted);background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:99px;padding:0 10px!important;height:28px;display:inline-flex!important;align-items:center}
 .ck-chip-f.on{border-color:var(--accent)!important;color:var(--accent-ink);background:var(--accent-bg)!important}
+.ck-calf{display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap}
+.ck-calf .ck-chip-f{height:26px;font-size:11.5px}
+.ck-calf .sep{width:1px;height:16px;background:var(--line);margin:0 3px}
+.ck-calf .sep:first-child,.ck-calf .sep:last-child{display:none}
 .ck-search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--faint);width:230px;max-width:100%;margin-left:auto}
 .ck-search input{flex:1;min-width:0;border:0;background:transparent;font-size:13px;color:var(--fg);outline:none}
 .ck-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -98,9 +102,13 @@ export const CK_CSS = `
 .ck-score{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;font-size:11.5px;font-weight:800;color:#fff}
 .ck-src{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap}
 .ck-board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
-.ck-col{flex:0 0 236px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+/* 2026-10-24 6便：列は画面幅に収める。空の列は細くして、中身のある列に幅を回す */
+.ck-col{flex:1 1 0;min-width:180px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
 .ck-col.drop{box-shadow:inset 0 0 0 2px var(--accent)}
-.ck-colh{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:4px 6px}
+.ck-col.empty{flex:0 0 150px;min-width:150px;background:transparent;border-style:dashed}
+.ck-col-hint{font-size:11px;color:var(--faint);text-align:center;padding:14px 4px;border-radius:8px}
+.ck-col.drop .ck-col-hint{color:var(--accent-ink)}
+.ck-colh{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:4px 6px;white-space:nowrap}
 .ck-colh i{width:8px;height:8px;border-radius:50%;background:var(--c)}
 .ck-colh .n{color:var(--faint);font-weight:600;font-size:11.5px}
 .ck-colh .w{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--warn)}
@@ -212,10 +220,11 @@ function weekRange(today) { const d = new Date(today + "T00:00"); const day = d.
 
 function StTag({ s }) { const st = STATUS[s] || { label: s }; return <span className="ck-st" style={{ "--c": ST_COLOR[s] }}><i />{st.label}</span>; }
 function TypeTag({ t, postTypes }) { const pt = getPostTypeStyle(t, postTypes); return <span className="ck-type" style={{ color: pt.color, background: pt.bg }}>{pt.label}</span>; }
-function Score({ s }) { return s ? <span className="ck-score" style={{ background: SCORE_BG[s] || "#999" }}>{s}</span> : <span className="ck-dash">—</span>; }
+// 2026-10-24 6便：空欄には記号を置かない（「—」が並ぶと、値のある行が埋もれるため）
+function Score({ s }) { return s ? <span className="ck-score" style={{ background: SCORE_BG[s] || "#999" }}>{s}</span> : null; }
 function Srcs({ p }) {
   const n = (p.memoLinks || []).length;
-  if (!p.mm_url && !n) return <span className="ck-dash">—</span>;
+  if (!p.mm_url && !n) return null;
   return <span style={{ display: "inline-flex", gap: 4 }}>
     {p.mm_url && <span className="ck-src" style={{ color: "#7c3aed", background: "#ede9fe" }}>思考整理</span>}
     {n > 0 && <span className="ck-src" style={{ color: "#6b6259", background: "#f3eee8" }}>{I.link}{n}</span>}
@@ -470,6 +479,9 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
   } else {
     const stLabel = s => mode === "idea" ? STAGE[s].l : (STATUS[s]?.label || s);
     const stColor = s => mode === "idea" ? STAGE[s].c : ST_COLOR[s];
+    // 種類のフォルダの中では、全行が同じ種類なので種類の列と札を出さない
+    const oneType = /^(if|it|of|ot):/.test(loc);
+    const TT = props => oneType ? null : <TypeTag {...props} />;
     body = <>
       <div className="ck-crumb">{crumb}</div><h1 className="ck-title">{title}</h1>{note && <p className="ck-note">{note}</p>}{tabs}
       <div className="ck-vrow">
@@ -479,27 +491,28 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
         {view !== "sheet" && <label className="ck-search">{I.search}<input value={q} onChange={e => setQ(e.target.value)} placeholder={mode === "idea" ? "ネタを探す" : "この中を探す"} /></label>}
       </div>
       {view === "sheet" && mode === "out" && renderSheet ? renderSheet() :
-        view === "board" ? <div className="ck-board">{stList.map(s => { const rs = shown.filter(p => stOf(p) === s); return <div key={s} className="ck-col"
+        view === "board" ? <div className="ck-board">{stList.map(s => { const rs = shown.filter(p => stOf(p) === s); return <div key={s} className={`ck-col ${rs.length ? "" : "empty"}`}
           onDragOver={e => { if (readOnly) return; e.preventDefault(); e.currentTarget.classList.add("drop"); }} onDragLeave={e => e.currentTarget.classList.remove("drop")}
           onDrop={async e => { e.preventDefault(); e.currentTarget.classList.remove("drop"); const p = posts.find(x => String(x.id) === e.dataTransfer.getData("text/ck")); if (!p) return;
             if (mode === "idea") { if (s === "sleep") toggleLabel(p, SLEEP, true); else if (s === "grow") toggleLabel(p, GROW, true); else patch(p, { labels: (p.labels || []).filter(l => l !== SLEEP && l !== GROW) }); }
             else setStatus(p, s); }}>
           <div className="ck-colh" style={{ "--c": stColor(s) }}><i />{stLabel(s)}<span className="n">{rs.length}</span>{mode === "out" && s === "draft" && rs.length > 3 && <span className="w">書きかけが多い</span>}</div>
+          {!rs.length && !readOnly && <div className="ck-col-hint">ここへドラッグ</div>}
           {rs.map(p => <div key={p.id} className={`ck-bcard ${pop === p.id ? "ck-pop" : ""}`} draggable={!readOnly} onDragStart={dragStart(p)} onDragEnd={dragEnd} onClick={() => onOpen(p)}>
             <div className="ck-bt">{headOf(p) || "（タイトルなし）"}</div>
-            <div className="ck-bft"><TypeTag t={p.postType} postTypes={postTypes} />{p.datetime && <span className="ck-num">{fmtDt(p.datetime)}</span>}{p.score && <Score s={p.score} />}
+            <div className="ck-bft"><TT t={p.postType} postTypes={postTypes} />{p.datetime && <span className="ck-num">{fmtDt(p.datetime)}</span>}{p.score && <Score s={p.score} />}
               {mode === "idea" && !readOnly && <button className="ck-go" style={{ marginLeft: "auto" }} onClick={e => { e.stopPropagation(); onToOut(p); }}>アウトプットに →</button>}</div>
           </div>)}
         </div>; })}</div>
         : <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr>
-          {mode === "idea" ? <><th>ネタ</th><th>状態</th><th>種類</th><th>素材</th><th>入れた日</th><th /></>
-            : <><th>タイトル</th><th>状態</th><th>種類</th><th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th></>}
+          {mode === "idea" ? <><th>ネタ</th><th>状態</th>{!oneType && <th>種類</th>}<th>素材</th><th>入れた日</th><th /></>
+            : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th></>}
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select")) onOpen(p); }}>
               <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{(p.title ? p.memo : "") || "メモはまだ"}</div></td>
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
-              <td><TypeTag t={p.postType} postTypes={postTypes} /></td><td><Srcs p={p} /></td>
+              {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
               <td style={{ textAlign: "right" }}>{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}</td>
             </tr> :
@@ -507,11 +520,11 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
               <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || "本文はまだ"}</div></td>
               <td className={pop === p.id ? "ck-pop" : ""}>{readOnly ? <StTag s={p.status} /> : <select className="ck-stsel" value={p.status} onChange={e => setStatus(p, e.target.value)} style={{ backgroundImage: `radial-gradient(circle,${ST_COLOR[p.status]} 3.5px,transparent 4px)` }}>
                 {OUT_FLOW.map(s => <option key={s} value={s}>{STATUS[s]?.label || s}</option>)}</select>}</td>
-              <td><TypeTag t={p.postType} postTypes={postTypes} /></td>
+              {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}
               <td className="ck-num">{p.datetime ? fmtDt(p.datetime) : <span className="ck-dash">日時なし</span>}</td>
-              <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || <span className="ck-dash">—</span>}</td>
+              <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || ""}</td>
               <td><Srcs p={p} /></td><td><Score s={p.score} /></td>
-              <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : <span className="ck-dash">—</span>}</td>
+              <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td>
             </tr>)}
           {!shown.length && <tr><td colSpan={8} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。ネタ帳の「アウトプットにする」から入る"}</td></tr>}
         </tbody></table></div></div>}

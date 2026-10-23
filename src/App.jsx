@@ -109,6 +109,9 @@ function App({uid,panel=false}){
   // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
   const [calMode,setCalModeRaw]=useState(()=>{const narrow=typeof window!=="undefined"&&window.innerWidth<=760;try{return localStorage.getItem("contentos.calmode")||(narrow?"list":"week");}catch{return narrow?"list":"week";}});
   const setCalMode=m=>{setCalModeRaw(m);try{localStorage.setItem("contentos.calmode",m);}catch{/* 覚えられなくても動く */}};
+  // 2026-10-24 6便：週の表は、予定と枠のある時間帯だけを出す。夜中も見たいときだけ 0 時から出す
+  const [calNight,setCalNightRaw]=useState(()=>{try{return localStorage.getItem("contentos.cal.night")==="1";}catch{return false;}});
+  const setCalNight=v=>{setCalNightRaw(v);try{localStorage.setItem("contentos.cal.night",v?"1":"0");}catch{/* 覚えられなくても動く */}};
   const [trayOn,setTrayOn]=useState(()=>typeof window==="undefined"||window.innerWidth>900);
   const [bufferFor,setBufferFor]=useState(null);
   const [week,               setWeek]               = useState(new Date());
@@ -462,6 +465,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     return m;
   },[posts]);
 
+  // 過ぎた空き枠は出さない（もう入れられないため）。数えるのも、これからの枠だけ
+  const nowHM=nowDt.slice(11,16);
+  const slotGone=(dateStr,s)=>dateStr<today||(dateStr===today&&slotTime(s)<=nowHM);
   // 週ビューヘッダー統計（毎レンダーfilterを7×4回走らせないためuseMemoに）
   const weekStats=React.useMemo(()=>{
     return weekDateStrs.map((dateStr,i)=>{
@@ -470,10 +476,22 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         draftCnt:dayPosts.filter(p=>p.status==="draft").length,
         reservedCnt:dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length,
         publishedCnt:dayPosts.filter(p=>p.status==="published").length,
-        ghostCnt:visibleSlots.filter(s=>slotMatchesDate(s,weekDates[i])).length,
+        ghostCnt:visibleSlots.filter(s=>slotMatchesDate(s,weekDates[i])&&!slotGone(dateStr,s)&&!takenSlot.has(`${dateStr}_${slotTime(s).slice(0,2)}_${s.postType||"x_post"}`)).length,
       };
     });
-  },[filtered,weekDateStrs,weekDates,visibleSlots]);
+  },[filtered,weekDateStrs,weekDates,visibleSlots,takenSlot,today,nowHM]);// eslint-disable-line react-hooks/exhaustive-deps
+
+  // 出す時間帯：ふだんは 7〜22 時。予定や枠がその外にあれば、その 1 時間前・後まで広げる
+  const calHours=React.useMemo(()=>{
+    if(calNight)return HOURS;
+    const hs=[];
+    filtered.forEach(p=>{if(weekDateStrs.includes(p.datetime.slice(0,10)))hs.push(+p.datetime.slice(11,13));});
+    weekDates.forEach(d=>visibleSlots.filter(s=>slotMatchesDate(s,d)).forEach(s=>hs.push(+slotTime(s).slice(0,2))));
+    const lo=Math.max(0,Math.min(7,...hs.map(h=>h-1))),hi=Math.min(23,Math.max(22,...hs.map(h=>h+1)));
+    return HOURS.filter(h=>h>=lo&&h<=hi);
+  },[calNight,filtered,weekDateStrs,weekDates,visibleSlots]);
+  // 上の段の絞り込み：今週ある状態・種類だけを丸ボタンで出す
+  const weekAll=React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&weekDateStrs.includes((p.datetime||"").slice(0,10))),[posts,weekDateStrs]);
 
   const ghostBySlotRef=useRef({});
   const ghostBySlot=React.useMemo(()=>{
@@ -670,7 +688,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── カレンダーナビ ── */}
       {view==="calendar"&&(
-        <div style={{background:"#fff",borderBottom:BD2,padding:"5px 16px",display:"flex",alignItems:"center",gap:7,flexShrink:0,flexWrap:"wrap",rowGap:4}}>
+        <div className="ck" style={{background:"#fff",borderBottom:BD2,padding:"5px 16px",display:"flex",alignItems:"center",gap:7,flexShrink:0,flexWrap:"wrap",rowGap:4}}>
           {activeAcc&&<span style={{width:7,height:7,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
           <span style={{fontWeight:700,fontSize:12.5,color:"#555",whiteSpace:"nowrap"}}>{activeAcc?.name}</span>
           <div style={{...S.row,gap:4,marginLeft:4}}>
@@ -689,16 +707,14 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <button className={`ck-vtab ${calMode==="list"?"on":""}`} onClick={()=>setCalMode("list")}>リスト</button>
             <button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button>
           </div>
-          <select value={filterStatus} onChange={e=>setFilter(e.target.value)}
-            style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer",marginLeft:"auto"}}>
-            <option value="all">すべて</option>
-            {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
-            style={{background:"#f5f0eb",border:BD2,borderRadius:7,padding:"4px 8px",fontSize:11,color:"#555",outline:"none",cursor:"pointer"}}>
-            <option value="all">すべての種別</option>
-            {Object.entries(allPostTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-          </select>
+          {calMode==="week"&&<button className={`ck-vtab ${calNight?"on":""}`} onClick={()=>setCalNight(!calNight)} title="0 時から 23 時まで、全部の時間を出す">夜も出す</button>}
+          <div className="ck-calf">
+            {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=>{const n=weekAll.filter(p=>p.status===k&&(filterPlatform==="all"||p.postType===filterPlatform)).length;
+              return (n>0||filterStatus===k)&&<button key={k} className={`ck-chip-f ${filterStatus===k?"on":""}`} onClick={()=>setFilter(filterStatus===k?"all":k)}>{v.label} {n}</button>;})}
+            <span className="sep"/>
+            {Object.entries(allPostTypes).map(([k,v])=>{const n=weekAll.filter(p=>(p.postType||"x_post")===k&&(filterStatus==="all"||p.status===filterStatus)).length;
+              return (n>0||filterPlatform===k)&&<button key={k} className={`ck-chip-f ${filterPlatform===k?"on":""}`} onClick={()=>setFilterPlatform(filterPlatform===k?"all":k)}>{v.label} {n}</button>;})}
+          </div>
         </div>
       )}
 
@@ -730,7 +746,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                 </div>
               );
             })}
-            {HOURS.map(hour=>(
+            {calHours.map(hour=>(
               <React.Fragment key={hour}>
                 <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
@@ -780,7 +796,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       })}
                       {/* ゴースト枠（実投稿で埋まっていないもののみ表示） */}
                       {(()=>{
-                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!takenSlot.has(`${key}_${g.postType||"x_post"}`));
+                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!takenSlot.has(`${key}_${g.postType||"x_post"}`)&&!slotGone(dateStr,g));
                         if(ghosts.length===0)return null;
                         const multi=ghosts.length>1;
                         return multi?(
