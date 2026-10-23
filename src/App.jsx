@@ -18,8 +18,9 @@ import {
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
-import { StockView, CK_CSS, AccountPill, QuickModal, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
+import { StockView, CK_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
 import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
+import { FindModal, FindPanel, ideaFrom, linkFrom } from "./screens/FindView.jsx";
 import {
   MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
@@ -227,12 +228,21 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
   // ⌘K・受け箱：ネタを 1 件入れる（状態＝アイデア・ジャンル空＝受け箱）
-  const quickAdd=React.useCallback(async({title,memo})=>{
-    if(!targetAccId){showToast("ネタを入れるアカウントが決まっていません");return false;}
-    const ok=await saveToDb({id:genId(),account_id:targetAccId,status:"idea",datetime:"",title,memo,postType:"x_post",body:"",memoLinks:[],comments:[],history:[{at:nowStr(),note:"受け箱に入れた"}],labels:[],genre:null,theme:null,mm_url:null,manabu:false});
-    if(ok)showToast(`${targetAcc?.name||""} の受け箱に入れました`);
+  const quickAdd=React.useCallback(async({title,memo,memoLinks=[],mm_url=null,accId,note="受け箱に入れた"})=>{
+    const to=accId||targetAccId;
+    if(!to){showToast("ネタを入れるアカウントが決まっていません");return false;}
+    const ok=await saveToDb({id:genId(),account_id:to,status:"idea",datetime:"",title,memo,postType:"x_post",body:"",memoLinks,comments:[],history:[{at:nowStr(),note}],labels:[],genre:null,theme:null,mm_url,manabu:false});
+    if(ok)showToast(`${(accounts.find(a=>a.id===to)||targetAcc)?.name||""} の受け箱に入れました`);
     return ok;
-  },[targetAccId,targetAcc,saveToDb,showToast]);
+  },[targetAccId,targetAcc,accounts,saveToDb,showToast]);
+  // 3便：探した結果（スワイプ・思考整理）を受け箱へ／書きかけの投稿の素材に足す
+  const toInboxFrom=(r,accId)=>{const f=ideaFrom(r);if(f)quickAdd({...f,accId,note:r.k==="swipe"?"スワイプから受け箱に入れた":"思考整理から受け箱に入れた"});};
+  const addLinkTo=async(target,r)=>{
+    const l=linkFrom(r);if(!l)return;
+    if((target.memoLinks||[]).some(x=>x.url===l.url)){showToast("もう素材に入っています");return;}
+    const ok=await saveToDb({...target,memoLinks:[...(target.memoLinks||[]),l],mm_url:target.mm_url||(r.k==="map"?r.url:null),history:[...(target.history||[]),{at:nowStr(),note:`素材を足した（${l.label}）`}]});
+    if(ok)showToast(`「${(target.title||"（タイトルなし）").slice(0,20)}」の素材に足しました`);
+  };
   // ネタ → アウトプット：状態を下書きにし、種類と日時を入れて、今の編集画面を開く
   const goOut=React.useCallback(async({type,datetime})=>{
     const p=toOut;if(!p)return;
@@ -545,7 +555,11 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
-      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}/>}
+      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}
+        onQuick={v=>quickAdd({...v,accId:panelAcc?.id})}
+        renderFind={()=>{const ps=panelAcc?(allPosts[panelAcc.id]||[]):[];return <FindPanel posts={ps} postTypes={panelPostTypes} autoFocus
+          targets={ps.filter(p=>["draft","review"].includes(p.status)).sort((a,b)=>(b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""))}
+          onOpenPost={p=>{setPreview(null);setEditing({...p});}} onToInbox={r=>toInboxFrom(r,panelAcc?.id)} onAddLink={addLinkTo}/>;}}/>}
       {!panel&&<>
       {/* ── ヘッダー ── */}
       <div className="ck"><style>{CK_CSS}</style>
@@ -640,8 +654,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
           renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
-      {quickOpen&&!panel&&<QuickModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
-        onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpen={p=>{setQuickOpen(false);openPost(p);}}/>}
+      {quickOpen&&!panel&&<FindModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
+        onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpenPost={p=>{setQuickOpen(false);openPost(p);}} onToInbox={r=>toInboxFrom(r)}/>}
       {toOut&&<ToOutModal post={toOut} postTypes={allPostTypes} slots={slots} posts={posts} today={today} onClose={()=>setToOut(null)} onGo={goOut}/>}
       </div>
 
