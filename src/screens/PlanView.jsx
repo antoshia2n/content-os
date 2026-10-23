@@ -26,7 +26,6 @@ export const PLAN_CSS = `
 .ck-chip.dragging{opacity:.4}
 .ck-chip .t{font-size:12.5px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ck-chip .m{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--faint)}
-.ck-mini{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line);background:var(--accent-bg);border-radius:6px;padding:1px 7px;margin-left:auto;white-space:nowrap}
 .ck-list{max-width:980px;margin:0 auto;padding:16px 16px 72px;display:flex;flex-direction:column;gap:14px}
 .ck-day{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .ck-day.today{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -96,10 +95,17 @@ export function xLen(s) {
   }
   return n;
 }
+// Buffer へ入れている途中の印（pending:時刻）。30 分より古ければ途中で止まったものとみなす
+const BUF_STALE_MS = 30 * 60 * 1000;
+const bufPendingAt = id => { const m = /^pending:(\d{13})$/.exec(String(id || "")); return m ? Number(m[1]) : 0; };
+export const isBufStale = id => { const t = bufPendingAt(id); return !!t && Date.now() - t > BUF_STALE_MS; };
+export const isBufPending = id => !!bufPendingAt(id) && !isBufStale(id);
+export const isBufIn = id => !!id && !bufPendingAt(id);
 export function bufferReason(p, now = new Date()) {
   if (!BUFFER_ACCOUNTS.includes(p.account_id)) return "このアカウントには Buffer の窓口がありません";
   if ((p.postType || "x_post") !== "x_post") return "Buffer に入れられるのは Xポストだけです";
-  if (p.buffer_post_id) return "もう Buffer に入っています";
+  if (isBufPending(p.buffer_post_id)) return "Buffer に入れているところです（30 分たっても変わらなければ、押し直せます）";
+  if (p.buffer_post_id && !isBufStale(p.buffer_post_id)) return "もう Buffer に入っています";
   if (!p.datetime) return "日時が入っていません";
   if (new Date(p.datetime + ":00+09:00").getTime() < now.getTime() + 2 * 60 * 1000) return "日時が過ぎています";
   return "";
@@ -173,7 +179,9 @@ export function IdeaTray({ ideas, undated, postTypes, dragStart, dragEnd, onOpen
 }
 
 // ── リスト：週の 7 日を縦に。予定と空き枠を時刻順に並べる ──
-export function CalendarList({ weekDates, weekDateStrs, today, posts, slots, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer }) {
+export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, slots, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer }) {
+  // 枠が埋まっているかは、絞り込み前の全部の予定で見る
+  const taken = useMemo(() => new Set((occupied || posts).filter(p => p.status !== "idea" && p.datetime).map(p => `${p.datetime.slice(0, 16)}_${p.postType || "x_post"}`)), [occupied, posts]);
   const [over, setOver] = useState(null);
   const byDate = useMemo(() => { const m = {}; posts.filter(p => p.datetime).forEach(p => { (m[p.datetime.slice(0, 10)] = m[p.datetime.slice(0, 10)] || []).push(p); }); return m; }, [posts]);
   const dz = (key, fn) => ({
@@ -188,7 +196,7 @@ export function CalendarList({ weekDates, weekDateStrs, today, posts, slots, pos
       const daySlots = slots.filter(s => slotMatchesDate(s, d));
       // 過ぎた枠は出さない（過去の日時へ置かないため）
       const now = new Date(); const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      const ghosts = ds < today ? [] : daySlots.filter(s => !(ds === today && slotTime(s) <= nowHM) && !dayPosts.some(p => p.datetime.slice(11, 16) === slotTime(s) && (p.postType || "x_post") === (s.postType || "x_post")));
+      const ghosts = ds < today ? [] : daySlots.filter(s => !(ds === today && slotTime(s) <= nowHM) && !taken.has(`${ds}T${slotTime(s)}_${s.postType || "x_post"}`));
       const items = [...dayPosts.map(p => ({ k: "p", t: p.datetime.slice(11, 16), p })), ...ghosts.map(s => ({ k: "g", t: slotTime(s), s }))].sort((a, b) => a.t.localeCompare(b.t));
       return <section key={ds} className={`ck-day ${ds === today ? "today" : ""}`}>
         <div className="ck-dayh">{d.getMonth() + 1}/{d.getDate()}<small>{W[d.getDay()]}曜{ds === today ? "・今日" : ""}</small><span className="n">{dayPosts.length} 本{ghosts.length ? `・空き ${ghosts.length}` : ""}</span><button className="add" onClick={() => openNew(`${ds}T09:00`)}>＋</button></div>
@@ -210,7 +218,8 @@ export function CalendarList({ weekDates, weekDateStrs, today, posts, slots, pos
             <div style={{ minWidth: 0 }}><div className="ti">{headOf(p) || "（タイトルなし）"}</div>
               <div className="sub"><TypeTag t={p.postType} postTypes={postTypes} />{p.genre && <span>{p.genre}</span>}</div></div>
             <div className="acts">
-              {p.buffer_post_id ? <span className="ck-buf done">Buffer 済</span>
+              {isBufIn(p.buffer_post_id) ? <span className="ck-buf done">Buffer 済</span>
+                : isBufPending(p.buffer_post_id) ? <span className="ck-buf done">入れている途中</span>
                 : p.status === "reserved" && !bufferReason(p) ? <button className="ck-buf go" onClick={() => onBuffer(p)}>Buffer に入れる</button> : null}
               <select className="ck-stsel" value={p.status} onChange={e => changeStatus(p.id, e.target.value, p.score)} style={{ backgroundImage: `radial-gradient(circle,${ST_COLOR[p.status]} 3.5px,transparent 4px)` }} aria-label={st?.label}>
                 {OUT_ST.map(s => <option key={s} value={s}>{STATUS[s]?.label || s}</option>)}

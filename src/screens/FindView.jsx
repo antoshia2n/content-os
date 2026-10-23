@@ -24,12 +24,17 @@ export function loadOthers(force = false) {
     } catch (e) { return { rows: [], err: e.message || String(e) }; }
   };
   loading = Promise.all([one("sw_swipes", SW_COLS, "created_at"), one("mm_maps", MM_COLS, "updated_at")])
-    .then(([sw, mm]) => { cache = { swipes: sw.rows, maps: mm.rows.filter(m => !m.is_template), swErr: sw.err, mmErr: mm.err }; loading = null; return cache; });
+    .then(([sw, mm]) => {
+      const got = { swipes: sw.rows, maps: mm.rows.filter(m => !m.is_template), swErr: sw.err, mmErr: mm.err };
+      // 読めなかったときは覚えない（次に開いたときに読み直すため）
+      cache = sw.err || mm.err ? null : got; loading = null; return got;
+    });
   return loading;
 }
-export function useOthers(on) {
+// fresh=true：開くたびに読み直す（⌘K の窓）。ほかのアプリで足したスワイプやマップもすぐ出るように
+export function useOthers(on, fresh = false) {
   const [d, setD] = useState(cache);
-  useEffect(() => { if (!on) return; let live = true; loadOthers().then(x => { if (live) setD(x); }); return () => { live = false; }; }, [on]);
+  useEffect(() => { if (!on) return; let live = true; loadOthers(fresh).then(x => { if (live) setD(x); }); return () => { live = false; }; }, [on, fresh]);
   return d;
 }
 
@@ -80,8 +85,6 @@ export const FIND_CSS = `
 .ck-fdot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px}
 .ck-ferr{font-size:11.5px;color:var(--warn);padding:6px 12px}
 .ck-fto{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--faint);flex-wrap:wrap}
-.ck-mini{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:6px;padding:1px 7px!important;margin-left:auto;white-space:nowrap}
-.ck-mini:hover{filter:brightness(.97)}
 `;
 const KIND = { post: { l: "自分の投稿", c: "#ea580c" }, swipe: { l: "スワイプ", c: "#2563eb" }, map: { l: "思考整理", c: "#7c3aed" } };
 
@@ -126,7 +129,7 @@ export function FindModal({ posts, accountName, onClose, onAdd, onOpenPost, onTo
   const [v, setV] = useState("");
   const [sel, setSel] = useState(-1);
   const ref = useRef(null);
-  const others = useOthers(true);
+  const others = useOthers(true, true);
   useEffect(() => { ref.current?.focus(); }, []);
   const r = useMemo(() => v.trim() ? findAll(v.split("\n")[0], posts, others, 5) : { P: [], S: [], M: [] }, [v, posts, others]);
   const flat = [...r.P, ...r.S, ...r.M];
