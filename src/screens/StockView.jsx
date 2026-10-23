@@ -347,6 +347,14 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
     if (ok) showToast(genre ? `「${genre}」に入れました` : "受け箱に入れました");
     return ok;
   }, [accountId, saveToDb, showToast]);
+  // 3便：Claude が付けた「案：ジャンル」を採用・却下する（採用するとジャンルに入り、受け箱から出る）
+  const addedG = useRef(new Set());
+  const anOf = p => (p.labels || []).filter(l => /^案[:：]/.test(l)).map(l => ({ l, g: l.replace(/^案[:：]\s*/, "").trim() })).filter(x => x.g);
+  const adoptAn = async (p, g, quiet) => {
+    if (!genreNames.includes(g) && !addedG.current.has(g)) { addedG.current.add(g); try { const ng = await dbAddSheetGenre(uid, g, genres.length); setGenres(x => x.some(y => y.name === g) ? x : [...x, ng]); } catch (e) { showToast("表を足せませんでした：" + (e.message || e)); return false; } }
+    return patch(p, { genre: g, labels: (p.labels || []).filter(l => !/^案[:：]/.test(l)), history: [...(p.history || []), { at: nowStr(), note: `Claude の案で「${g}」へ振り分けた` }] }, quiet ? null : `「${g}」へ入れました`);
+  };
+  const rejectAn = (p, l) => patch(p, { labels: (p.labels || []).filter(x => x !== l) });
   const addGenre = async name => { const n = name.trim(); setAddingGenre(false); if (!n || genreNames.includes(n)) return; try { const g = await dbAddSheetGenre(uid, n, genres.length); setGenres(x => [...x, g]); setLoc(`it:${loc.split(":")[1]}:${n}`); } catch (e) { showToast("表を足せませんでした：" + (e.message || e)); } };
 
   // ── 左のメニュー ──
@@ -448,14 +456,18 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
   if (mode === "idea" && loc === "inbox") {
     body = <>
       <div className="ck-crumb">ネタ帳</div><h1 className="ck-title">受け箱</h1>
-      <p className="ck-note">入れるときは何も決めない。分けるのは後でまとめて、キー 1 つで。サイドパネルや Claude から入れたネタもここに入る。</p>
+      <p className="ck-note">入れるときは何も決めない。分けるのは後でまとめて、キー 1 つで。サイドパネルや Claude から入れたネタもここに入る。たまったら、Claude とのチャットで「受け箱を振り分けて」と言うと、各ネタに「案」が付く。</p>
+      {!readOnly && inbox.some(p => anOf(p).length) && <div className="ck-vrow"><span className="ck-note" style={{ margin: 0 }}>Claude の案が {inbox.filter(p => anOf(p).length).length} 件</span>
+        <button className="ck-ghost" onClick={async () => { const list = inbox.filter(p => anOf(p).length); let n = 0; for (const p of list) { if (await adoptAn(p, anOf(p)[0].g, true)) n++; } showToast(`${n} 件を案のとおり振り分けました`); }}>案をすべて採用</button></div>}
       {!readOnly && <div className="ck-cap"><textarea value={cap} onChange={e => setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱に入る（1 行目がタイトル、2 行目からメモ）"
         onKeyDown={async e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); const t = cap.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); if (await addIdea({ title: first.trim(), memo: rest.join("\n").trim() })) { setCap(""); setSel(0); } } }} />
         <div className="ck-capft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ<span style={{ marginLeft: "auto" }}>どの画面からでも <span className="ck-kbd" style={{ marginLeft: 2 }}>⌘K</span></span></div></div>}
       {!readOnly && inbox.length > 0 && <div className="ck-keys"><span><span className="ck-kbd">J</span><span className="ck-kbd">K</span>選ぶ</span><span><span className="ck-kbd">1</span>アウトプットにする</span><span><span className="ck-kbd">2</span>表へ振り分け</span><span><span className="ck-kbd">H</span>寝かせる</span><span><span className="ck-kbd">Enter</span>開く</span><span><span className="ck-kbd">⌫</span>消す</span></div>}
       <div className="ck-card">{inbox.length ? inbox.map((p, j) => <div key={p.id} className={`ck-irow ${j === sel ? "sel" : ""}`} onClick={e => { if (!e.target.closest("select,button")) setSel(j); }} draggable={!readOnly} onDragStart={dragStart(p)} onDragEnd={dragEnd}>
         <div style={{ minWidth: 0 }}><div className={`ck-it ${headOf(p) ? "" : "empty"}`} onClick={() => onOpen(p)}>{headOf(p) || "（空のネタ。開いて書くか、⌫ で消す）"}</div>
-          <div className="ck-im"><TypeTag t={p.postType} postTypes={postTypes} />{bornOf(p) && <span>{fmtDt(toLocal(bornOf(p)))}</span>}{p.memo && p.title && <span>・{p.memo.split("\n")[0].slice(0, 60)}</span>}</div></div>
+          <div className="ck-im"><TypeTag t={p.postType} postTypes={postTypes} />{bornOf(p) && <span>{fmtDt(toLocal(bornOf(p)))}</span>}{p.memo && p.title && <span>・{p.memo.split("\n")[0].slice(0, 60)}</span>}</div>
+          {!readOnly && anOf(p).map(a => <div key={a.l} className="ck-im" style={{ marginTop: 6 }}><span className="ck-src" style={{ color: "#7c3aed", background: "#ede9fe" }}>Claude の案</span><b style={{ color: "var(--fg)", fontWeight: 700 }}>{a.g}</b>
+            <button className="ck-go" onClick={() => adoptAn(p, a.g)}>採用</button><button className="ck-ghost" style={{ minHeight: 26 }} onClick={() => rejectAn(p, a.l)}>却下</button></div>)}</div>
         {!readOnly && <div className="ck-ia">
           <select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
             <option value="">表へ振り分け</option>{genreNames.map(g => <option key={g} value={g}>{g}</option>)}
