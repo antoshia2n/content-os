@@ -18,6 +18,7 @@ import {
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
+import { StockView, CK_CSS, AccountPill, QuickModal, ToOutModal, BRAND_ICON } from "./screens/StockView.jsx";
 import {
   MonthView, ListView, SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
@@ -78,7 +79,11 @@ function isEmptyIdea(p){return !!p&&p.status==="idea"&&!hasContent(p);}
 // 画面の切り替えの並び。ボタンと C キーの回る順は、この一覧 1 つから作る。
 // 2026-10-05 段 3：週・シート・成績の 3 つにした。月 ["month","月"] とリスト ["list","リスト"] の
 // 画面のコード（MonthView・ListView）は残してあるので、戻すときはこの一覧に足すだけでよい。
-const VIEWS=[["calendar","週"],["sheet","シート"],["metrics","成績"]];
+// 2026-10-23 作り直し 1便：上の帯を ネタ帳／アウトプット／カレンダー／振り返り にした。
+// シートはアウトプットの見せ方（表・流れ・シート）の 1 つへ移した。月・リストのコードは残してある
+const VIEWS=[["idea","ネタ帳"],["out","アウトプット"],["calendar","カレンダー"],["metrics","振り返り"]];
+const VIEW_KEY="contentos.view";
+function firstView(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="sheet")return "out";if(VIEWS.some(([k])=>k===v))return v;}catch{/* 覚えられなくても動く */}return "out";}
 
 function App({uid,panel=false}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
@@ -97,7 +102,11 @@ function App({uid,panel=false}){
   } = useAccounts({ uid, urlAccountId, isClient, showToast });
 
   // ── 残りの UI State ────────────────────────────────────
-  const [view,               setView]               = useState("calendar");
+  const [view,               setViewRaw]            = useState(firstView);
+  const setView=React.useCallback(v=>{setViewRaw(prev=>{const next=typeof v==="function"?v(prev):v;try{localStorage.setItem(VIEW_KEY,next);}catch{/* 覚えられなくても動く */}return next;});},[]);
+  const [quickOpen,setQuickOpen]=useState(false);
+  const [toOut,setToOut]=useState(null);
+  const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
   const [week,               setWeek]               = useState(new Date());
   const [preview,            setPreview]            = useState(null);
   const [editing,            setEditing]            = useState(null);
@@ -206,6 +215,28 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     addCustomPostType, handleDrop, openNew, setDatetime,
   } = usePostActions({ activeAccId: targetAccId, uid, showToast, setAllPosts, setPreview, setEditing,
     setDeleteConfirm, setRepostTgt, today, posts, activeAcc: activeAcc||targetAcc, setAccounts });
+
+  // 2026-10-23 1便：アカウントは 1 つずつ開く。前に「全アカウント」を開いていたら既定のアカウントへ戻す
+  useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
+  // 表の行から開くときは、今の編集画面をそのまま開く
+  const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
+  // ⌘K・受け箱：ネタを 1 件入れる（状態＝アイデア・ジャンル空＝受け箱）
+  const quickAdd=React.useCallback(async({title,memo})=>{
+    if(!targetAccId){showToast("ネタを入れるアカウントが決まっていません");return false;}
+    const ok=await saveToDb({id:genId(),account_id:targetAccId,status:"idea",datetime:"",title,memo,postType:"x_post",body:"",memoLinks:[],comments:[],history:[{at:nowStr(),note:"受け箱に入れた"}],labels:[],genre:null,theme:null,mm_url:null,manabu:false});
+    if(ok)showToast(`${targetAcc?.name||""} の受け箱に入れました`);
+    return ok;
+  },[targetAccId,targetAcc,saveToDb,showToast]);
+  // ネタ → アウトプット：状態を下書きにし、種類と日時を入れて、今の編集画面を開く
+  const goOut=React.useCallback(async({type,datetime})=>{
+    const p=toOut;if(!p)return;
+    const next={...p,postType:type,status:"draft",datetime:datetime||"",history:[...(p.history||[]),{at:nowStr(),note:"ネタからアウトプットにした"}]};
+    const ok=await saveToDb(next);
+    setToOut(null);
+    if(!ok)return;
+    showToast(datetime?"アウトプットにしました（次の空き枠に置きました）":"アウトプットにしました");
+    setPreview(null);setEditing({...next});
+  },[toOut,saveToDb,showToast]);
 
   // N キー：ネタ帳と同じ処理でアイデアを 1 件足し、そのまま編集画面を出す（メモ欄にカーソル）
   // 段 4：/panel は広い画面と別にアカウントを 1 つ選んで持つ（広い画面の選択を動かさないため）
@@ -319,7 +350,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   useEffect(()=>{
     const h=e=>{
       // ⌘K 検索
-      if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setShowSearch(true);return;}
+      if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();if(!panel)setQuickOpen(true);return;}
       // 入力中・修飾キーは無視
       const tag=e.target.tagName;
       if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||e.target.contentEditable==="true")return;
