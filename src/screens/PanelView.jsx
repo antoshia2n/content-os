@@ -1,12 +1,19 @@
 import React from 'react';
 import {STATUS,POST_TYPE,getPostTypeStyle,BD2,fmtDate} from '../constants.js';
+import {CK_CSS} from './StockView.jsx';
+// 2026-10-23 3便：上に「メモ／探す／今週」の 3 つ。メモは受け箱へ（⌘＋Enter）、探すは投稿・スワイプ・思考整理をまとめて。
 
 // 2026-10-05 段 4：拡張機能のサイドパネル（幅 360px 前後）で開く細い画面。住所は /panel。
 // 拡張機能は枠だけで、機能はすべてここに置く（直すたびに拡張機能を入れ直さないため）。
 const WD=['日','月','火','水','木','金','土'];
 
-export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TYPE,onAddIdea,onOpen}){
+export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TYPE,onAddIdea,onOpen,onQuick,renderFind}){
   const today=fmtDate(new Date());
+  const [tab,setTabRaw]=React.useState(()=>{try{return localStorage.getItem('contentos.panel.tab')||'memo';}catch{return 'memo';}});
+  const setTab=t=>{setTabRaw(t);try{localStorage.setItem('contentos.panel.tab',t);}catch{/* 覚えられなくても動く */}};
+  const [cap,setCap]=React.useState('');
+  const inbox=React.useMemo(()=>posts.filter(p=>p.status==='idea'&&!p.genre&&!(p.labels||[]).includes('寝かせ')).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')||b.id-a.id).slice(0,8),[posts]);
+  const send=async()=>{const t=cap.trim();if(!t||!onQuick)return;const [first,...rest]=t.split('\n');if(await onQuick({title:first.trim(),memo:rest.join('\n').trim()}))setCap('');};
   const days=React.useMemo(()=>{
     const list=[];
     for(let i=0;i<7;i++){
@@ -56,6 +63,15 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
         .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:1 0 auto;border:none;background:transparent;border-radius:6px;padding:4px 9px;font-size:11.5px;font-weight:600;color:#a8a09a;cursor:pointer;white-space:nowrap;font-family:inherit}
         .cpanel-acc button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
         .cpanel-acc i{width:6px;height:6px;border-radius:50%;display:inline-block}
+        .cpanel-tabs{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:9px;padding:2px}
+        .cpanel-tabs button{flex:1;border:none;background:transparent;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:700;color:#8a8178;cursor:pointer;font-family:inherit}
+        .cpanel-tabs button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+        .cpanel-cap2{background:#fff;border:${BD2};border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+        .cpanel-cap2:focus-within{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+        .cpanel-cap2 textarea{border:0;outline:none;resize:none;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.65;min-height:72px;background:transparent;width:100%;box-sizing:border-box}
+        .cpanel-capft{display:flex;align-items:center;gap:6px;font-size:11px;color:#a8a09a}
+        .cpanel-capft button{margin-left:auto;background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+        .cpanel-capft button:disabled{opacity:.4;cursor:default}
         .cpanel-foot{padding:10px 12px 14px;text-align:center}
         .cpanel-foot a{font-size:11.5px;font-weight:700;color:#6b6560;text-decoration:none;border:${BD2};background:#fff;border-radius:99px;padding:6px 14px;display:inline-block}
         .cpanel-foot a:hover{color:#111;border-color:#d4cbbf}
@@ -70,7 +86,20 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
             {accounts.map(a=><button key={a.id} className={account?.id===a.id?'is-on':''} onClick={()=>onAccount(a.id)}><i style={{background:account?.id===a.id?a.color:'#ccc'}}/>{a.name}</button>)}
           </div>
         )}
-        <div className="cpanel-cap"><span>今後 7 日</span><span>{total} 件</span></div>
+        <div className="cpanel-tabs">{[['memo','メモ'],['find','探す'],['week','今週']].map(([k,l])=><button key={k} className={tab===k?'is-on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+        {tab==='memo'&&<>
+          <div className="cpanel-cap2">
+            <textarea value={cap} onChange={e=>setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱へ" autoFocus
+              onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/>
+            <div className="cpanel-capft"><span>⌘＋Enter で受け箱へ</span><button onClick={send} disabled={!cap.trim()}>受け箱へ</button></div>
+          </div>
+          <div className="cpanel-cap"><span>受け箱の新しい順</span><span>{inbox.length} 件</span></div>
+          <div className="cpanel-day">{inbox.map(p=><button key={p.id} className="cpanel-row" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>onOpen(p)}>
+            <span className={`cpanel-title ${p.title?'':'is-empty'}`}>{p.title||(p.memo||'').split('\n')[0]||'（空のネタ）'}</span></button>)}
+            {!inbox.length&&<div style={{padding:'10px 12px',fontSize:12,color:'#a8a09a'}}>受け箱は空っぽ</div>}</div>
+        </>}
+        {tab==='find'&&renderFind&&<div className="ck" style={{background:'transparent'}}><style>{CK_CSS}</style>{renderFind()}</div>}
+        {tab==='week'&&<><div className="cpanel-cap"><span>今後 7 日</span><span>{total} 件</span></div>
         {days.map(d=>{
           const rows=byDay[d.key]||[];
           const dow=d.date.getDay();
@@ -97,7 +126,7 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
               })}
             </div>
           );
-        })}
+        })}</>}
       </div>
       <div className="cpanel-foot"><a href="https://content-os.shia2n.jp/" target="_blank" rel="noopener noreferrer">全部を開く ↗</a></div>
     </div>
