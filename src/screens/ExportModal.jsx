@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, STATUS, SCORE, BD, BD2, S, fmtDate, fmtTime, stripHtml } from "../constants.js";
 import { Btn } from "../components/shared.jsx";
+// 2026-10-23：App.jsx に置き忘れていた判定をここへ移した（無いと「ローカル保存」を開いた瞬間に画面が白くなっていた）
+const FS_SUPPORTED=typeof window!=="undefined"&&"showDirectoryPicker" in window;
 
 export function postToMarkdown(p){
   const links=(p.memoLinks||[]).map(l=>{

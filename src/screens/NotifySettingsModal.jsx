@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { BD, BD2, S, HOURS } from "../constants.js";
 import { Btn } from "../components/shared.jsx";
+// 2026-10-23：App.jsx に置き忘れていた入力欄の見た目をここへ移した（無いと窓を開いた瞬間に画面が白くなっていた）
+const INP={width:"100%",background:"#fff",border:BD2,borderRadius:8,padding:"7px 10px",color:"#111",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color .12s"};
 
 export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestSend}){
   const [draft,setDraft]=useState({...settings});

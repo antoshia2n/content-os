@@ -24,16 +24,6 @@ export async function dbUpdateAccount(id, fields) {
   return supabase.from("accounts").update(fields).eq("id", id);
 }
 
-/** アカウントを削除 */
-export async function dbDeleteAccount(id) {
-  return supabase.from("accounts").delete().eq("id", id);
-}
-
-/** アカウント一覧を全件取得（削除直前の残存確認用） */
-export async function dbFetchAllAccounts() {
-  return supabase.from("accounts").select("*").order("created_at").then(r => r.data || []);
-}
-
 // ── posts ─────────────────────────────────────────────
 
 /**
@@ -169,6 +159,11 @@ export async function dbFetchDays(uid, fromDay) {
   const {data,error} = await supabase.from('cos_days').select(DAY_COLUMNS).eq('user_id',uid).gte('day',fromDay).order('day');
   if (error) throw error;
   return data||[];
+}
+export async function dbFetchDay(uid, day) {
+  const {data,error} = await supabase.from('cos_days').select('chars,saves').eq('user_id',uid).eq('day',day).maybeSingle();
+  if (error) throw error;
+  return data;
 }
 export async function dbUpsertDay(uid, row) {
   const {error} = await supabase.from('cos_days').upsert({...row,user_id:uid,updated_at:new Date().toISOString()},{onConflict:'user_id,day'});
