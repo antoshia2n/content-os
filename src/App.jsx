@@ -11,7 +11,7 @@ import {
   getWeekDates, dbToPost, getUrlParams,
 } from "./constants.js";
 import {
-  dbFetchPosts, dbDeletePost, dbFetchTemplates,
+  dbFetchPosts, dbDeletePost, dbFetchTemplates, dbRemoveTemplate,
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
@@ -47,6 +47,7 @@ import { useDays } from "./hooks/useDays.js";
 import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
+import { isSample, SAMPLE_TEMPLATE_NAME } from "./lib/samples.js";
 import { mountAppShell } from "shia2n-core/shell/app-shell.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
 import { MANUAL, KEYS, makeTours } from "./manual.js";
 
@@ -186,8 +187,20 @@ function App({uid,panel=false,owner=false}){
   const [showTemplates,      setShowTemplates]      = useState(false);
   useEffect(()=>{
     if(!uid)return;
+    if(loading)return; // はじめての人は、アカウントと見本の型を入れ終えてから読む（2026-10-28）
     dbFetchTemplates(uid).then(setTemplates).catch(e=>console.warn("[ContentOS templates]",e?.message||e));
-  },[uid]);
+  },[uid,loading]);
+  // 2026-10-28 開発部（会員公開の関門 4）：見本（「例」の札）をまとめて消す。投稿と見本の型の両方
+  const clearSamples=React.useCallback(async accId=>{
+    const list=(allPosts[accId]||[]).filter(isSample);
+    let n=0;
+    for(const p of list){const {error}=await dbDeletePost(p.id);if(!error)n++;}
+    setAllPosts(prev=>({...prev,[accId]:(prev[accId]||[]).filter(p=>!isSample(p))}));
+    const tpl=templates.filter(t=>t.name===SAMPLE_TEMPLATE_NAME);
+    for(const t of tpl){try{await dbRemoveTemplate(uid,t.id);}catch{/* 型が消せなくても投稿は消えている */}}
+    if(tpl.length)setTemplates(prev=>prev.filter(t=>t.name!==SAMPLE_TEMPLATE_NAME));
+    showToast(`見本を ${n} 件消しました`);
+  },[allPosts,setAllPosts,templates,uid,showToast]);
   const shareRef=useRef(null);
   useEffect(()=>{
     if(!showShare)return;
@@ -691,7 +704,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
       {/* ── ネタ帳・アウトプット（2026-10-23 作り直し 1便） ── */}
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
-        <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} owner={owner} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
+        <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} owner={owner} onClearSamples={()=>clearSamples(targetAccId)} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
           onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
           keysOff={!!editing||!!deleteConfirm||!!toOut||quickOpen||!!bufferFor||!!preview}
