@@ -12,9 +12,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   dbFetchAccounts, dbFetchPosts,
-  dbInsertAccount, dbUpdateAccount,
+  dbInsertAccount, dbUpdateAccount, dbUpsertPost, dbAddTemplate,
 } from "../lib/supabase.js";
-import { dbToPost } from "../constants.js";
+import { dbToPost, genId } from "../constants.js";
+import { samplePosts, SAMPLE_TEMPLATE } from "../lib/samples.js";
 
 // 選択中アカウントの保存先（ブラウザ内）
 const ACTIVE_ACC_KEY = "contentos.activeAccountId";
@@ -82,7 +83,16 @@ export function useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate
       if (autoCreate && Array.isArray(accs) && accs.length === 0) {
         const first = { id: "acc_" + Date.now(), name: "自分のアカウント", handle: "", color: "#f59e0b", user_id: uid, is_default: true, sort_order: 0, is_active: true };
         const { error } = await dbInsertAccount(first);
-        if (!error) accs = [first];
+        if (!error) {
+          accs = [first];
+          // 見本を入れる（2026-10-28・消せる「例」の札つき）。入らなくても使い始めは止めない
+          try {
+            const t0 = genId();
+            const rows = samplePosts({ accountId: first.id, uid, ids: [t0, t0 + 1, t0 + 2, t0 + 3] });
+            for (const r of rows) await dbUpsertPost(r);
+            await dbAddTemplate(uid, SAMPLE_TEMPLATE).catch(() => null);
+          } catch { /* 見本が入らなくても続ける */ }
+        }
       }
       if (accs && accs.length > 0) {
         const sorted = sortAccounts(accs);
