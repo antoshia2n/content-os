@@ -11,10 +11,17 @@
  */
 
 import { createStorageGateway } from "shia2n-core/server/storage-gateway.js";
+import { canUseContent, allowListOf } from "../../_lib/content-access.js";
 
-export const onRequestPost = createStorageGateway({
-  buckets: {
-    // 本文に差し込む挿し絵。保存先は images/ の下に固定する。
-    contentos: { prefix: "images/" },
-  },
-});
+const BUCKETS = {
+  // 本文に差し込む挿し絵。保存先は images/ の下に固定する。
+  contentos: { prefix: "images/" },
+};
+
+// 2026-10-28 開発部（会員公開の関門 3）：置けるのは表の口と同じ人だけ（それまでは誰の Google でも置けた）
+export async function onRequestPost(context) {
+  const allowUids = allowListOf(context.env);
+  const access = await canUseContent({ request: context.request, env: context.env, allowUids });
+  if (access === "denied") return new Response(JSON.stringify({ message: "この利用者にはコンテンツくんを使う許可がありません。" }), { status: 403, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+  return createStorageGateway({ buckets: BUCKETS, allowUids: access === "allowed" ? [] : allowUids })(context);
+}

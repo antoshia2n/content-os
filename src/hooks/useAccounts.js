@@ -41,7 +41,7 @@ function sortAccounts(list) {
   });
 }
 
-export function useAccounts({ uid, urlAccountId, isClient, showToast }) {
+export function useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate = false }) {
   const [accounts, setAccountsRaw] = useState([]);
   const [allPosts, setAllPosts] = useState({});
   const [activeAccId, setActiveAccIdRaw] = useState(urlAccountId || null);
@@ -76,7 +76,14 @@ export function useAccounts({ uid, urlAccountId, isClient, showToast }) {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const { data: accs } = await dbFetchAccounts(uid);
+      let { data: accs } = await dbFetchAccounts(uid);
+      // 2026-10-28 開発部（会員公開の関門 4）：はじめて入った人はアカウントが 0 で、ネタも投稿も入れられなかった。
+      // 1 つだけ自動で作る（名前は「自分のアカウント」・あとからアカウントの設定で直せる）。読めなかったとき（accs が null）は作らない
+      if (autoCreate && Array.isArray(accs) && accs.length === 0) {
+        const first = { id: "acc_" + Date.now(), name: "自分のアカウント", handle: "", color: "#f59e0b", user_id: uid, is_default: true, sort_order: 0, is_active: true };
+        const { error } = await dbInsertAccount(first);
+        if (!error) accs = [first];
+      }
       if (accs && accs.length > 0) {
         const sorted = sortAccounts(accs);
         setAccountsRaw(sorted);

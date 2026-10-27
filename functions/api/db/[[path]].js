@@ -8,8 +8,18 @@
  */
 
 import { createDbGateway, verifyIdToken } from "shia2n-core/server/db-gateway.js";
+import { canUseContent, allowListOf } from "../../_lib/content-access.js";
 
-const gateway = createDbGateway({
+// 2026-10-28 開発部（会員公開の関門 2・3）：使える人は CONTENT_ALLOW_UID（空なら Naoki）と、門番が content-os を開けると答えた人だけ。
+// 通った人は表ごとの持ち主（user_id）で本人の行だけ。それまではログインした誰でも通っていた
+let gw = null, gwKey = "";
+function gatewayFor(allowUids) {
+  const key = allowUids.join(",");
+  if (!gw || gwKey !== key) { gw = makeGateway(allowUids); gwKey = key; }
+  return gw;
+}
+const makeGateway = (allowUids) => createDbGateway({
+  allowUids,
   basePath: "/api/db",
   tables: {
     posts:                 { owner: "user_id" },
@@ -26,6 +36,7 @@ const gateway = createDbGateway({
   },
   functions: [],
 });
+const json403 = () => new Response(JSON.stringify({ message: "この利用者にはコンテンツくんを使う許可がありません。" }), { status: 403, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 
 // 2026-10-23 開発部：上書き（upsert）の前に、上書きされる行が本人のものかを確かめる。
 // 共通の部品（shia2n-core）は POST に持ち主の絞り込みを付けないため、他人の行の番号を送るだけで
@@ -34,6 +45,10 @@ const gateway = createDbGateway({
 const OWNER = "user_id";
 export async function onRequest(context) {
   const { request, env } = context;
+  const allowUids = allowListOf(env);
+  const access = await canUseContent({ request, env, allowUids });
+  if (access === "denied") return json403();
+  const gateway = gatewayFor(access === "allowed" ? [] : allowUids);
   if (request.method.toUpperCase() === "POST") {
     const url = new URL(request.url);
     const table = url.pathname.replace(/^\/api\/db\/?/, "").split("/")[0];
