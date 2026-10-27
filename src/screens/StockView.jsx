@@ -290,7 +290,7 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
 }
 
 // ── ネタ帳とアウトプットの画面 ────────────────────────────
-export function StockView({ mode, uid, accountId, posts, postTypes, slots, today, readOnly,
+export function StockView({ mode, uid, owner = false, accountId, posts, postTypes, slots, today, readOnly,
   onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff }) {
   const keyBase = `contentos.stock.${accountId}`;
   const [loc, setLocRaw] = useState(() => store.get(`${keyBase}.${mode}`, mode === "idea" ? "inbox" : "week"));
@@ -449,7 +449,7 @@ export function StockView({ mode, uid, accountId, posts, postTypes, slots, today
   if (mode === "idea" && loc === "inbox") {
     body = <>
       <div className="ck-crumb">ネタ帳</div><h1 className="ck-title">受け箱</h1>
-      <p className="ck-note">入れるときは何も決めない。分けるのは後でまとめて、キー 1 つで。サイドパネルや Claude から入れたネタもここに入る。たまったら、Claude とのチャットで「受け箱を振り分けて」と言うと、各ネタに「案」が付く。</p>
+      <p className="ck-note">{owner ? "入れるときは何も決めない。分けるのは後でまとめて、キー 1 つで。サイドパネルや Claude から入れたネタもここに入る。たまったら、Claude とのチャットで「受け箱を振り分けて」と言うと、各ネタに「案」が付く。" : "入れるときは何も決めない。思いついたらここに書いて入れ、分けるのは後でまとめて、キー 1 つで。"}</p>
       {!readOnly && dig && !digOff && <div className="ck-cap" style={{ borderStyle: "dashed", gap: 6 }}>
         <div className="ck-capft" style={{ fontWeight: 700, color: "var(--accent-ink)" }}>今日の掘り起こし</div>
         <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5, cursor: "pointer" }} onClick={() => onOpen(dig.p)}>{headOf(dig.p) || "（タイトルなし）"}</div>

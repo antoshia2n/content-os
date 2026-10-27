@@ -47,7 +47,7 @@ function MoreMenu({items}){
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion,owner=false}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
@@ -179,9 +179,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const saveToNotion=async()=>{
     setNotionState("saving");
     try{
+      const token=await auth.currentUser?.getIdToken(); // 2026-10-28：口が持ち主の確かめを求めるようになった
       const res=await fetch("/api/internal/push-to-notion",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})},
         body:JSON.stringify({
           title:draft.title,
           body_text:draft.body,
@@ -301,7 +302,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
           <button className="em-btn" onClick={()=>doCopy("x")} style={copyX?{background:"#ecfdf5",borderColor:"#6ee7b7",color:"#059669"}:undefined}>{copyX?"コピーしました":"コピー"}</button>
           <MoreMenu items={[
-            {label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"},
+            ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない（Naoki の Notion へ送る口）
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
           ]}/>
           <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>

@@ -47,6 +47,8 @@ import { useDays } from "./hooks/useDays.js";
 import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
+import { mountAppShell } from "shia2n-core/shell/app-shell.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
+import { MANUAL, KEYS, makeTours } from "./manual.js";
 
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
@@ -84,7 +86,7 @@ const VIEWS=[["idea","ネタ帳"],["out","アウトプット"],["calendar","カ�
 const VIEW_KEY="contentos.view";
 function firstView(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="sheet")return "out";if(VIEWS.some(([k])=>k===v))return v;}catch{/* 覚えられなくても動く */}return "out";}
 
-function App({uid,panel=false}){
+function App({uid,panel=false,owner=false}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
 
@@ -98,12 +100,26 @@ function App({uid,panel=false}){
     switchableAccounts,
     addAccount, updateAccount, copyShareLink,
     setDefaultAccount, setAccountActive, moveAccount,
-  } = useAccounts({ uid, urlAccountId, isClient, showToast });
+  } = useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate: !isClient });
 
   // ── 残りの UI State ────────────────────────────────────
   const [view,               setViewRaw]            = useState(firstView);
   const setView=React.useCallback(v=>{setViewRaw(prev=>{const next=typeof v==="function"?v(prev):v;try{localStorage.setItem(VIEW_KEY,next);}catch{/* 覚えられなくても動く */}return next;});},[]);
   const [quickOpen,setQuickOpen]=useState(false);
+  // 2026-10-28 開発部（会員公開の関門 5）：共通の外枠（右上の ？・アプリ一覧・アカウント）。細い画面（/panel）では出さない
+  const shellRef=useRef(null),shellSlot=useRef(null);
+  useEffect(()=>{
+    if(panel)return;
+    let sh=null;
+    try{
+      sh=mountAppShell({appId:"content-os",appName:"コンテンツくん",manual:MANUAL,keys:KEYS,
+        tours:makeTours({go:v=>{setView(v);return new Promise(r=>setTimeout(r,120));}})});
+      shellRef.current=sh;
+      if(shellSlot.current)sh.attach(shellSlot.current);
+    }catch{/* 外枠が出せなくてもアプリは動かす */}
+    return()=>{try{sh&&sh.destroy();}catch{/* 片づけに失敗しても止めない */}shellRef.current=null;};
+  },[panel,setView]);
+  useEffect(()=>{if(shellRef.current&&shellSlot.current)shellRef.current.attach(shellSlot.current);});
   const [toOut,setToOut]=useState(null);
   const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
   // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
@@ -592,7 +608,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         <span className="ck-brand">{BRAND_ICON}<span>コンテンツくん<b>.</b></span></span>
         {isAdmin&&<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)}/>}
 
-        <nav className="ck-hm" aria-label="機能">
+        <nav className="ck-hm" aria-label="機能" data-tour="nav">
           {VIEWS.map(([v,l])=>{
             const n=v==="idea"?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:v==="out"?posts.filter(p=>p.status==="draft").length:0;
             return <button key={v} className={view===v?"on":""} onClick={()=>setView(v)}>{l}{n>0&&<span className="n">{v==="out"?`書きかけ ${n}`:n}</span>}</button>;
@@ -609,9 +625,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
-          {!isClient&&<button style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
+          {!isClient&&<button data-tour="today" style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
             <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>今日 {dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
-          <button className="ck-q" onClick={()=>setQuickOpen(true)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg><span className="ql">ネタ・検索</span><span className="ck-kbd">⌘K</span></button>
+          <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg><span className="ql">ネタ・検索</span><span className="ck-kbd">⌘K</span></button>
           {isAdmin&&(
             <>
               {overdueCount>0&&(
@@ -621,7 +637,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                   {overdueCount}件
                 </button>
               )}
-              <div ref={shareRef} style={{position:"relative"}}>
+              <div ref={shareRef} style={{position:"relative"}} data-tour="settings">
                 <button onClick={()=>setShowShare(s=>!s)}
                   style={{...S.row,gap:5,border:BD2,background:showShare?"#f5f0eb":"#fff",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="3" cy="8" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="13" cy="13" r="1.5"/><path d="m4.5 7.1 7-3.2M4.5 8.9l7 3.2"/></svg>
@@ -633,11 +649,11 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["型の一覧",()=>{setShowTemplates(true);setShowShare(false);}],
-                      ["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}],
+                      ...(owner?[["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}]]:[]), // 会員には出さない（送る仕組みが動いていない・2026-10-28）
                       ["AIコンテキスト出力",()=>{setShowExport("ai");setShowShare(false);}],
                       ["ローカル保存",()=>{setShowExport("file");setShowShare(false);}],
                       ["CSVエクスポート",()=>{setShowExport("csv");setShowShare(false);}],
-                      ["クライアント管理",()=>{setShowAccountSettings(true);setShowShare(false);}],
+                      [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
                       <button key={label} onClick={fn}
                         style={{border:"none",background:"none",borderRadius:7,padding:"8px 11px",fontSize:12,fontWeight:500,color:"#333",cursor:"pointer",textAlign:"left"}}
@@ -646,7 +662,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                         {label}
                       </button>
                     ))}
-                    <div style={{borderTop:BD2,marginTop:2,paddingTop:6}}>
+                    {owner&&<div style={{borderTop:BD2,marginTop:2,paddingTop:6}}>{/* 共有リンクは Naoki がクライアントに見せる用。会員には出さない（2026-10-28） */}
                       <div style={{fontSize:10,color:"#a8a09a",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
                       {accounts.map(acc=>(
                         <div key={acc.id} style={{...S.row,gap:7,padding:"5px 11px"}}>
@@ -658,7 +674,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                           </button>
                         </div>
                       ))}
-                    </div>
+                    </div>}
                   </div>
                 )}
               </div>
@@ -668,13 +684,14 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             style={{background:"#111",border:"none",borderRadius:8,padding:"6px 13px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0,letterSpacing:"-.1px"}}>
             + 新規
           </button>
+          {!isClient&&<span ref={shellSlot} className="shell-slot" style={{display:"inline-flex",alignItems:"center"}}/>}
         </div>
       </div>
       <div className="ck-accline" style={{background:(activeAcc||targetAcc)?.color||"#f59e0b"}}/>
 
       {/* ── ネタ帳・アウトプット（2026-10-23 作り直し 1便） ── */}
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
-        <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
+        <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} owner={owner} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
           onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
           keysOff={!!editing||!!deleteConfirm||!!toOut||quickOpen||!!bufferFor||!!preview}
@@ -977,7 +994,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         allPostTypes={allPostTypes}
         onAddPostType={addCustomPostType}/> }
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel?sentToNotion:undefined} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
 
@@ -989,7 +1006,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           accounts={accounts}
           activeAcc={activeAcc}
           onUpdate={updateAccount}
-          onAdd={addAccount}
+          onAdd={owner?addAccount:undefined} /* 会員は 1 メールにアカウント 1 つ（2026-10-28 Naoki「基本的に 1 メアド 1 アカウント」）。複数はプランの決まりができてから */
           onCopyLink={copyShareLink}
           onSetDefault={setDefaultAccount}
           onSetActive={setAccountActive}
@@ -1025,20 +1042,31 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 // ════════════════════════════════════════════════════════
 // PortalAuthWrapper — Firebase認証 + Firestore権限チェック
 // ════════════════════════════════════════════════════════
+const GATE_URL="https://shia2n-mcp.gameister1.workers.dev/gate/resolve";
+async function gateAllows(user){
+  try{
+    const token=await user.getIdToken();
+    const r=await fetch(GATE_URL,{method:"POST",headers:{Authorization:`Bearer ${token}`}});
+    const b=await r.json().catch(()=>null);
+    return !!(b&&b.ok===true&&Array.isArray(b.apps)&&b.apps.includes("content-os"));
+  }catch{return false;}
+}
 function PortalAuthWrapper({children}){
   const [state,setState]=useState("loading");
   const [uid,setUid]=useState(null);
+  const [admin,setAdmin]=useState(false); // 2026-10-28：管理者（Firestore の role が admin）か。会員の画面で Naoki 専用のものを出さないために使う
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,async user=>{
       if(!user){setState("unauthed");return;}
       try{
         const snap=await getDoc(doc(db,"users",user.uid));
-        if(!snap.exists()){setState("denied");return;}
-        const d=snap.data();
+        const d=snap.exists()?snap.data():{}; // 2026-10-28：Firestore に行が無い会員も、門番の答えで決める
         const isAdmin=d.role==="admin";
-        const isPaid =d.paymentStatus==="paid"&&(d.allowedApps||[]).includes(PORTAL_APP_ID);
-        if(isAdmin||isPaid){setUid(user.uid);setState("allowed");}
+        // 2026-10-28 開発部（会員公開の関門 1）：管理者でない人は、門番の答え（権利の表 member_access に content-os があるか）で決める。
+        // ほかのアプリ（shia2n-core の AuthGuard）と同じ決め方。それまでは Firestore の paid と個別許可で決めていた
+        const isMember=!isAdmin&&await gateAllows(user);
+        if(isAdmin||isMember){setAdmin(isAdmin);setUid(user.uid);setState("allowed");}
         else setState("denied");
       }catch(e){
         console.error(e);
@@ -1087,7 +1115,7 @@ function PortalAuthWrapper({children}){
     return null;
   }
 
-  return children(uid);
+  return children(uid,admin);
 }
 
 // ── ポータル認証付きエクスポート ──
@@ -1103,7 +1131,7 @@ export default function AppWithAuth(){
   const isPanel=typeof window!=="undefined"&&window.location.pathname.replace(/\/+$/,"")==="/panel";
   return(
     <PortalAuthWrapper>
-      {uid=><App uid={uid} panel={isPanel}/>}
+      {(uid,admin)=><App uid={uid} panel={isPanel} owner={admin}/>}
     </PortalAuthWrapper>
   );
 }

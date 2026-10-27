@@ -9,12 +9,46 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+import { verifyIdToken } from "shia2n-core/server/db-gateway.js";
+
+// 2026-10-28 開発部（会員公開の関門 3）：この口には本人の確かめが無く、住所を知っていれば誰でも Naoki の Notion に書けた。
+// 通すのは ①内部 API の合言葉（MCP_INTERNAL_SECRET・shia2n-mcp から） ②持ち主のログイン（メールのハッシュで照合・notion-memo と同じ値）だけにする
+const OWNER_EMAIL_SHA256 = "756149e97cb41bd690c46aee9ddaa59efa4c92953f8807c939a5a56157036c26";
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function tokenEmail(token) {
+  const raw = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+  const json = new TextDecoder().decode(Uint8Array.from(atob(raw + "===".slice((raw.length + 3) % 4)), c => c.charCodeAt(0)));
+  const p = JSON.parse(json);
+  return p.email_verified ? String(p.email || "").toLowerCase() : "";
+}
+export async function isOwnerOrInternal(request, env, verify = verifyIdToken) {
+  const auth = request.headers.get("Authorization") || "";
+  if (env.MCP_INTERNAL_SECRET && auth === `Bearer ${env.MCP_INTERNAL_SECRET}`) return true;
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  try {
+    await verify(token, env.FIREBASE_PROJECT_ID ?? env.VITE_FIREBASE_PROJECT_ID ?? "");
+    return (await sha256Hex(tokenEmail(token))) === OWNER_EMAIL_SHA256;
+  } catch { return false; }
+}
+
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // 0. 通してよい呼び手か（合言葉か持ち主だけ）
+  if (!(await isOwnerOrInternal(request, env))) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    });
+  }
 
   // 1. Body 取得
   let body;

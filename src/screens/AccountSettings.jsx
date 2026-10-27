@@ -325,12 +325,12 @@ export function AccountSettings({
                 </div>
               ))}
 
-              <button onClick={onAdd}
+              {onAdd && <button onClick={onAdd}
                 style={{ width: "100%", background: "#fff", border: "2px dashed #e0d8ce", borderRadius: 10, padding: "11px", color: "#bbb", cursor: "pointer", fontSize: 13, transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.color = "#f59e0b"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#e0d8ce"; e.currentTarget.style.color = "#bbb"; }}>
                 + クライアントを追加
-              </button>
+              </button>}
 
               <div style={{ fontSize: 11, color: "#aaa", lineHeight: 1.7, marginTop: 12, background: "#faf8f5", border: BD2, borderRadius: 9, padding: "10px 12px" }}>
                 アカウントは削除できません。使わなくなったものは「無効にする」を押してください。
