@@ -180,7 +180,37 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
   .ck-irow{grid-template-columns:minmax(0,1fr)}.ck-ia{justify-content:flex-start}.ck-keys{display:none}
 }
 @media (max-width:760px){.ck-top{flex-wrap:wrap;height:auto;padding-top:8px;row-gap:2px}.ck-hm{order:10;width:100%;height:40px}.ck-screen{min-height:calc(100vh - 100px)}.ck-nav{top:100px}}
-@media (max-width:560px){.ck-brand span{display:none}.ck-hm button{padding:0 7px!important;font-size:12.5px}.ck-hm .n{display:none}.ck-top{gap:8px}}
+@media (max-width:560px){.ck-brand span{display:none}.ck-hm button{padding:0 7px!important;font-size:12.5px}.ck-hm .n{display:none}.ck-top{gap:8px}}`;
+
+// スマホの決まり（App の画面だけ。拡張機能のサイドパネルは幅が狭くても入れない）
+export const CK_PHONE_CSS = `
+/* スマホ対応（2026-10-29 先行の 3 人がスマホだけで迷わず使う・app-design-rules 5b・X攻略くんと同じ直し方）
+   読む：字は 12px 以上、書く欄は 16px（iPhone が勝手に拡大しない）／押す：44px 以上／
+   崩れない：上の帯は画面の幅に収める・ネタ帳とアウトプットと振り返りの表は 1 件 1 枚のカード（各欄の名前は App.jsx の phoneTables が付ける） */
+@media (max-width:640px){
+  .ck-accpop .h,.ck-accpop button small,.ck-bft,.ck-calf .ck-chip-f,.ck-col-hint,.ck-colh .n,.ck-colh .w,.ck-hm .n,.ck-im,.ck-kbd,.ck-keys,.ck-mini,.ck-mrow>span,.ck-mv .ck-table .faint,.ck-mvh .sub,.ck-mvn,.ck-mvs,.ck-mvt,.ck-nav-foot,.ck-nh,.ck-nv .n,.ck-score,.ck-snip,.ck-src,.ck-tab .n,.ck-table th,.ck-type{font-size:12px}
+  .ck [style*="font-size: 9px"],.ck [style*="font-size: 9.5px"],.ck [style*="font-size: 10px"],.ck [style*="font-size: 10.5px"],.ck [style*="font-size: 11px"],.ck [style*="font-size: 11.5px"]{font-size:12px!important}
+  .ck input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]),.ck textarea,.ck select{font-size:16px!important;min-height:44px!important}
+  .ck button,.ck select,.ck [role="button"]{min-height:44px!important;min-width:44px}
+  .ck input[type=checkbox],.ck input[type=radio]{width:22px;height:22px}
+  .ck-hm>*,.ck-tabs>*{flex:none}
+  .ck-top [data-tour="today"] .ql{display:none}
+  .ck-top>div:last-child{flex-shrink:1;min-width:0}
+  .ck-tab .n,.ck-snip,.ck-chip-f,.ck-dayh small,.ck-dayh .n,.ck-type,.ck small,.ck-wk,.ck-mvh .sub,.ck-mvt,.ck-mvs,.ck-num,.ck-mvn{font-size:12px!important}
+  .ck-tabs{-webkit-mask-image:linear-gradient(to right,#000 88%,transparent);mask-image:linear-gradient(to right,#000 88%,transparent)}
+  .ck-tw{overflow:visible!important}
+  .ck-table .ck-nm,.ck-table .ck-snip{white-space:normal}
+  .ck-table,.ck-mv .ck-table{min-width:0!important;display:block}
+  .ck-table thead{display:none}
+  .ck-table tbody{display:block}
+  .ck-table tr{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 16px;padding:12px 14px;border-top:1px solid var(--hair)}
+  .ck-table tbody tr:first-child{border-top:0}
+  .ck-table td{display:block;height:auto!important;padding:0!important;border:0!important;max-width:none!important;text-align:left!important}
+  .ck-table td:first-child{flex:1 1 100%}
+  .ck-table td[data-l]:not(:first-child)::before{content:attr(data-l);display:block;font-size:12px;color:var(--faint);font-weight:700;margin-bottom:2px}
+  .ck-table td[data-l=""]::before{display:none}
+  .ck-table td:empty{display:none}
+}
 `;
 
 // ── 小さな部品 ─────────────────────────────────────

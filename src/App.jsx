@@ -15,7 +15,7 @@ import {
   supabase,
 } from "./lib/supabase.js";
 import { PanelView } from "./screens/PanelView.jsx";
-import { StockView, CK_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
+import { StockView, CK_CSS, CK_PHONE_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
 import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
 import { FindModal, FindPanel, ideaFrom, linkFrom } from "./screens/FindView.jsx";
 import {
@@ -121,6 +121,21 @@ function App({uid,panel=false,owner=false}){
     return()=>{try{sh&&sh.destroy();}catch{/* 片づけに失敗しても止めない */}shellRef.current=null;};
   },[panel,setView]);
   useEffect(()=>{if(shellRef.current&&shellSlot.current)shellRef.current.attach(shellSlot.current);});
+  // スマホ対応（2026-10-29）：スマホでは表を 1 件 1 枚のカードにするので、各欄に見出しの名前を持たせる（CK_CSS の ::before が出す）。
+  // 上の帯は、今いるタブが見える位置へ送る
+  useEffect(()=>{
+    const phoneTables=()=>{
+      document.querySelectorAll(".ck table.ck-table").forEach(t=>{
+        const hs=[...t.querySelectorAll("thead th")].map(th=>th.textContent.trim());
+        t.querySelectorAll("tbody tr").forEach(tr=>[...tr.children].forEach((td,i)=>{if(hs[i]!=null&&td.dataset.l!==hs[i])td.dataset.l=hs[i];}));
+      });
+      const hm=document.querySelector(".ck-top .ck-hm"),on=hm&&hm.querySelector("button.on");
+      if(on&&hm.scrollWidth>hm.clientWidth){const want=Math.max(0,on.offsetLeft-(hm.clientWidth-on.offsetWidth)/2);if(Math.abs(hm.scrollLeft-want)>4)hm.scrollLeft=want;}
+    };
+    phoneTables();
+    const mo=new MutationObserver(phoneTables);mo.observe(document.body,{childList:true,subtree:true});
+    return()=>mo.disconnect();
+  },[]);
   const [toOut,setToOut]=useState(null);
   const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
   // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
@@ -615,7 +630,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           onOpenPost={p=>{setPreview(null);setEditing({...p});}} onToInbox={r=>toInboxFrom(r,panelAcc?.id)} onAddLink={addLinkTo}/>;}}/>}
       {!panel&&<>
       {/* ── ヘッダー ── */}
-      <div className="ck"><style>{CK_CSS}</style>
+      <div className="ck"><style>{CK_CSS+CK_PHONE_CSS}</style>
       <div className="ck-top">
         {(view==="idea"||view==="out")&&<button className="ck-ghost" style={{width:32,padding:0,justifyContent:"center",border:"0"}} aria-label="メニュー" onClick={()=>setNavOn(o=>!o)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>}
         <span className="ck-brand">{BRAND_ICON}<span>コンテンツくん<b>.</b></span></span>
