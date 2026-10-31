@@ -109,6 +109,8 @@ function App({uid,panel=false,owner=false}){
   const [quickOpen,setQuickOpen]=useState(false);
   // 2026-10-28 開発部（会員公開の関門 5）：共通の外枠（右上の ？・アプリ一覧・アカウント）。細い画面（/panel）では出さない
   const shellRef=useRef(null),shellSlot=useRef(null);
+  // 2026-11-01 ログアウト前に続けて書けなかった回数（2 回目からは保存せずに出るかを聞く。ずっと出られなくならないように）
+  const signOutFails=useRef(0);
   useEffect(()=>{
     if(panel)return;
     let sh=null;
@@ -116,7 +118,13 @@ function App({uid,panel=false,owner=false}){
       sh=mountAppShell({appId:"content-os",appName:"コンテンツくん",manual:MANUAL,keys:KEYS,
         tours:makeTours({go:v=>{setView(v);return new Promise(r=>setTimeout(r,120));}}),
         // 2026-11-01 閉じる前（pagehide）ではログアウトの後になるので、ログアウトの前に今日の字数などを書き切る。書けなければ止める
-        beforeSignOut:async()=>dayApi.flushNow()});
+        // 2026-11-01 書き込みが返ってこないときも止まり続けないよう、10 秒で打ち切って失敗とみなす
+        beforeSignOut:async()=>{
+          let t;const ok=await Promise.race([dayApi.flushNow(),new Promise(r=>{t=setTimeout(()=>r(false),10000);})]).catch(()=>false).finally(()=>clearTimeout(t));
+          if(ok){signOutFails.current=0;return true;}
+          if(++signOutFails.current<2)return false;
+          return window.confirm("保存できていない変更があります。保存せずにログアウトしますか？")?true:"cancel";
+        }});
       shellRef.current=sh;
       if(shellSlot.current)sh.attach(shellSlot.current);
     }catch{/* 外枠が出せなくてもアプリは動かす */}
