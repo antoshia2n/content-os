@@ -114,7 +114,9 @@ function App({uid,panel=false,owner=false}){
     let sh=null;
     try{
       sh=mountAppShell({appId:"content-os",appName:"コンテンツくん",manual:MANUAL,keys:KEYS,
-        tours:makeTours({go:v=>{setView(v);return new Promise(r=>setTimeout(r,120));}})});
+        tours:makeTours({go:v=>{setView(v);return new Promise(r=>setTimeout(r,120));}}),
+        // 2026-11-01 閉じる前（pagehide）ではログアウトの後になるので、ログアウトの前に今日の字数などを書き切る。書けなければ止める
+        beforeSignOut:async()=>dayApi.flushNow()});
       shellRef.current=sh;
       if(shellSlot.current)sh.attach(shellSlot.current);
     }catch{/* 外枠が出せなくてもアプリは動かす */}

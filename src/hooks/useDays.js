@@ -57,7 +57,17 @@ export function useDays(uid) {
       }
     }
   }, [uid]);
-  const flushRef = useRef(flush); flushRef.current = flush;
+  // 2026-11-01 送っている途中の分も待てるよう、走っている書き込みを控える（ログアウトの前に使う）
+  const running = useRef(null);
+  const flushRef = useRef(flush); flushRef.current = () => (running.current = flush());
+  // 2026-11-01 ログアウトの前に残りをすぐ書く。書けずに残れば false（表がまだ無いときは書けないので止めない）
+  const flushNow = useCallback(async () => {
+    clearTimeout(timer.current); timer.current = null;
+    await running.current;
+    if (!readyRef.current) return true;
+    await flushRef.current();
+    return Object.keys(pend.current).length === 0;
+  }, []);
   const queue = useCallback((d, add, wait) => {
     const p = pend.current[d] || { chars: 0, saves: 0, fields: {} };
     pend.current[d] = { chars: p.chars + (add.chars || 0), saves: p.saves + (add.saves || 0), fields: { ...p.fields, ...(add.fields || {}) } };
@@ -77,5 +87,5 @@ export function useDays(uid) {
     queue(d, { fields }, 400);
   }, [queue]);
   const todayRow = days[today] || empty(today);
-  return { days, today, todayRow, ready, err, addChars, saveDay };
+  return { days, today, todayRow, ready, err, addChars, saveDay, flushNow };
 }

@@ -3,11 +3,8 @@
 // ファイル名が _ で始まるため Cloudflare Pages はルートとして公開しない。
 // v1.0（要件 v1.2 F6・F1/F2 の新規エンドポイント用）
 
-export const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// 2026-11-01 ここを通る口は shia2n-mcp（サーバー）からしか呼ばれない。ブラウザのよそのページから書かれないよう、どこからでも許す印は付けない
+export const CORS_HEADERS = {};
 
 export const POST_COLUMNS =
   'id,title,body,score,status,platform,datetime,account_id,post_type,source,created_at,updated_at,' +
@@ -32,7 +29,8 @@ export function preflight() {
 /** Bearer 認証。通れば null、落ちれば Response を返す */
 export function checkAuth(request, env) {
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || authHeader !== `Bearer ${env.MCP_INTERNAL_SECRET}`) {
+  // 2026-11-01 合言葉が設定されていないときは誰も通さない（「Bearer undefined」で通ってしまわないように）
+  if (!env.MCP_INTERNAL_SECRET || !authHeader || authHeader !== `Bearer ${env.MCP_INTERNAL_SECRET}`) {
     return json({ ok: false, error: 'Unauthorized' }, 401);
   }
   return null;
