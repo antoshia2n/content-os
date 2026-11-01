@@ -67,7 +67,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
           </div>
           <button onClick={onClose} style={{marginLeft:'auto',background:'none',border:BD,borderRadius:20,padding:'5px 11px',fontSize:12,fontWeight:600,color:'#6b6259',cursor:'pointer'}}>閉じる</button>
         </div>
-        <div style={{padding:'10px 14px',borderBottom:BD2,background:'#fcfaf8',fontSize:11.5,color:'#6b6560',lineHeight:1.7}}>
+        <div style={{padding:'10px 14px',borderBottom:BD2,background:'#fcfaf8',fontSize:12,color:'#6b6560',lineHeight:1.7}}>
           {HINT[kind]}<br/>
           中に <code style={{background:'#fef3c7',color:'#b45309',borderRadius:4,padding:'0 4px'}}>{CURSOR_MARK}</code> と書いた場所に、差し込んだあとカーソルが来ます（1 つだけ。無ければ差し込んだ文の最後）。
         </div>
@@ -99,4 +99,4 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
     </div>
   );
 }
-function btn(disabled){return {border:BD,background:'#fff',borderRadius:6,padding:'3px 10px',fontSize:11,fontWeight:700,color:disabled?'#d4cbbf':'#6b6560',cursor:disabled?'default':'pointer'};}
+function btn(disabled){return {border:BD,background:'#fff',borderRadius:6,padding:'3px 10px',fontSize:12,fontWeight:700,color:disabled?'#d4cbbf':'#6b6560',cursor:disabled?'default':'pointer'};}

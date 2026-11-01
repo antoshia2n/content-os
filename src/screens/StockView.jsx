@@ -28,35 +28,35 @@ export const CK_CSS = `
 .ck-acc{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 9px;border:1px solid var(--line)!important;border-radius:9px;background:var(--panel)!important;font-size:12.5px;font-weight:700;white-space:nowrap;position:relative}
 .ck-acc:hover{background:var(--soft)!important}
 .ck-acc i{width:9px;height:9px;border-radius:50%;flex:none}
-.ck-acc small{font-weight:600;color:var(--faint)}
+.ck-acc small{font-size:12px;font-weight:600;color:var(--faint)}
 .ck-accpop{position:absolute;left:0;top:calc(100% + 6px);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;width:260px;display:flex;flex-direction:column;gap:2px}
-.ck-accpop .h{font-size:11px;font-weight:700;color:var(--faint);padding:6px 8px 4px}
+.ck-accpop .h{font-size:12px;font-weight:700;color:var(--faint);padding:6px 8px 4px}
 .ck-accpop button{display:flex!important;align-items:center;gap:9px;padding:8px!important;border-radius:8px;text-align:left;font-size:13px;font-weight:600}
 .ck-accpop button:hover,.ck-accpop button.on{background:var(--soft)!important}
 .ck-accpop button i{width:9px;height:9px;border-radius:50%}
-.ck-accpop button small{margin-left:auto;font-size:11px;color:var(--faint)}
+.ck-accpop button small{margin-left:auto;font-size:12px;color:var(--faint)}
 .ck-accline{height:3px;flex:none}
 .ck-hm{display:flex;gap:2px;height:100%;overflow-x:auto}
 .ck-hm button{font-size:13px;font-weight:700;color:var(--muted);padding:0 12px!important;border-bottom:2.5px solid transparent!important;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:0}
 .ck-hm button:hover{color:var(--fg)}
 .ck-hm button.on{color:var(--fg);border-bottom-color:var(--accent)!important}
-.ck-hm .n{font-size:11px;color:var(--faint);font-weight:600}
+.ck-hm .n{font-size:12px;color:var(--faint);font-weight:600}
 .ck-q{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px!important;border:1px solid var(--line)!important;border-radius:8px;color:var(--faint);font-size:12.5px;background:var(--soft)!important;min-width:170px}
 .ck-q:hover{color:var(--muted)}
-.ck-kbd{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;line-height:16px;background:var(--panel);margin-left:auto}
+.ck-kbd{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;line-height:16px;background:var(--panel);margin-left:auto}
 .ck-screen{display:flex;min-height:calc(100vh - 55px);position:relative}
 .ck-nav{width:236px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px 10px;position:sticky;top:0;align-self:flex-start;height:calc(100vh - 55px);overflow:auto}
-.ck-nh{padding:14px 10px 4px;font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center}
+.ck-nh{padding:14px 10px 4px;font-size:12px;font-weight:700;color:var(--faint);letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center}
 .ck-nv{display:flex!important;align-items:center;gap:9px;width:100%;min-height:32px;padding:0 10px!important;border-radius:8px;font-size:13px;font-weight:500;color:var(--muted);text-align:left}
 .ck-nv:hover{background:var(--soft)!important}
 .ck-nv.on{background:var(--bg)!important;color:var(--fg);font-weight:700}
 .ck-nv svg{flex:none;color:var(--faint)}
 .ck-nv.on svg{color:var(--accent-ink)}
 .ck-nv .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ck-nv .n{font-size:11px;color:var(--faint);font-weight:600;font-variant-numeric:tabular-nums}
+.ck-nv .n{font-size:12px;color:var(--faint);font-weight:600;font-variant-numeric:tabular-nums}
 .ck-nv.warn .n{color:var(--accent-ink);background:var(--accent-bg);border-radius:99px;padding:0 7px}
 .ck-nv.d1{padding-left:26px!important}.ck-nv.d2{padding-left:42px!important}
-.ck-nav-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--hair);font-size:11.5px;color:var(--faint);line-height:1.6}
+.ck-nav-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--hair);font-size:12px;color:var(--faint);line-height:1.6}
 .ck-main{flex:1;min-width:0}
 .ck-wrap{max-width:1180px;margin:0 auto;padding:20px 16px 72px;display:flex;flex-direction:column;gap:12px}
 .ck-crumb{font-size:12px;color:var(--faint);font-weight:600}
@@ -66,7 +66,7 @@ export const CK_CSS = `
 .ck-tab{font-size:14px;font-weight:700;color:var(--muted);padding:9px 14px 8px!important;border-bottom:2.5px solid transparent!important;margin-bottom:-1px;white-space:nowrap;display:inline-flex!important;gap:7px;align-items:center;border-radius:0}
 .ck-tab:hover{color:var(--fg)}
 .ck-tab.on{color:var(--fg);border-bottom-color:var(--accent)!important}
-.ck-tab .n{font-size:11px;color:var(--faint);font-weight:600}
+.ck-tab .n{font-size:12px;color:var(--faint);font-weight:600}
 .ck-tab.add{color:var(--faint);font-weight:600;font-size:13px}
 .ck-tabadd{display:inline-flex;align-items:center;gap:6px;padding:4px 8px}
 .ck-tabadd input{height:28px;border:1px solid var(--accent);border-radius:7px;padding:0 8px;font-size:13px;width:140px;outline:none}
@@ -78,7 +78,7 @@ export const CK_CSS = `
 .ck-chip-f{font-size:12px;font-weight:600;color:var(--muted);background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:99px;padding:0 10px!important;height:28px;display:inline-flex!important;align-items:center}
 .ck-chip-f.on{border-color:var(--accent)!important;color:var(--accent-ink);background:var(--accent-bg)!important}
 .ck-calf{display:flex;align-items:center;gap:5px;margin-left:auto;flex-wrap:wrap}
-.ck-calf .ck-chip-f{height:26px;font-size:11.5px}
+.ck-calf .ck-chip-f{height:26px;font-size:12px}
 .ck-calf .sep{width:1px;height:16px;background:var(--line);margin:0 3px}
 .ck-calf .sep:first-child,.ck-calf .sep:last-child{display:none}
 .ck-search{display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--faint);width:230px;max-width:100%;margin-left:auto}
@@ -87,44 +87,44 @@ export const CK_CSS = `
 .ck-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .ck-tw{overflow-x:auto}
 .ck-table{width:100%;border-collapse:collapse;min-width:880px}
-.ck-table th{text-align:left;font-size:11.5px;font-weight:700;color:var(--faint);padding:0 12px;height:38px;white-space:nowrap;letter-spacing:.03em}
+.ck-table th{text-align:left;font-size:12px;font-weight:700;color:var(--faint);padding:0 12px;height:38px;white-space:nowrap;letter-spacing:.03em}
 .ck-table td{padding:0 12px;height:54px;border-top:1px solid var(--hair);vertical-align:middle}
 .ck-table tbody tr{cursor:pointer}
 .ck-table tbody tr:hover{background:var(--rowhover)}
 .ck-nm{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px}
 .ck-nm.empty{color:var(--faint);font-weight:500}
-.ck-snip{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px}
+.ck-snip{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px}
 .ck-num{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap;font-size:12.5px}
 .ck-dash{color:var(--line)}
 .ck-st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;white-space:nowrap}
 .ck-st i{width:8px;height:8px;border-radius:50%;background:var(--c)}
 .ck-stsel{appearance:none;-webkit-appearance:none;border:1px solid transparent;background:transparent;font:inherit;font-size:12px;font-weight:700;color:var(--fg);padding:4px 6px 4px 18px;border-radius:7px;cursor:pointer;background-repeat:no-repeat;background-position:6px center;background-size:8px 8px}
 .ck-stsel:hover{border-color:var(--line);background-color:var(--panel)}
-.ck-type{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap;display:inline-flex}
-.ck-score{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;font-size:11.5px;font-weight:800;color:#fff}
-.ck-src{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.ck-type{font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap;display:inline-flex}
+.ck-score{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;font-size:12px;font-weight:800;color:#fff}
+.ck-src{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;border-radius:6px;padding:1px 6px;white-space:nowrap}
 .ck-board{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
 /* 2026-10-24 6便：列は画面幅に収める。空の列は細くして、中身のある列に幅を回す */
 .ck-col{flex:1 1 0;min-width:180px;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
 .ck-col.drop{box-shadow:inset 0 0 0 2px var(--accent)}
 .ck-col.empty{flex:0 0 150px;min-width:150px;background:transparent;border-style:dashed}
-.ck-col-hint{font-size:11px;color:var(--faint);text-align:center;padding:14px 4px;border-radius:8px}
+.ck-col-hint{font-size:12px;color:var(--faint);text-align:center;padding:14px 4px;border-radius:8px}
 .ck-col.drop .ck-col-hint{color:var(--accent-ink)}
 .ck-colh{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:4px 6px;white-space:nowrap}
 .ck-colh i{width:8px;height:8px;border-radius:50%;background:var(--c)}
-.ck-colh .n{color:var(--faint);font-weight:600;font-size:11.5px}
-.ck-colh .w{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--warn)}
+.ck-colh .n{color:var(--faint);font-weight:600;font-size:12px}
+.ck-colh .w{margin-left:auto;font-size:12px;font-weight:700;color:var(--warn)}
 .ck-bcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:7px;cursor:grab;position:relative}
 .ck-bcard:hover{border-color:var(--accent-line)}
 .ck-bcard.dragging{opacity:.4}
 .ck-bt{font-size:13px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.ck-bft{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--faint)}
+.ck-bft{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--faint)}
 .ck-cap{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .ck-cap:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .ck-cap textarea{border:0;outline:none;resize:none;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:15px;line-height:1.7;background:transparent;min-height:52px;width:100%;color:var(--fg)}
 .ck-capft{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--faint)}
 .ck-capft .ck-kbd{margin-left:0}
-.ck-keys{display:flex;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--faint);align-items:center}
+.ck-keys{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--faint);align-items:center}
 .ck-keys span{display:inline-flex;gap:4px;align-items:center}
 .ck-keys .ck-kbd{margin:0}
 .ck-irow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--hair);cursor:default}
@@ -132,7 +132,7 @@ export const CK_CSS = `
 .ck-irow.sel{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--accent)}
 .ck-it{font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.65;overflow-wrap:anywhere;cursor:pointer}
 .ck-it.empty{color:var(--faint)}
-.ck-im{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--faint);margin-top:4px}
+.ck-im{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--faint);margin-top:4px}
 .ck-ia{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .ck-sel{height:30px;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--panel);color:var(--muted);max-width:180px;font-family:inherit}
 .ck-go{font-size:12px;font-weight:700;color:var(--accent-ink)!important;border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:8px;padding:0 9px!important;min-height:28px;display:inline-flex!important;align-items:center;gap:4px;white-space:nowrap}
@@ -154,7 +154,7 @@ export const CK_CSS = `
 .ck-hit:hover,.ck-hit.on{background:var(--soft)!important}
 .ck-hit span.t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ck-mrow{display:flex;flex-direction:column;gap:6px;padding:4px 18px 10px}
-.ck-mrow>span{font-size:11.5px;font-weight:700;color:var(--faint)}
+.ck-mrow>span{font-size:12px;font-weight:700;color:var(--faint)}
 .ck-mti{font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:16px;font-weight:700;line-height:1.5;padding:16px 18px 8px}
 .ck-pick{display:flex;flex-wrap:wrap;gap:5px}
 .ck-pk{height:30px;padding:0 11px!important;border-radius:8px;border:1px solid var(--line)!important;background:var(--panel)!important;color:var(--muted);font-size:12.5px;font-weight:600}
@@ -172,7 +172,7 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 @media (prefers-reduced-motion:reduce){.ck-pop::after,.ck-pop::before{animation:none;transform:rotate(45deg) scale(1)}}
 .ck-nav.off{display:none}
 /* 小さなボタン（PlanView・FindView でも使う。2 か所に別々にあった決まりを 1 つにした） */
-.ck-mini{font-size:11px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:6px;padding:1px 7px!important;margin-left:auto;white-space:nowrap}
+.ck-mini{font-size:12px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:6px;padding:1px 7px!important;margin-left:auto;white-space:nowrap}
 .ck-mini:hover{filter:brightness(.97)}
 @media (max-width:860px){
   .ck-nav{position:fixed;left:0;top:55px;bottom:0;height:auto;z-index:60;box-shadow:var(--shadow)}

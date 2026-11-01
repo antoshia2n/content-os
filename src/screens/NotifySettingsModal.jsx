@@ -19,7 +19,7 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
         <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
           <div>
             <div id="notify-modal-title" style={{fontWeight:800,fontSize:14}}>🔔 メール通知設定</div>
-            <div style={{fontSize:11,color:"#736a62",marginTop:2}}>{accountName} — Vercel Cronで毎日自動送信</div>
+            <div style={{fontSize:12,color:"#736a62",marginTop:2}}>{accountName} — Vercel Cronで毎日自動送信</div>
           </div>
           <Btn onClick={onClose}>閉じる</Btn>
         </div>
@@ -28,7 +28,7 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
           <div style={{...S.rowB,background:draft.enabled?"#f0fdf4":"#f9fafb",border:`1.5px solid ${draft.enabled?"#86efac":"#e0d8ce"}`,borderRadius:10,padding:"12px 14px"}}>
             <div>
               <div style={{fontWeight:700,fontSize:13,color:draft.enabled?"#15803d":"#555"}}>通知を{draft.enabled?"有効":"無効"}</div>
-              <div style={{fontSize:11,color:"#6b6259",marginTop:2}}>オンにするとメールが届きます</div>
+              <div style={{fontSize:12,color:"#6b6259",marginTop:2}}>オンにするとメールが届きます</div>
             </div>
             <button onClick={()=>setDraft(d=>({...d,enabled:!d.enabled}))}
               style={{width:44,height:24,borderRadius:12,border:"none",background:draft.enabled?"#22c55e":"#d1d5db",cursor:"pointer",position:"relative",transition:"background .2s"}}>
@@ -37,7 +37,7 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
           </div>
           {/* メールアドレス */}
           <div>
-            <label style={{fontSize:11,fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>送信先メールアドレス</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>送信先メールアドレス</label>
             <input value={draft.email||""} onChange={e=>setDraft(d=>({...d,email:e.target.value}))}
               placeholder="your@email.com" type="email"
               style={{...INP,fontSize:13}}
@@ -45,16 +45,16 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
           </div>
           {/* 送信時刻 */}
           <div>
-            <label style={{fontSize:11,fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>送信時刻</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>送信時刻</label>
             <select value={draft.send_hour} onChange={e=>setDraft(d=>({...d,send_hour:Number(e.target.value)}))}
               style={{border:BD,borderRadius:8,padding:"7px 10px",fontSize:13,color:"#555",outline:"none",cursor:"pointer",background:"#fff",fontFamily:"inherit"}}>
               {HOURS.map(h=><option key={h} value={h}>{String(h).padStart(2,"0")}:00</option>)}
             </select>
-            <span style={{fontSize:11,color:"#736a62",marginLeft:8}}>（JST）毎日この時刻に送信</span>
+            <span style={{fontSize:12,color:"#736a62",marginLeft:8}}>（JST）毎日この時刻に送信</span>
           </div>
           {/* 通知種別 */}
           <div>
-            <label style={{fontSize:11,fontWeight:700,color:"#6b6259",display:"block",marginBottom:8}}>通知内容</label>
+            <label style={{fontSize:12,fontWeight:700,color:"#6b6259",display:"block",marginBottom:8}}>通知内容</label>
             <div style={{...S.col,gap:8}}>
               {[
                 ["notify_overdue","⚠️ 未投稿アラート","予約済みのまま期限が過ぎた投稿を通知"],
@@ -65,14 +65,14 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
                   <input type="checkbox" checked={!!draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.checked}))} style={{marginTop:2,accentColor:"#f59e0b",width:15,height:15}}/>
                   <div>
                     <div style={{fontSize:12,fontWeight:700,color:"#0f1419"}}>{label}</div>
-                    <div style={{fontSize:10,color:"#6b6259",marginTop:2}}>{desc}</div>
+                    <div style={{fontSize:12,color:"#6b6259",marginTop:2}}>{desc}</div>
                   </div>
                 </label>
               ))}
             </div>
           </div>
           {/* セットアップ案内 */}
-          <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.7}}>
+          <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#92400e",lineHeight:1.7}}>
             <div style={{fontWeight:700,marginBottom:4}}>📋 セットアップ手順</div>
             <div>1. <strong>Resend</strong>（resend.com）でAPIキーを取得</div>
             <div>2. Vercel環境変数に <code style={{background:"#fef3c7",padding:"0 4px",borderRadius:3}}>RESEND_API_KEY</code> を追加</div>

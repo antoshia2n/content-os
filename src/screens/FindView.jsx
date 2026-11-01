@@ -74,18 +74,18 @@ export const FIND_CSS = `
 .ck-find-q input{flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:14px;color:var(--fg);font-family:inherit}
 .ck-find-tabs{display:flex;gap:2px;flex-wrap:wrap}
 .ck-fg{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.ck-fgh{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:11.5px;font-weight:700;color:var(--faint);border-bottom:1px solid var(--hair)}
+.ck-fgh{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:700;color:var(--faint);border-bottom:1px solid var(--hair)}
 .ck-fgh .n{margin-left:auto;font-weight:600}
 .ck-fr{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-top:1px solid var(--hair)}
 .ck-fr:first-of-type{border-top:0}
 .ck-fr:hover{background:var(--rowhover)}
 .ck-fr .b{flex:1;min-width:0;cursor:pointer}
 .ck-fr .t{font-size:13px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ck-fr .s{font-size:11.5px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ck-fr .s{font-size:12px;color:var(--faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ck-fr .a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:none;max-width:48%}
 .ck-fdot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px}
-.ck-ferr{font-size:11.5px;color:var(--warn);padding:6px 12px}
-.ck-fto{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--faint);flex-wrap:wrap}
+.ck-ferr{font-size:12px;color:var(--warn);padding:6px 12px}
+.ck-fto{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--faint);flex-wrap:wrap}
 `;
 const KIND = { post: { l: "自分の投稿", c: "#ea580c" }, swipe: { l: "スワイプ", c: "#2563eb" }, map: { l: "思考整理", c: "#7c3aed" } };
 

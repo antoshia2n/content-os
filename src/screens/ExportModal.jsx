@@ -200,7 +200,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
 
   const chipBtn=(label,active,onClick,color)=>(
     <button onClick={onClick}
-      style={{padding:"2px 9px",borderRadius:99,border:`1.5px solid ${active?(color||"#111"):"#e0d8ce"}`,background:active?(color||"#111"):"#fff",color:active?"#fff":"#555",fontSize:10.5,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",transition:"all .12s"}}>
+      style={{padding:"2px 9px",borderRadius:99,border:`1.5px solid ${active?(color||"#111"):"#e0d8ce"}`,background:active?(color||"#111"):"#fff",color:active?"#fff":"#555",fontSize:12,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",transition:"all .12s"}}>
       {label}
     </button>
   );
@@ -237,39 +237,39 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
             {/* 左：フィルター */}
             <div style={{width:260,borderRight:BD2,padding:16,...S.col,gap:14,overflowY:"auto",flexShrink:0}}>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>期間</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>期間</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
                   {[["all","全期間"],["7","7日"],["30","30日"],["90","90日"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setPreset(v)}
-                      style={{padding:"3px 9px",borderRadius:99,border:`1.5px solid ${v==="all"?(!dateFrom?"#111":"#e0d8ce"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#e0d8ce"}`,background:v==="all"?(!dateFrom?"#111":"#fff"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#fff",color:v==="all"?(!dateFrom?"#fff":"#555"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#fff":"#555",fontSize:11,fontWeight:500,cursor:"pointer",transition:"all .12s"}}>
+                      style={{padding:"3px 9px",borderRadius:99,border:`1.5px solid ${v==="all"?(!dateFrom?"#111":"#e0d8ce"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#e0d8ce"}`,background:v==="all"?(!dateFrom?"#111":"#fff"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#111":"#fff",color:v==="all"?(!dateFrom?"#fff":"#555"):dateFrom===fmtDate(new Date(new Date().setDate(new Date().getDate()-Number(v))))?"#fff":"#555",fontSize:12,fontWeight:500,cursor:"pointer",transition:"all .12s"}}>
                       {l}
                     </button>
                   ))}
                 </div>
                 <div style={{...S.row,gap:6}}>
                   <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
-                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,outline:"none",color:"#333"}}/>
-                  <span style={{fontSize:11,color:"#736a62"}}>〜</span>
+                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:12,outline:"none",color:"#333"}}/>
+                  <span style={{fontSize:12,color:"#736a62"}}>〜</span>
                   <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
-                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:11,outline:"none",color:"#333"}}/>
+                    style={{flex:1,border:BD,borderRadius:7,padding:"5px 7px",fontSize:12,outline:"none",color:"#333"}}/>
                 </div>
               </div>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>スコア</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>スコア</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   {chipBtn("全て",scores.length===0,()=>setScores([]))}
                   {Object.entries(SCORE).map(([k,v])=>chipBtn(k,scores.includes(k),()=>toggle(scores,setScores,k),v.bg))}
                 </div>
               </div>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>投稿種類</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>投稿種類</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   {chipBtn("全て",postTypes.length===0,()=>setPostTypes([]))}
                   {Object.entries(allPostTypes).map(([k,v])=>chipBtn(v.label,postTypes.includes(k),()=>toggle(postTypes,setPostTypes,k),v.color))}
                 </div>
               </div>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>含める情報</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>含める情報</div>
                 <div style={{...S.col,gap:6}}>
                   {[["本文（長くなります）",includeBody,setIncludeBody],["メモ",includeMemo,setIncludeMemo],["リンク",includeLinks,setIncludeLinks]].map(([label,val,setter])=>(
                     <label key={label} style={{...S.row,gap:8,cursor:"pointer",fontSize:12,color:"#444"}}>
@@ -280,13 +280,13 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                 </div>
               </div>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>依頼文（任意）</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>依頼文（任意）</div>
                 <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
                   placeholder={"例：Sランク記事を参考に来週の投稿アイデアを5つ提案して"}
                   rows={4}
-                  style={{width:"100%",border:BD,borderRadius:8,padding:"8px 10px",fontSize:11.5,outline:"none",resize:"vertical",lineHeight:1.6,boxSizing:"border-box",color:"#333"}}/>
+                  style={{width:"100%",border:BD,borderRadius:8,padding:"8px 10px",fontSize:12,outline:"none",resize:"vertical",lineHeight:1.6,boxSizing:"border-box",color:"#333"}}/>
               </div>
-              <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
+              <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#555"}}>
                 対象: <strong>{targetCount}件</strong>
               </div>
               <div style={{...S.col,gap:6}}>
@@ -304,9 +304,9 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
             </div>
             {/* 右：プレビュー */}
             <div style={{flex:1,...S.col,overflow:"hidden"}}>
-              <div style={{padding:"10px 16px",borderBottom:BD2,fontSize:11,color:"#736a62",fontWeight:600,flexShrink:0}}>プレビュー</div>
+              <div style={{padding:"10px 16px",borderBottom:BD2,fontSize:12,color:"#736a62",fontWeight:600,flexShrink:0}}>プレビュー</div>
               <div style={{flex:1,overflowY:"auto",padding:"14px 18px"}}>
-                <pre style={{fontSize:11.5,lineHeight:1.7,color:"#333",whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0}}>{aiPreview}</pre>
+                <pre style={{fontSize:12,lineHeight:1.7,color:"#333",whiteSpace:"pre-wrap",wordBreak:"break-word",margin:0}}>{aiPreview}</pre>
               </div>
             </div>
           </div>
@@ -316,7 +316,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
         {tab==="file"&&(
           <div style={{flex:1,overflowY:"auto",padding:20,...S.col,gap:16}}>
             <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>ファイル形式</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>ファイル形式</div>
               <div style={{display:"flex",gap:6}}>
                 {[["md","Markdown (.md)"],["json","JSON (.json)"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setFormat(v)}
@@ -325,11 +325,11 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                   </button>
                 ))}
               </div>
-              {format==="md"&&<div style={{fontSize:10,color:"#736a62",marginTop:5}}>frontmatter付き。タイトル・本文・ステータス・リンクを含む</div>}
-              {format==="json"&&<div style={{fontSize:10,color:"#736a62",marginTop:5}}>全フィールド保存。バックアップ向け</div>}
+              {format==="md"&&<div style={{fontSize:12,color:"#736a62",marginTop:5}}>frontmatter付き。タイトル・本文・ステータス・リンクを含む</div>}
+              {format==="json"&&<div style={{fontSize:12,color:"#736a62",marginTop:5}}>全フィールド保存。バックアップ向け</div>}
             </div>
             <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>対象</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>対象</div>
               <div style={{display:"flex",gap:6,marginBottom:8}}>
                 {[["all","すべて"],["filter","ステータス絞り込み"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setScope(v)}
@@ -344,12 +344,12 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                   {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                 </select>
               )}
-              <div style={{fontSize:11,color:"#555",marginTop:6,background:"#f8f5f1",border:BD2,borderRadius:7,padding:"6px 10px"}}>
+              <div style={{fontSize:12,color:"#555",marginTop:6,background:"#f8f5f1",border:BD2,borderRadius:7,padding:"6px 10px"}}>
                 対象: <strong>{filePosts.length}件</strong>
               </div>
             </div>
             <div>
-              <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:7}}>保存先フォルダ</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>保存先フォルダ</div>
               {FS_SUPPORTED?(
                 <div style={{...S.row,gap:8}}>
                   <button onClick={pickFolder}
@@ -359,7 +359,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                   {folderHandle&&<button onClick={()=>setFolderHandle(null)} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:16,padding:"4px"}}>×</button>}
                 </div>
               ):(
-                <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:11,color:"#92400e",lineHeight:1.6}}>
+                <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#92400e",lineHeight:1.6}}>
                   このブラウザはフォルダ選択非対応。<br/>全件をひとつのファイルでダウンロードします。
                 </div>
               )}
@@ -373,7 +373,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                 <div style={{height:6,background:"#e6dfd6",borderRadius:3,overflow:"hidden"}}>
                   <div style={{height:"100%",background:done?"#10b981":"#f59e0b",borderRadius:3,width:`${(progress.done/progress.total)*100}%`,transition:"width .2s"}}/>
                 </div>
-                {progress.errors.length>0&&<div style={{marginTop:8,fontSize:10,color:"#ef4444"}}>失敗: {progress.errors.join(", ")}</div>}
+                {progress.errors.length>0&&<div style={{marginTop:8,fontSize:12,color:"#ef4444"}}>失敗: {progress.errors.join(", ")}</div>}
               </div>
             )}
             <button onClick={runExport}
@@ -391,10 +391,10 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
               <div style={{fontWeight:700,marginBottom:6,color:"#333"}}>出力フィールド</div>
               日時、タイトル、ステータス、種類、スコア、ラベル、メモ、リンク、文字数
             </div>
-            <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#555"}}>
+            <div style={{background:"#f5f0eb",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#555"}}>
               対象: <strong>{posts.length}件</strong>（全件）
             </div>
-            <div style={{fontSize:11,color:"#736a62",lineHeight:1.7}}>
+            <div style={{fontSize:12,color:"#736a62",lineHeight:1.7}}>
               Excelで開く場合はUTF-8 BOM付きで出力するので文字化けしません。
             </div>
             <button onClick={handleDownloadCSV}

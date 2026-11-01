@@ -144,14 +144,14 @@ const MV_CSS = `
 .ck-mvh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--hair)}
 .ck-mvh .dot{width:8px;height:8px;border-radius:50%}
 .ck-mvh b{font-size:13.5px}
-.ck-mvh .sub{font-size:11.5px;color:var(--faint)}
+.ck-mvh .sub{font-size:12px;color:var(--faint)}
 .ck-mvh .ctl{margin-left:auto;display:inline-flex;gap:6px;align-items:center}
 .ck-mv .ck-table{min-width:860px}
 .ck-mv .ck-table th,.ck-mv .ck-table td{padding:0 9px}
 .ck-mv .ck-table .r{text-align:right}
 .ck-mv .ck-table .strong{font-weight:700;color:var(--ink)}
-.ck-mv .ck-table .faint{color:var(--faint);font-size:11.5px}
-.ck-mvt{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
-.ck-mvs{font-size:11px;font-weight:800;border-radius:5px;padding:2px 8px}
-.ck-mvn{font-size:11.5px;color:var(--faint);line-height:1.8;margin:10px 2px 0}
+.ck-mv .ck-table .faint{color:var(--faint);font-size:12px}
+.ck-mvt{font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.ck-mvs{font-size:12px;font-weight:800;border-radius:5px;padding:2px 8px}
+.ck-mvn{font-size:12px;color:var(--faint);line-height:1.8;margin:10px 2px 0}
 `;

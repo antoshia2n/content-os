@@ -621,12 +621,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         .xb hr{border:none;border-top:1px solid #e6dfd6;margin:1.5em 0;}
         .xb hr.thread-sep{border:none;border-top:none;margin:1.4em 0;display:flex;align-items:center;gap:8px;}
         .xb hr.thread-sep::before{content:"";flex:1;height:1.5px;background:linear-gradient(90deg,#1d9bf030,#1d9bf080);}
-        .xb hr.thread-sep::after{content:"𝕏 スレッド続き";font-size:10px;font-weight:700;color:#1d9bf0;background:#e8f5fe;padding:2px 8px;border-radius:99px;border:1px solid #93d3fc;white-space:nowrap;flex-shrink:0;}
+        .xb hr.thread-sep::after{content:"𝕏 スレッド続き";font-size:12px;font-weight:700;color:#1d9bf0;background:#e8f5fe;padding:2px 8px;border-radius:99px;border:1px solid #93d3fc;white-space:nowrap;flex-shrink:0;}
         .xb strong,.xb b{font-weight:700;}
         .xb em,.xb i{font-style:italic;}
         .xb s{text-decoration:line-through;}
         .xb img{max-width:100%;border-radius:8px;margin:.6em 0;display:block;}
-        .chip{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;letter-spacing:.2px;}
+        .chip{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:12px;font-weight:700;letter-spacing:.2px;}
         .btn-ghost{background:none;border:1.5px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-md);padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;}
         .btn-ghost:hover{background:#f5f0eb;border-color:var(--border-strong);color:var(--text-primary);}
         .btn-primary{background:var(--accent);border:none;color:#fff;border-radius:var(--radius-md);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;}
@@ -658,7 +658,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           <div style={{...S.row,gap:6,flexShrink:0}}>
             <span style={{width:7,height:7,borderRadius:"50%",background:activeAcc?.color,display:"inline-block"}}/>
             <span style={{fontWeight:700,fontSize:13}}>{activeAcc?.name}</span>
-            <span style={{fontSize:10,color:"#2563eb",background:"#eff6ff",border:"1px solid #bfdbfe",padding:"2px 7px",borderRadius:99,fontWeight:600}}>共有</span>
+            <span style={{fontSize:12,color:"#2563eb",background:"#eff6ff",border:"1px solid #bfdbfe",padding:"2px 7px",borderRadius:99,fontWeight:600}}>共有</span>
           </div>
         )}
 
@@ -671,14 +671,14 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <>
               {overdueCount>0&&(
                 <button onClick={()=>setFilter("reserved")}
-                  style={{...S.row,gap:4,background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"4px 9px",fontSize:11,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>
+                  style={{...S.row,gap:4,background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"4px 9px",fontSize:12,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>
                   <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" opacity=".8"><path d="M8 1.5L1.5 13.5h13L8 1.5zM8 6v4m0 2v1"/><rect x="7.25" y="6" width="1.5" height="4" rx=".75"/><rect x="7.25" y="11" width="1.5" height="1.5" rx=".75"/></svg>
                   {overdueCount}件
                 </button>
               )}
               <div ref={shareRef} style={{position:"relative"}} data-tour="settings">
                 <button onClick={()=>setShowShare(s=>!s)}
-                  style={{...S.row,gap:5,border:BD2,background:showShare?"#f5f0eb":"#fff",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                  style={{...S.row,gap:5,border:BD2,background:showShare?"#f5f0eb":"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="3" cy="8" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="13" cy="13" r="1.5"/><path d="m4.5 7.1 7-3.2M4.5 8.9l7 3.2"/></svg>
                   設定
                   <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
@@ -702,13 +702,13 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       </button>
                     ))}
                     {owner&&<div style={{borderTop:BD2,marginTop:2,paddingTop:6}}>{/* 共有リンクは Naoki がクライアントに見せる用。会員には出さない（2026-10-28） */}
-                      <div style={{fontSize:10,color:"#736a62",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
+                      <div style={{fontSize:12,color:"#736a62",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
                       {accounts.map(acc=>(
                         <div key={acc.id} style={{...S.row,gap:7,padding:"5px 11px"}}>
                           <span style={{width:6,height:6,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
                           <span style={{fontSize:12,fontWeight:600,flex:1,color:"#333"}}>{acc.name}</span>
                           <button onClick={()=>{copyShareLink(acc.id);setShowShare(false);}}
-                            style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>
+                            style={{background:"#f59e0b",border:"none",borderRadius:6,padding:"3px 8px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer"}}>
                             コピー
                           </button>
                         </div>
@@ -756,7 +756,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <button onClick={()=>{const d=new Date(week);d.setDate(d.getDate()+7);setWeek(d);}}
               style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
             <button onClick={()=>setWeek(new Date())}
-              style={{border:BD2,background:"#fff",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:11,color:"#555",fontFamily:"inherit"}}>今週</button>
+              style={{border:BD2,background:"#fff",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:12,color:"#555",fontFamily:"inherit"}}>今週</button>
           </div>
           <div className="ck" style={{display:"inline-flex",gap:2,marginLeft:6}}>
             <button className={`ck-vtab ${calMode==="week"?"on":""}`} onClick={()=>setCalMode("week")}>週</button>
@@ -791,20 +791,20 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               const{draftCnt,reservedCnt,publishedCnt,ghostCnt}=weekStats[i]||{};
               return(
                 <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:BD2,borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:20}}>
-                  <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#736a62"}}>{DAYS[i]}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#736a62"}}>{DAYS[i]}</div>
                   <div style={{width:28,height:28,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:13,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",minHeight:14}}>
-                    {draftCnt>0&&<span style={{fontSize:8,background:"#f3f4f6",color:"#6b7280",borderRadius:4,padding:"0 3px",fontWeight:700}}>下{draftCnt}</span>}
-                    {reservedCnt>0&&<span style={{fontSize:8,background:"#ede9fe",color:"#7c3aed",borderRadius:4,padding:"0 3px",fontWeight:700}}>予{reservedCnt}</span>}
-                    {publishedCnt>0&&<span style={{fontSize:8,background:"#d1fae5",color:"#059669",borderRadius:4,padding:"0 3px",fontWeight:700}}>済{publishedCnt}</span>}
-                    {ghostCnt>0&&<span style={{fontSize:8,background:"#fef3c7",color:"#d97706",borderRadius:4,padding:"0 3px",fontWeight:700}}>枠{ghostCnt}</span>}
+                    {draftCnt>0&&<span style={{fontSize:12,background:"#f3f4f6",color:"#6b7280",borderRadius:4,padding:"0 3px",fontWeight:700}}>下{draftCnt}</span>}
+                    {reservedCnt>0&&<span style={{fontSize:12,background:"#ede9fe",color:"#7c3aed",borderRadius:4,padding:"0 3px",fontWeight:700}}>予{reservedCnt}</span>}
+                    {publishedCnt>0&&<span style={{fontSize:12,background:"#d1fae5",color:"#059669",borderRadius:4,padding:"0 3px",fontWeight:700}}>済{publishedCnt}</span>}
+                    {ghostCnt>0&&<span style={{fontSize:12,background:"#fef3c7",color:"#d97706",borderRadius:4,padding:"0 3px",fontWeight:700}}>枠{ghostCnt}</span>}
                   </div>
                 </div>
               );
             })}
             {calHours.map(hour=>(
               <React.Fragment key={hour}>
-                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#736a62",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
+                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:12,color:"#736a62",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
                   const dateStr=weekDateStrs[di];
                   const key=dateStr+"_"+String(hour).padStart(2,"0");
@@ -838,13 +838,13 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                             onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=pt2.border;}}>
                             <div style={{...S.row,gap:3,marginBottom:1}}>
                               <span style={{width:5,height:5,borderRadius:"50%",background:pt2.dot,flexShrink:0}}/>
-                              <span style={{fontSize:9,color:"#6b6259"}}>{fmtTime(p.datetime)}</span>
-                              {p.buffer_post_id&&<span title="Buffer に入っています" style={{fontSize:8,fontWeight:800,color:"#047857",background:"#d1fae5",borderRadius:3,padding:"0 3px",marginLeft:p.score?0:"auto"}}>Buf</span>}
-                              {p.score&&<span style={{fontSize:8,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
+                              <span style={{fontSize:12,color:"#6b6259"}}>{fmtTime(p.datetime)}</span>
+                              {p.buffer_post_id&&<span title="Buffer に入っています" style={{fontSize:12,fontWeight:800,color:"#047857",background:"#d1fae5",borderRadius:3,padding:"0 3px",marginLeft:p.score?0:"auto"}}>Buf</span>}
+                              {p.score&&<span style={{fontSize:12,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
                             </div>
-                            <div style={{fontSize:10,fontWeight:700,color:"#0f1419",lineHeight:1.3,whiteSpace:"normal",wordBreak:"break-word"}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
+                            <div style={{fontSize:12,fontWeight:700,color:"#0f1419",lineHeight:1.3,whiteSpace:"normal",wordBreak:"break-word"}}>{(p.title||"（タイトルなし）").slice(0,32)}{(p.title||"").length>32?"…":""}</div>
                             <select value={p.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();changeStatusB(p.id,e.target.value,p.score);}}
-                              style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:10,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                              style={{marginTop:3,width:"100%",border:`1px solid ${st2?.border}`,borderRadius:5,padding:"2px 4px",fontSize:12,fontWeight:700,color:st2?.text,background:st2?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                               {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                             </select>
                           </div>
@@ -867,9 +867,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                                   onMouseLeave={e=>{e.currentTarget.style.opacity="0.7";e.currentTarget.style.boxShadow="none";}}>
                                   <div style={{...S.row,gap:2,marginBottom:1}}>
                                     <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
-                                    <span style={{fontSize:8,color:gpt.color,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{gpt.label}</span>
+                                    <span style={{fontSize:12,color:gpt.color,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{gpt.label}</span>
                                   </div>
-                                  <div style={{fontSize:8,color:"#666",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                  <div style={{fontSize:12,color:"#666",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                                     {g.title||"予約枠"}
                                   </div>
                                 </div>
@@ -887,13 +887,13 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                                 onMouseLeave={e=>{e.currentTarget.style.opacity="0.65";e.currentTarget.style.boxShadow="none";}}>
                                 <div style={{...S.row,gap:3}}>
                                   <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
-                                  <span style={{fontSize:9,color:gpt.color,fontWeight:700}}>{slotTime(g)}</span>
+                                  <span style={{fontSize:12,color:gpt.color,fontWeight:700}}>{slotTime(g)}</span>
                                 </div>
                                 {g.title
-                                  ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
-                                  :<div style={{fontSize:9,color:"#736a62",lineHeight:1.3}}>予約枠</div>
+                                  ?<div style={{fontSize:12,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
+                                  :<div style={{fontSize:12,color:"#736a62",lineHeight:1.3}}>予約枠</div>
                                 }
-                                <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
+                                <span style={{fontSize:12,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                               </div>
                             );
                           })
@@ -939,7 +939,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
               <div>
                 <div id="slot-settings-title" style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
-                <div style={{fontSize:11,color:"#736a62",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
+                <div style={{fontSize:12,color:"#736a62",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
@@ -958,16 +958,16 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                   return(
                     <div key={s.id} style={{...S.row,gap:8,background:"#f8f5f1",border:BD2,borderRadius:9,padding:"7px 10px",marginBottom:6}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                      <span style={{fontSize:11,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
                       <input
                         value={s.title||""}
                         onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
                         placeholder="仮タイトル"
-                        style={{flex:1,minWidth:0,border:"none",borderBottom:BD,borderRadius:0,padding:"2px 4px",fontSize:11,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
+                        style={{flex:1,minWidth:0,border:"none",borderBottom:BD,borderRadius:0,padding:"2px 4px",fontSize:12,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
                         onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
                         onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
                       />
-                      <span style={{fontSize:10,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
+                      <span style={{fontSize:12,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
                       <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
                         style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0,padding:0}}>×</button>
                     </div>
@@ -1062,11 +1062,11 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           <div ref={box} role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,padding:28,boxShadow:"0 20px 60px #00000030",textAlign:"center"}}>
             <div style={{fontSize:32,marginBottom:12}}>🗑️</div>
             <div id="delete-confirm-title" style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:8}}>この投稿を削除しますか？</div>
-            <div style={{fontSize:"0.84em",color:"#536471",marginBottom:6,lineHeight:1.5}}>「{deleteConfirm.title||"（タイトルなし）"}」</div>
-            <div style={{fontSize:"0.76em",color:"#ef4444",marginBottom:22}}>この操作は取り消せません。</div>
+            <div style={{fontSize:"max(12px,0.84em)",color:"#536471",marginBottom:6,lineHeight:1.5}}>「{deleteConfirm.title||"（タイトルなし）"}」</div>
+            <div style={{fontSize:"max(12px,0.76em)",color:"#ef4444",marginBottom:22}}>この操作は取り消せません。</div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,border:BD,background:"#fff",borderRadius:20,padding:"10px 0",fontWeight:600,fontSize:"0.88em",color:"#536471",cursor:"pointer"}}>キャンセル</button>
-              <button onClick={()=>del(deleteConfirm.id)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"0.88em",color:"#fff",cursor:"pointer"}}>削除する</button>
+              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,border:BD,background:"#fff",borderRadius:20,padding:"10px 0",fontWeight:600,fontSize:"max(12px,0.88em)",color:"#536471",cursor:"pointer"}}>キャンセル</button>
+              <button onClick={()=>del(deleteConfirm.id)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"max(12px,0.88em)",color:"#fff",cursor:"pointer"}}>削除する</button>
             </div>
           </div>
           )}</DialogFocus>
@@ -1144,7 +1144,7 @@ function PortalAuthWrapper({children}){
           <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Googleでログイン
         </button>
-        <a href={PORTAL_URL} style={{display:"block",marginTop:24,fontSize:11,color:"#736a62",textDecoration:"none",letterSpacing:".2px"}}
+        <a href={PORTAL_URL} style={{display:"block",marginTop:24,fontSize:12,color:"#736a62",textDecoration:"none",letterSpacing:".2px"}}
           onMouseEnter={e=>e.currentTarget.style.color="#6b6259"}
           onMouseLeave={e=>e.currentTarget.style.color="#736a62"}>
           ポータルサイトへ戻る →

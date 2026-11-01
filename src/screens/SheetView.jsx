@@ -153,53 +153,53 @@ export function SheetView({uid,accountIds,targetAccId,postTypes=POST_TYPE,revisi
       .content-sheet button:focus-visible,.content-sheet a:focus-visible{outline:2px solid #f59e0b;outline-offset:2px}
       .content-sheet .sheet-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
       .content-sheet .sheet-tabs{display:flex;gap:1px;background:#f5f0eb;border:${BD2};border-radius:8px;padding:2px}
-      .content-sheet .sheet-tabs button{border:0;background:transparent;border-radius:6px;padding:4px 10px;font-size:11.5px;font-weight:600;color:#736a62;white-space:nowrap}
+      .content-sheet .sheet-tabs button{border:0;background:transparent;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#736a62;white-space:nowrap}
       .content-sheet .sheet-tabs button[aria-pressed=true]{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-      .content-sheet .tab-count{font-size:10px;color:#736a62;margin-left:5px}
+      .content-sheet .tab-count{font-size:12px;color:#736a62;margin-left:5px}
       .content-sheet .month-nav{display:flex;gap:5px;align-items:center}
       .content-sheet .month-nav button{border:0;background:transparent;padding:3px 6px;font-size:16px}
-      .content-sheet .month-nav .this-month{font-size:11px;border:${BD2};border-radius:5px;background:#fff}
+      .content-sheet .month-nav .this-month{font-size:12px;border:${BD2};border-radius:5px;background:#fff}
       .content-sheet .month-label{font-size:12px;font-weight:600;white-space:nowrap}
-      .content-sheet .add-idea{border:0;border-radius:20px;background:#f59e0b;color:white;font-size:11px;font-weight:700;padding:6px 12px;white-space:nowrap}
+      .content-sheet .add-idea{border:0;border-radius:20px;background:#f59e0b;color:white;font-size:12px;font-weight:700;padding:6px 12px;white-space:nowrap}
       .content-sheet .sheet-filters{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
       .content-sheet .sheet-filters input,.content-sheet .sheet-filters select{background:#f8f4ef;border:${BD};border-radius:7px;font-size:12px;color:#666;padding:6px 9px;max-width:100%}
       .content-sheet .sheet-filters input{width:170px}
-      .content-sheet .genre-toggle{border:0;background:transparent;padding:4px 0;font-size:10px;color:#736a62;white-space:nowrap}
+      .content-sheet .genre-toggle{border:0;background:transparent;padding:4px 0;font-size:12px;color:#736a62;white-space:nowrap}
       .content-sheet .sheet-table-wrap{overflow-x:auto;border:${BD2};border-radius:10px;background:#fff}
       .content-sheet table{border-collapse:collapse;table-layout:fixed;width:100%;min-width:1150px;background:#fff}
-      .content-sheet th{padding:9px 10px;text-align:left;background:#faf7f3;color:#736a62;font-size:10px;font-weight:600;border-bottom:1px solid #f3eee8}
+      .content-sheet th{padding:9px 10px;text-align:left;background:#faf7f3;color:#736a62;font-size:12px;font-weight:600;border-bottom:1px solid #f3eee8}
       .content-sheet td{height:40px;padding:0 10px;border-bottom:1px solid #f3eee8}
       .content-sheet tr[data-sheet-row]:hover{background:#fffbf5}
       .content-sheet tr[data-sheet-row] td:first-child{border-left:3px solid var(--type-color)}
       .content-sheet .cell-text{display:block;border:0;background:transparent;padding:4px 0;text-align:left;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .content-sheet .cell-empty{color:#736a62}
       .content-sheet .cell-input{box-sizing:border-box;width:100%;min-width:0;border:1px solid #f59e0b;border-radius:5px;padding:4px;background:#fff;outline:none}
-      .content-sheet .sheet-pill{display:inline-block;border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;text-decoration:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;vertical-align:middle}
-      .content-sheet .status-select{max-width:100%;border-radius:5px;font-size:10px;font-weight:700;padding:3px 5px}
+      .content-sheet .sheet-pill{display:inline-block;border-radius:20px;padding:3px 8px;font-size:12px;font-weight:700;white-space:nowrap;text-decoration:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;vertical-align:middle}
+      .content-sheet .status-select{max-width:100%;border-radius:5px;font-size:12px;font-weight:700;padding:3px 5px}
       .content-sheet .status-select:focus{outline:1px solid #f59e0b}
-      .content-sheet .theme-cell{font-size:11.5px;color:#666}
+      .content-sheet .theme-cell{font-size:12px;color:#666}
       .content-sheet .title-cell{display:flex;align-items:center;gap:6px;min-width:0}
       .content-sheet .title-text{font-size:12.5px;font-weight:700;min-width:0;flex:1}
-      .content-sheet .row-edit{visibility:hidden;border:0;background:#f59e0b;color:#fff;border-radius:5px;padding:3px 8px;font-size:9px;font-weight:700;flex-shrink:0}
-      .content-sheet .row-delete{visibility:hidden;border:1px solid #e8dfd6;background:#fff;color:#736a62;border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700;flex-shrink:0;cursor:pointer}
+      .content-sheet .row-edit{visibility:hidden;border:0;background:#f59e0b;color:#fff;border-radius:5px;padding:3px 8px;font-size:12px;font-weight:700;flex-shrink:0}
+      .content-sheet .row-delete{visibility:hidden;border:1px solid #e8dfd6;background:#fff;color:#736a62;border-radius:5px;padding:2px 7px;font-size:12px;font-weight:700;flex-shrink:0;cursor:pointer}
       .content-sheet .row-delete:hover,.content-sheet .row-delete:focus{color:#ef4444;border-color:#fca5a5}
       .content-sheet tr[data-sheet-row]:hover .row-edit,.content-sheet tr[data-sheet-row]:focus-within .row-edit,.content-sheet .row-edit:focus,.content-sheet tr[data-sheet-row]:hover .row-delete,.content-sheet tr[data-sheet-row]:focus-within .row-delete,.content-sheet .row-delete:focus{visibility:visible}
       @media (hover:none){.content-sheet .row-edit,.content-sheet .row-delete{visibility:visible}}
       .content-sheet .mm-cell,.content-sheet .flow-cell{display:flex;align-items:center;gap:5px}
       .content-sheet .flow-cell{justify-content:flex-end}
       .content-sheet .mm-pill{color:#7c3aed;background:#ede9fe;border:1px solid #c4b5fd}
-      .content-sheet .mm-edit{width:auto;font-size:9px;color:#736a62;text-decoration:underline}
+      .content-sheet .mm-edit{width:auto;font-size:12px;color:#736a62;text-decoration:underline}
       .content-sheet .mm-add{width:auto;border:1px dashed #d8d0c6;border-radius:20px;color:#736a62;padding:2px 9px}
-      .content-sheet .sheet-flow{color:#2563eb;background:#dbeafe;border:1px solid #93c5fd;font-size:10px}
-      .content-sheet .manabu-pill{color:#736a62;background:transparent;border:${BD2};font-size:10px}
+      .content-sheet .sheet-flow{color:#2563eb;background:#dbeafe;border:1px solid #93c5fd;font-size:12px}
+      .content-sheet .manabu-pill{color:#736a62;background:transparent;border:${BD2};font-size:12px}
       .content-sheet .manabu-pill.is-on{color:#059669;background:#d1fae5;border:1px solid #6ee7b7}
       .content-sheet .group-cell{padding:0;height:auto}
       .content-sheet .group-button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border-radius:0;border:0;border-bottom:1px solid #e6dfd6;padding:10px 12px;background:#faf7f2;font-weight:600}
       .content-sheet .group-button.current-week{border-bottom-color:#f59e0b}
-      .content-sheet .week-badge{font-size:9px;color:#f59e0b;background:#fff3df;border-radius:5px;padding:2px 5px}
-      .content-sheet .group-count{margin-left:auto;color:#736a62;font-size:10px;font-weight:400}
-      .content-sheet .sheet-diagnostic{margin-top:10px;color:#736a62;display:flex;gap:12px;align-items:center;justify-content:flex-end;font-size:10px}
-      .content-sheet .sheet-diagnostic button{font-size:10px;color:#736a62;border:0;background:transparent;padding:0;text-decoration:underline}
+      .content-sheet .week-badge{font-size:12px;color:#f59e0b;background:#fff3df;border-radius:5px;padding:2px 5px}
+      .content-sheet .group-count{margin-left:auto;color:#736a62;font-size:12px;font-weight:400}
+      .content-sheet .sheet-diagnostic{margin-top:10px;color:#736a62;display:flex;gap:12px;align-items:center;justify-content:flex-end;font-size:12px}
+      .content-sheet .sheet-diagnostic button{font-size:12px;color:#736a62;border:0;background:transparent;padding:0;text-decoration:underline}
     `}</style>
     <div className="sheet-toolbar">
       <div className="sheet-tabs" aria-label="表示するシート">{['schedule','ideas'].map(t=><button key={t} aria-pressed={tab===t} onClick={()=>changeTab(t)}>{t==='schedule'?'予定':'ネタ帳'}<span className="tab-count" title="最後に読み込んだ条件での件数。未読は —">{tabCounts[t]??'—'}</span></button>)}</div>

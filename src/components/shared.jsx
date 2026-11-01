@@ -75,7 +75,7 @@ export function TagSelector({
         }}>
           {/* ヘッダー */}
           <div style={{padding:"8px 10px 6px",borderBottom:"1px solid #f0ebe4"}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#736a62",marginBottom:5,letterSpacing:".4px"}}>{label}</div>
+            <div style={{fontSize:12,fontWeight:700,color:"#736a62",marginBottom:5,letterSpacing:".4px"}}>{label}</div>
             <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
               placeholder="検索…"
               style={{width:"100%",border:BD,borderRadius:6,padding:"4px 8px",fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box",color:"#333"}}
@@ -87,7 +87,7 @@ export function TagSelector({
           <div style={{maxHeight:200,overflowY:"auto"}}>
             {onClear&&(Array.isArray(selected)?selected.length>0:selected)&&(
               <button onClick={()=>{onClear?.();if(!multi)setOpen(false);}}
-                style={{width:"100%",border:"none",background:"none",padding:"7px 11px",fontSize:11.5,color:"#ef4444",cursor:"pointer",textAlign:"left",fontFamily:"inherit",fontWeight:600}}>
+                style={{width:"100%",border:"none",background:"none",padding:"7px 11px",fontSize:12,color:"#ef4444",cursor:"pointer",textAlign:"left",fontFamily:"inherit",fontWeight:600}}>
                 × クリア
               </button>
             )}
@@ -108,7 +108,7 @@ export function TagSelector({
                   {o.dot&&<span style={{width:7,height:7,borderRadius:"50%",background:o.dot,flexShrink:0}}/>}
                   {o.swatch&&<span style={{width:14,height:14,borderRadius:3,background:o.swatch,flexShrink:0,border:"1px solid rgba(0,0,0,.08)"}}/>}
                   <span style={{flex:1}}>{o.label}</span>
-                  {sel&&<span style={{fontSize:11,color:o.color||"#f59e0b",fontWeight:800}}>✓</span>}
+                  {sel&&<span style={{fontSize:12,color:o.color||"#f59e0b",fontWeight:800}}>✓</span>}
                 </button>
               );
             })}
@@ -122,11 +122,11 @@ export function TagSelector({
                 onCompositionEnd={e=>{composing.current=false;setNewVal(e.target.value);}}
                 onKeyDown={e=>{if(!composing.current&&e.key==="Enter"){e.preventDefault();handleAdd();}}}
                 placeholder="新規追加…"
-                style={{flex:1,border:BD,borderRadius:6,padding:"4px 8px",fontSize:11.5,fontFamily:"inherit",outline:"none",color:"#333",minWidth:0}}
+                style={{flex:1,border:BD,borderRadius:6,padding:"4px 8px",fontSize:12,fontFamily:"inherit",outline:"none",color:"#333",minWidth:0}}
                 onFocus={e=>e.target.style.borderColor="#f59e0b"}
                 onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
               <button onClick={handleAdd} disabled={!newVal.trim()}
-                style={{background:newVal.trim()?"#111":"#e0d8ce",border:"none",borderRadius:6,padding:"4px 9px",fontSize:11,fontWeight:700,color:"#fff",cursor:newVal.trim()?"pointer":"default",flexShrink:0}}>
+                style={{background:newVal.trim()?"#111":"#e0d8ce",border:"none",borderRadius:6,padding:"4px 9px",fontSize:12,fontWeight:700,color:"#fff",cursor:newVal.trim()?"pointer":"default",flexShrink:0}}>
                 追加
               </button>
             </div>
@@ -171,10 +171,10 @@ export function LabelEditor({labels,onChange}){
       {labels.length>0&&(
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
           {labels.map((l,i)=>(
-            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#f5f0eb",border:BD,borderRadius:99,padding:"2px 8px",fontSize:"0.72em",fontWeight:600,color:"#555"}}>
+            <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#f5f0eb",border:BD,borderRadius:99,padding:"2px 8px",fontSize:"max(12px,0.72em)",fontWeight:600,color:"#555"}}>
               {l}
               <button onClick={()=>onChange(labels.filter((_,j)=>j!==i))}
-                style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"0.9em",padding:0,lineHeight:1}}>×</button>
+                style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"max(12px,0.9em)",padding:0,lineHeight:1}}>×</button>
             </span>
           ))}
         </div>
@@ -185,11 +185,11 @@ export function LabelEditor({labels,onChange}){
           onCompositionEnd={()=>{composing.current=false;}}
           onKeyDown={e=>{if(!composing.current&&e.key==="Enter"){e.preventDefault();add();}}}
           placeholder="ラベルを入力 → Enter"
-          style={{flex:1,border:BD,borderRadius:7,padding:"5px 9px",fontSize:"0.77em",fontFamily:"inherit",color:"#333",outline:"none",boxSizing:"border-box"}}
+          style={{flex:1,border:BD,borderRadius:7,padding:"5px 9px",fontSize:"max(12px,0.77em)",fontFamily:"inherit",color:"#333",outline:"none",boxSizing:"border-box"}}
           onFocus={e=>e.target.style.borderColor="#f59e0b"}
           onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
         <button onClick={add} disabled={!input.trim()}
-          style={{background:input.trim()?"#555":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 9px",fontSize:"0.77em",fontWeight:700,color:"#fff",cursor:input.trim()?"pointer":"default"}}>
+          style={{background:input.trim()?"#555":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 9px",fontSize:"max(12px,0.77em)",fontWeight:700,color:"#fff",cursor:input.trim()?"pointer":"default"}}>
           追加
         </button>
       </div>
@@ -268,7 +268,7 @@ export function MemoTextarea({value,onChange,onPasteUrl,textareaRef,autoFocus=fa
         if(r){e.preventDefault();apply(r);}
       }}
       placeholder={MEMO_PLACEHOLDER}
-      style={{width:"100%",background:"#fff",border:BD,borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"0.8em",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"none",lineHeight:1.7,...style}}
+      style={{width:"100%",background:"#fff",border:BD,borderRadius:8,padding:"8px 10px",color:"#1a1a1a",fontSize:"max(12px,0.8em)",outline:"none",boxSizing:"border-box",fontFamily:"inherit",resize:"none",lineHeight:1.7,...style}}
       onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
   );
 }
@@ -298,9 +298,9 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
   return(
     <div style={{...S.col,gap:7}}>
       <div style={{...S.rowB,marginBottom:2}}>
-        <span style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259"}}>メモ</span>
+        <span style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259"}}>メモ</span>
         <button onClick={insertBullet}
-          style={{border:BD,background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:"0.68em",fontWeight:700,color:"#555",cursor:"pointer"}}>
+          style={{border:BD,background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:"max(12px,0.68em)",fontWeight:700,color:"#555",cursor:"pointer"}}>
           ・ 箇条書き
         </button>
       </div>
@@ -311,13 +311,13 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
         <div style={{...S.col,gap:3,maxHeight:180,overflowY:"auto"}}>
           {links.map((l,i)=>(
             <div key={i} style={{...S.row,gap:6,background:"#f0f9ff",border:"1px solid #bae6fd",borderRadius:7,padding:"5px 8px"}}>
-              <span style={{fontSize:"0.7em",flexShrink:0}}>🔗</span>
+              <span style={{fontSize:"max(12px,0.7em)",flexShrink:0}}>🔗</span>
               <div style={{flex:1,minWidth:0}}>
-                {l.label&&<div style={{fontSize:"0.7em",fontWeight:700,color:"#0369a1",marginBottom:1}}>{l.label}</div>}
-                <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.7em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
+                {l.label&&<div style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#0369a1",marginBottom:1}}>{l.label}</div>}
+                <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"max(12px,0.7em)",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
               </div>
               <CopyBtn url={l.url}/>
-              <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
+              <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"max(12px,0.8em)",flexShrink:0}}>×</button>
             </div>
           ))}
         </div>
@@ -325,17 +325,17 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
       <div style={{...S.col,gap:4}}>
         <input value={labelInput} onChange={e=>setLabelInput(e.target.value)}
           placeholder="ラベル（任意）"
-          style={{width:"100%",border:BD,borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+          style={{width:"100%",border:BD,borderRadius:8,padding:"5px 10px",fontSize:"max(12px,0.77em)",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
           onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
         <div style={{display:"flex",gap:4}}>
           <input value={linkInput} onChange={e=>setLinkInput(e.target.value)}
             placeholder="URLをペースト → 追加"
             onKeyDown={e=>{if(!composing.current&&e.key==="Enter")addLink();}}
             onPaste={e=>{const v=e.clipboardData.getData("text").trim();if(isUrl(v)){e.preventDefault();setLinkInput(v);}}}
-            style={{flex:1,border:BD,borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
+            style={{flex:1,border:BD,borderRadius:8,padding:"5px 10px",fontSize:"max(12px,0.77em)",fontFamily:"inherit",color:"#1a1a1a",outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
           <button onClick={addLink} disabled={!isUrl(linkInput.trim())}
-            style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:8,padding:"5px 10px",fontSize:"0.77em",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",whiteSpace:"nowrap",transition:"background .15s"}}>
+            style={{background:isUrl(linkInput.trim())?"#0369a1":"#e0d8ce",border:"none",borderRadius:8,padding:"5px 10px",fontSize:"max(12px,0.77em)",fontWeight:700,color:"#fff",cursor:isUrl(linkInput.trim())?"pointer":"default",whiteSpace:"nowrap",transition:"background .15s"}}>
             ＋追加
           </button>
         </div>
