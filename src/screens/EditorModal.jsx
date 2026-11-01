@@ -6,6 +6,7 @@ import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/sha
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
 import { auth } from "../firebase.js";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 // 横の欄のアイコン（線の太さをそろえた SVG。2026-10-05 絵文字から置き換え）
 const ic=d=><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
@@ -110,7 +111,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":null);
   const [sideW,setSideW]=useState(248);
   const dragging=useRef(false);
-  const bodyEditorRef=useRef(null),articleAreaRef=useRef(null);
+  const bodyEditorRef=useRef(null),articleAreaRef=useRef(null),titleRef=useRef(null);
 
   const startResize=e=>{
     e.preventDefault();
@@ -122,10 +123,16 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     window.addEventListener("mouseup",onUp);
   };
 
-  useEffect(()=>{
-    const h=e=>{if(e.key==="Escape"&&!insertOpen)close();};
-    window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[insertOpen]);
+  // 窓の決まり：Esc で閉じる（差し込みの窓・型の窓が上にある間は、上の窓だけが閉じる）。Tab は窓の中で回す。
+  // 開いたときのフォーカス：ネタ（idea）はメモ欄が自分で取る。それ以外は、タイトルが空ならタイトル、あれば本文の末尾
+  const boxRef=useRef(null);
+  useDialogFocus(boxRef,{onClose:close,canClose:!insertOpen,initialFocus:post.status==="idea"?false:()=>{
+    if(!(draftRef.current.title||"").trim())return titleRef.current;
+    const ed=bodyEditorRef.current;if(!ed)return titleRef.current;
+    ed.focus();
+    try{const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}catch{/* カーソルを置けなくても開ける */}
+    return ed;
+  }});
 
   const openInsert=()=>{
     const sel=window.getSelection();
@@ -244,7 +251,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:compact?0:14}}>
       {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef}/>}
-      <div style={{background:"#fff",borderRadius:compact?0:18,width:"100%",maxWidth:1100,height:compact?"100vh":"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
+      <div ref={boxRef} role="dialog" aria-modal="true" aria-label={post._unsaved?"新しい投稿を書く":"投稿を編集"} style={{background:"#fff",borderRadius:compact?0:18,width:"100%",maxWidth:1100,height:compact?"100vh":"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
 
         {/* ヘッダー（細い幅）：戻る・コピー・保存の 3 つと、種類・状態・登録先・日時だけ */}
         {compact&&(
@@ -336,7 +343,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             {compact?<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>:<Toolbar onInsertOpen={openInsert}/>}
             <div style={{flex:1,overflowY:"auto"}}>
               <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px"}}>
-                <input type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
+                <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
                   style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>

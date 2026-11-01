@@ -2,6 +2,7 @@ import React, {useState,useEffect,useRef} from 'react';
 import {BD,BD2,POST_TYPE} from '../constants.js';
 import {dbAddTemplate,dbUpdateTemplate,dbRemoveTemplate} from '../lib/supabase.js';
 import {TEMPLATE_KINDS,CURSOR_MARK} from '../lib/templates.js';
+import {useDialogFocus} from '../lib/useDialogFocus.js';
 
 // 段 5：型の一覧。種類（本文・メモ・締め）ごとに、足す・直す・消す・並べ替える
 const HINT={
@@ -27,10 +28,9 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
   const [error,setError]=useState('');
   const busy=useRef(false);
   const items=templates.filter(t=>t.kind===kind).sort((a,b)=>a.sort_order-b.sort_order);
-  useEffect(()=>{
-    const k=e=>{if(e.key==='Escape'){e.stopPropagation();onClose();}};
-    window.addEventListener('keydown',k,true);return()=>window.removeEventListener('keydown',k,true);
-  },[onClose]);
+  // Esc は窓の決まり（いちばん上の窓だけが閉じる）に任せる。後ろの編集画面は閉じない
+  const box=useRef(null);
+  useDialogFocus(box,{onClose});
 
   async function run(fn){
     if(busy.current)return;busy.current=true;setError('');
@@ -55,9 +55,9 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
 
   return(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:14}} onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:640,maxHeight:'calc(100vh - 28px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 20px 60px #00000030'}}>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby="templates-modal-title" style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:640,maxHeight:'calc(100vh - 28px)',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 20px 60px #00000030'}}>
         <div style={{display:'flex',alignItems:'center',gap:8,padding:'12px 14px',borderBottom:BD2}}>
-          <span style={{fontWeight:800,fontSize:14,color:'#111'}}>型の一覧</span>
+          <span id="templates-modal-title" style={{fontWeight:800,fontSize:14,color:'#111'}}>型の一覧</span>
           <div style={{display:'flex',background:'#f5f0eb',borderRadius:8,padding:2,gap:2,border:BD2,marginLeft:6}}>
             {TEMPLATE_KINDS.map(([k,l])=>(
               <button key={k} onClick={()=>setKind(k)} style={{padding:'4px 12px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:700,background:kind===k?'#fff':'transparent',color:kind===k?'#111':'#736a62',boxShadow:kind===k?'0 1px 2px rgba(0,0,0,.06)':'none'}}>

@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { BD, S, REPOST_REPEATS, fmtDate } from "../constants.js";
 
 export function RepostModal({post,onClose,onRepost}){
@@ -6,10 +7,12 @@ export function RepostModal({post,onClose,onRepost}){
   const [dt,setDt]=useState(`${today}T09:00`);
   const [repeat,setRepeat]=useState("none");
   // REPOST_REPEATS はモジュールレベルで定義済み
+  const box=useRef(null);
+  useDialogFocus(box,{onClose});
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:380,padding:24,boxShadow:"0 20px 60px #00000025"}}>
-        <div style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:4}}>🔁 再投稿</div>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby="repost-modal-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:380,padding:24,boxShadow:"0 20px 60px #00000025"}}>
+        <div id="repost-modal-title" style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:4}}>🔁 再投稿</div>
         <div style={{fontSize:"0.8em",color:"#536471",marginBottom:18,lineHeight:1.5}}>「{post.title||"（タイトルなし）"}」を再投稿します</div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:"0.73em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:4}}>投稿日時</label>

@@ -10,6 +10,7 @@ import { isSample } from "../lib/samples.js";
 import { POST_TYPE, getPostTypeStyle, STATUS, genId, nowStr, fmtDate, stripHtml } from "../constants.js";
 import { dbFetchSheetGenres, dbAddSheetGenre } from "../lib/supabase.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 // ── 見た目（スワイプくん・思考整理くんと同じ色と形） ─────────
 export const CK_CSS = `
@@ -306,9 +307,10 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
   const [when, setWhen] = useState("slot");
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
+  useDialogFocus(ref, { initialFocus: false }); // 窓の決まり：Esc と開いたときのフォーカスはこの窓が自分で持つ。足りない Tab の囲い込み・閉じたら戻すだけを足す
   const go = () => onGo({ type, datetime: when === "slot" && slot ? slot : "" });
   return <div className="ck-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="ck-modal" role="dialog" aria-label="アウトプットにする" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape") onClose(); if (e.key === "Enter" && !e.nativeEvent.isComposing && e.target.tagName !== "BUTTON") go(); }}>
+    <div className="ck-modal" role="dialog" aria-modal="true" aria-label="アウトプットにする" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape") onClose(); if (e.key === "Enter" && !e.nativeEvent.isComposing && e.target.tagName !== "BUTTON") go(); }}>
       <div className="ck-mti">{headOf(post) || "（空のネタ）"}</div>
       <div className="ck-mrow"><span>何にする</span><div className="ck-pick">{keys.map(k => <button key={k} className={`ck-pk ${k === type ? "on" : ""}`} onClick={() => setType(k)}>{postTypes[k].label}</button>)}</div></div>
       <div className="ck-mrow"><span>いつ出す</span><div className="ck-pick">

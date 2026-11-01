@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -176,6 +177,8 @@ export function InsertModal({onClose,savedRange,bodyRef}){
   const [imgSize,setImgSize]=useState("full");
   const [imgAlign,setImgAlign]=useState("left");
   const fileRef=useRef(null);
+  const box=useRef(null);
+  useDialogFocus(box,{onClose}); // 窓の決まり（差し込んだあとは本文にカーソルを残す。戻す先より本文が優先）
   const insertAt=html=>{
     bodyRef.current?.focus();
     const sel=window.getSelection();
@@ -233,7 +236,7 @@ export function InsertModal({onClose,savedRange,bodyRef}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:700,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",border:BD2,borderRadius:14,width:"100%",maxWidth:360,overflow:"hidden",boxShadow:"0 20px 60px #00000025"}}>
+      <div ref={box} role="dialog" aria-modal="true" aria-label="画像・リンクを差し込む" style={{background:"#fff",border:BD2,borderRadius:14,width:"100%",maxWidth:360,overflow:"hidden",boxShadow:"0 20px 60px #00000025"}}>
         <div style={{display:"flex",borderBottom:BD2}}>
           {[["image","🖼 画像"],["post","リンク挿入"]].map(([t,l])=>(
             <button key={t} onClick={()=>setTab(t)} style={{flex:1,border:"none",background:"none",padding:"11px 0",fontWeight:tab===t?700:500,color:tab===t?"#f59e0b":"#736a62",borderBottom:tab===t?"2px solid #f59e0b":"2px solid transparent",cursor:"pointer",fontSize:"0.82em"}}>{l}</button>

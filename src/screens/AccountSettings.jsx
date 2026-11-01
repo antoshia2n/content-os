@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { POST_TYPE, COLORS, BD, BD2, S } from "../constants.js";
 import { Btn } from "../components/shared.jsx";
 
@@ -89,7 +90,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
               <input
                 value={editLabel}
                 onChange={e => setEditLabel(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") commitEdit(t.key); if (e.key === "Escape") setEditingKey(null); }}
+                onKeyDown={e => { if (e.key === "Enter") commitEdit(t.key); if (e.key === "Escape") { e.preventDefault(); setEditingKey(null); } }}
                 style={{ ...INP, flex: 1, padding: "3px 7px", fontSize: 12 }}
                 autoFocus
               />
@@ -161,6 +162,8 @@ export function AccountSettings({
   const [tab, setTab] = useState("clients");
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
+  const box = useRef(null);
+  useDialogFocus(box, { onClose });
 
   function startEdit(acc) {
     setEditingId(acc.id);
@@ -180,11 +183,11 @@ export function AccountSettings({
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: "#fff", border: BD2, borderRadius: 17, width: "100%", maxWidth: 520, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px #00000025" }}>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby="account-settings-title" style={{ background: "#fff", border: BD2, borderRadius: 17, width: "100%", maxWidth: 520, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px #00000025" }}>
 
         <div style={{ padding: "15px 20px", borderBottom: BD2, background: "#f5f0eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 900 }}>
+            <div id="account-settings-title" style={{ fontSize: 15, fontWeight: 900 }}>
               {tab === "clients" ? "クライアント管理" : "投稿タイプ管理"}
             </div>
             <div style={{ fontSize: 11, color: "#736a62", marginTop: 2 }}>

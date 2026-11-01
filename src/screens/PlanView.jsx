@@ -6,6 +6,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, slotTime, stripHtml } from "../constants.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
 import { auth } from "../firebase.js";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 // Buffer の窓口があるアカウント（functions/api/buffer-schedule.js の CHANNELS と同じ）
 export const BUFFER_ACCOUNTS = ["acc_1"];
@@ -124,6 +125,7 @@ export function BufferModal({ post, onClose, onDone }) {
   const [err, setErr] = useState("");
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus(); }, []);
+  useDialogFocus(ref, { initialFocus: false }); // 窓の決まり：Esc と開いたときのフォーカスはこの窓が自分で持つ。足りない Tab の囲い込み・閉じたら戻すだけを足す
   const block = why || (!texts.length ? "本文が空です" : "") || (hasImg ? "画像入りのポストは、まだ Buffer の画面で入れてください" : "") || (over ? "280 を超えているポストがあります（X の数え方。日本語は 1 字 2）" : "");
   const send = async () => {
     if (busy || block) return;
@@ -140,7 +142,7 @@ export function BufferModal({ post, onClose, onDone }) {
     } catch (e) { setErr(e.message || String(e)); setBusy(false); }
   };
   return <div className="ck"><div className="ck-scrim" onMouseDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-    <div className="ck-modal" role="dialog" aria-label="Buffer に入れる" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape" && !busy) onClose(); }}>
+    <div className="ck-modal" role="dialog" aria-modal="true" aria-label="Buffer に入れる" tabIndex={-1} ref={ref} onKeyDown={e => { if (e.key === "Escape" && !busy) onClose(); }}>
       <div className="ck-mti">{headOf(post) || "（タイトルなし）"}</div>
       <div className="ck-mrow"><span>いつ出す（X @antoshia2n）</span><div style={{ fontWeight: 700, fontSize: 15 }}>{fmtDt(post.datetime)}</div></div>
       <div className="ck-mrow" style={{ paddingBottom: 2 }}><span>送る本文{texts.length > 1 ? `（スレッド ${texts.length} 本）` : ""}</span></div>
