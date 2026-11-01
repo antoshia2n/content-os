@@ -3,6 +3,7 @@ import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, fmtTime,
 import { TagSelector, LabelEditor, MemoEditor, MemoTextarea, CopyBtn, Btn } from "../components/shared.jsx";
 import { insertBullet as insertBulletText } from "../lib/memoList.js";
 import { RepostModal } from "../components/modals.jsx";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelete,onSaveComment,onChangeStatus,onSaveMeta,onChangePostType,onSaveNew,allLabels=[],allPostTypes=POST_TYPE,onAddPostType}){
   const [cmt,setCmt]=useState("");
@@ -27,10 +28,9 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
     setMemoLinks((post.memoLinks||[]).map(l=>typeof l==="string"?{label:"",url:l}:l));
     setMetaDirty(false);
   },[post]);
-  useEffect(()=>{
-    const h=e=>{if(e.key==="Escape")onClose();};
-    window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
-  },[]);
+  // 窓の決まり：Esc で閉じる・Tab は窓の中で回す・閉じたら開いた元へ戻す（新しいネタのときはタイトル欄が autoFocus で先に取る）
+  const boxRef=useRef(null);
+  useDialogFocus(boxRef,{onClose});
 
   // サイドバーリサイズ
   const startResize=e=>{
@@ -76,7 +76,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:900,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
+      <div ref={boxRef} role="dialog" aria-modal="true" aria-label={post._unsaved?"新しいネタ":(post.title||"（タイトルなし）")} style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:900,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000035"}}>
 
         {/* ヘッダー */}
         <div style={{padding:"14px 18px 12px",borderBottom:BD2,background:"#fff",display:"flex",alignItems:"flex-start",gap:10,flexShrink:0}}>

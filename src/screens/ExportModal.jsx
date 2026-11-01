@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { POST_TYPE, STATUS, SCORE, BD, BD2, S, fmtDate, fmtTime, stripHtml } from "../constants.js";
 import { Btn } from "../components/shared.jsx";
 // 2026-10-23：App.jsx に置き忘れていた判定をここへ移した（無いと「ローカル保存」を開いた瞬間に画面が白くなっていた）
@@ -205,16 +206,18 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
   );
 
   const TABS=[["ai","AI出力"],["file","ファイル保存"],["csv","CSV"]];
+  const box=useRef(null);
+  useDialogFocus(box,{onClose});
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:tab==="ai"?860:500,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.15)",border:BD2,transition:"max-width .2s"}}>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby="export-modal-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:tab==="ai"?860:500,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,.15)",border:BD2,transition:"max-width .2s"}}>
 
         {/* ヘッダー */}
         <div style={{padding:"14px 20px 0",borderBottom:BD2,flexShrink:0}}>
           <div style={{...S.rowB,marginBottom:12}}>
-            <div style={{fontWeight:800,fontSize:15,letterSpacing:"-.3px"}}>エクスポート</div>
+            <div id="export-modal-title" style={{fontWeight:800,fontSize:15,letterSpacing:"-.3px"}}>エクスポート</div>
             <Btn onClick={onClose}>閉じる</Btn>
           </div>
           {/* タブ */}

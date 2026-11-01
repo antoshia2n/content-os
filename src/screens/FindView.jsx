@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getPostTypeStyle, STATUS, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 export const SWIPE_URL = id => `https://swipe.shia2n.jp/?open=${id}`;
 export const MAP_URL = id => `https://mindmap.shia2n.jp/m/${id}`;
@@ -131,15 +132,17 @@ export function FindModal({ posts, accountName, onClose, onAdd, onOpenPost, onTo
   const ref = useRef(null);
   const others = useOthers(true, true);
   useEffect(() => { ref.current?.focus(); }, []);
+  const box = useRef(null);
+  useDialogFocus(box, { initialFocus: false }); // 窓の決まり：Esc と開いたときのフォーカスはこの窓が自分で持つ。足りない Tab の囲い込み・閉じたら戻すだけを足す
   const r = useMemo(() => v.trim() ? findAll(v.split("\n")[0], posts, others, 5) : { P: [], S: [], M: [] }, [v, posts, others]);
   const flat = [...r.P, ...r.S, ...r.M];
   const add = () => { const t = v.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); onAdd({ title: first.trim(), memo: rest.join("\n").trim() }); };
   const open = x => x.k === "post" ? onOpenPost(x.p) : window.open(x.url, "_blank", "noopener");
   return <div className="ck-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><style>{FIND_CSS}</style>
-    <div className="ck-modal" role="dialog" aria-label="ネタ・検索" onKeyDown={e => { if (e.key === "Escape") onClose(); }}>
+    <div className="ck-modal" ref={box} role="dialog" aria-modal="true" aria-label="ネタ・検索" onKeyDown={e => { if (e.key === "Escape" && !e.nativeEvent.isComposing && e.keyCode !== 229 && !e.defaultPrevented) { e.preventDefault(); onClose(); } }}>
       <textarea ref={ref} value={v} onChange={e => { setV(e.target.value); setSel(-1); }} placeholder={`ネタを書く（Enter は改行・⌘＋Enter で ${accountName} の受け箱へ）／投稿・スワイプ・思考整理をまとめて探す`}
         onKeyDown={e => {
-          if (e.key === "Escape") { onClose(); return; }
+          if (e.key === "Escape") { if (!e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); onClose(); } return; } // 日本語の変換中の Esc は変換の取り消しなので閉じない
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); add(); return; }
           if (e.key === "ArrowDown" && flat.length && (sel >= 0 || !v.includes("\n"))) { e.preventDefault(); setSel(s => Math.min(s + 1, flat.length - 1)); return; }
           if (e.key === "ArrowUp" && sel >= 0) { e.preventDefault(); setSel(s => Math.max(s - 1, -1)); return; }

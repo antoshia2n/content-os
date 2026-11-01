@@ -50,6 +50,7 @@ import { useAccounts } from "./hooks/useAccounts.js";
 import { isSample, SAMPLE_TEMPLATE_NAME } from "./lib/samples.js";
 import { mountAppShell } from "shia2n-core/shell/app-shell.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
 import { MANUAL, KEYS, makeTours } from "./manual.js";
+import { DialogFocus } from "./lib/useDialogFocus.js";
 
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
@@ -497,7 +498,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
-        case"Escape": setPreview(null);break;
+        case"Escape": if(!e.defaultPrevented)setPreview(null);break; // 上に重なった窓が先に閉じたときは、後ろのプレビューまで閉じない
         default:break;
       }
     };
@@ -933,10 +934,11 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {showSlotSettings&&isAdmin&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
           onClick={e=>{if(e.target===e.currentTarget)setShowSlotSettings(false);}}>
-          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+          <DialogFocus onClose={()=>setShowSlotSettings(false)}>{box=>(
+          <div ref={box} role="dialog" aria-modal="true" aria-labelledby="slot-settings-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
             <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
               <div>
-                <div style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
+                <div id="slot-settings-title" style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
                 <div style={{fontSize:11,color:"#736a62",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
@@ -974,6 +976,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               }
             </div>
           </div>
+          )}</DialogFocus>
         </div>
       )}
 
@@ -1055,9 +1058,10 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {/* 削除確認ダイアログ */}
       {deleteConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,padding:28,boxShadow:"0 20px 60px #00000030",textAlign:"center"}}>
+          <DialogFocus onClose={()=>setDeleteConfirm(null)}>{box=>(
+          <div ref={box} role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,padding:28,boxShadow:"0 20px 60px #00000030",textAlign:"center"}}>
             <div style={{fontSize:32,marginBottom:12}}>🗑️</div>
-            <div style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:8}}>この投稿を削除しますか？</div>
+            <div id="delete-confirm-title" style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:8}}>この投稿を削除しますか？</div>
             <div style={{fontSize:"0.84em",color:"#536471",marginBottom:6,lineHeight:1.5}}>「{deleteConfirm.title||"（タイトルなし）"}」</div>
             <div style={{fontSize:"0.76em",color:"#ef4444",marginBottom:22}}>この操作は取り消せません。</div>
             <div style={{display:"flex",gap:10}}>
@@ -1065,6 +1069,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               <button onClick={()=>del(deleteConfirm.id)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"0.88em",color:"#fff",cursor:"pointer"}}>削除する</button>
             </div>
           </div>
+          )}</DialogFocus>
         </div>
       )}
 

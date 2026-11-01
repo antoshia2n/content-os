@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { BD, BD2, S, HOURS } from "../constants.js";
 import { Btn } from "../components/shared.jsx";
+import { useDialogFocus } from "../lib/useDialogFocus.js";
 // 2026-10-23：App.jsx に置き忘れていた入力欄の見た目をここへ移した（無いと窓を開いた瞬間に画面が白くなっていた）
 const INP={width:"100%",background:"#fff",border:BD2,borderRadius:8,padding:"7px 10px",color:"#111",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",transition:"border-color .12s"};
 
@@ -8,14 +9,16 @@ export function NotifySettingsModal({settings,accountName,onSave,onClose,onTestS
   const [draft,setDraft]=useState({...settings});
   const [sending,setSending]=useState(false);
   const changed=JSON.stringify(draft)!==JSON.stringify(settings);
+  const box=useRef(null);
+  useDialogFocus(box,{onClose});
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
       onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
+      <div ref={box} role="dialog" aria-modal="true" aria-labelledby="notify-modal-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"85vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
         {/* ヘッダー */}
         <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
           <div>
-            <div style={{fontWeight:800,fontSize:14}}>🔔 メール通知設定</div>
+            <div id="notify-modal-title" style={{fontWeight:800,fontSize:14}}>🔔 メール通知設定</div>
             <div style={{fontSize:11,color:"#736a62",marginTop:2}}>{accountName} — Vercel Cronで毎日自動送信</div>
           </div>
           <Btn onClick={onClose}>閉じる</Btn>
