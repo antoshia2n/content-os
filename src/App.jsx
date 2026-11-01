@@ -605,7 +605,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         button:active{transform:scale(.97);}
         input:focus,textarea:focus,select:focus{outline:none;}
         .xb{outline:none;}
-        .xb:empty:before,.xb[data-ph]:empty:before{content:attr(data-ph);color:#a8a09a;pointer-events:none;}
+        .xb:empty:before,.xb[data-ph]:empty:before{content:attr(data-ph);color:#736a62;pointer-events:none;}
         .xb p,.xb div{font-size:17px;line-height:1.8;color:#111;margin:0 0 1.2em;}
         .xb p:last-child,.xb div:last-child{margin-bottom:0;}
         .xb br{display:block;height:0;}
@@ -701,7 +701,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                       </button>
                     ))}
                     {owner&&<div style={{borderTop:BD2,marginTop:2,paddingTop:6}}>{/* 共有リンクは Naoki がクライアントに見せる用。会員には出さない（2026-10-28） */}
-                      <div style={{fontSize:10,color:"#a8a09a",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
+                      <div style={{fontSize:10,color:"#736a62",fontWeight:600,padding:"2px 11px 5px",letterSpacing:".4px"}}>共有リンク</div>
                       {accounts.map(acc=>(
                         <div key={acc.id} style={{...S.row,gap:7,padding:"5px 11px"}}>
                           <span style={{width:6,height:6,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
@@ -790,7 +790,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               const{draftCnt,reservedCnt,publishedCnt,ghostCnt}=weekStats[i]||{};
               return(
                 <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:BD2,borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:20}}>
-                  <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#9ca3af"}}>{DAYS[i]}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:isToday?"#f59e0b":i>=5?"#ef4444":"#736a62"}}>{DAYS[i]}</div>
                   <div style={{width:28,height:28,borderRadius:"50%",background:isToday?"#f59e0b":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"2px auto",fontSize:13,fontWeight:800,color:isToday?"#fff":"#1a1a1a"}}>{date.getDate()}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center",minHeight:14}}>
                     {draftCnt>0&&<span style={{fontSize:8,background:"#f3f4f6",color:"#6b7280",borderRadius:4,padding:"0 3px",fontWeight:700}}>下{draftCnt}</span>}
@@ -803,7 +803,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             })}
             {calHours.map(hour=>(
               <React.Fragment key={hour}>
-                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#c8bfb4",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
+                <div style={{borderTop:"1px solid #ede8e0",padding:"3px 5px 0",fontSize:10,color:"#736a62",textAlign:"right",background:"#f5f0eb",borderRight:"1px solid #e6dfd6"}}>{hour}:00</div>
                 {weekDates.map((date,di)=>{
                   const dateStr=weekDateStrs[di];
                   const key=dateStr+"_"+String(hour).padStart(2,"0");
@@ -837,7 +837,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                             onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=pt2.border;}}>
                             <div style={{...S.row,gap:3,marginBottom:1}}>
                               <span style={{width:5,height:5,borderRadius:"50%",background:pt2.dot,flexShrink:0}}/>
-                              <span style={{fontSize:9,color:"#888"}}>{fmtTime(p.datetime)}</span>
+                              <span style={{fontSize:9,color:"#6b6259"}}>{fmtTime(p.datetime)}</span>
                               {p.buffer_post_id&&<span title="Buffer に入っています" style={{fontSize:8,fontWeight:800,color:"#047857",background:"#d1fae5",borderRadius:3,padding:"0 3px",marginLeft:p.score?0:"auto"}}>Buf</span>}
                               {p.score&&<span style={{fontSize:8,fontWeight:800,color:SCORE[p.score]?.color,background:SCORE[p.score]?.bg,borderRadius:3,padding:"0 3px",marginLeft:"auto"}}>{p.score}</span>}
                             </div>
@@ -890,7 +890,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                                 </div>
                                 {g.title
                                   ?<div style={{fontSize:9,fontWeight:700,color:"#666",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
-                                  :<div style={{fontSize:9,color:"#999",lineHeight:1.3}}>予約枠</div>
+                                  :<div style={{fontSize:9,color:"#736a62",lineHeight:1.3}}>予約枠</div>
                                 }
                                 <span style={{fontSize:8,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                               </div>
@@ -937,7 +937,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
               <div>
                 <div style={{fontWeight:800,fontSize:14}}>📅 予約枠設定</div>
-                <div style={{fontSize:11,color:"#aaa",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
+                <div style={{fontSize:11,color:"#736a62",marginTop:2}}>カレンダーにゴーストカードで表示されます</div>
               </div>
               <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
             </div>
@@ -950,7 +950,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             {/* 枠一覧（スクロール可能） */}
             <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"12px 18px 24px"}}>
               {slots.length===0
-                ?<div style={{textAlign:"center",color:"#ccc",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
+                ?<div style={{textAlign:"center",color:"#736a62",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
                 :slots.map((s,i)=>{
                   const pt=getPostTypeStyle(s.postType,allPostTypes);
                   return(
@@ -1130,7 +1130,7 @@ function PortalAuthWrapper({children}){
     <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
       <div style={{background:"#fff",borderRadius:16,padding:"44px 48px",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.08)",maxWidth:360,width:"100%",border:BD2}}>
         <div style={{fontSize:22,fontWeight:900,marginBottom:4,letterSpacing:"0"}}>コンテンツ<span style={{color:"#f59e0b"}}>くん</span></div>
-        <div style={{fontSize:12.5,color:"#a8a09a",marginBottom:32}}>コンテンツ管理ツール</div>
+        <div style={{fontSize:12.5,color:"#736a62",marginBottom:32}}>コンテンツ管理ツール</div>
         <button
           onClick={()=>signInWithPopup(auth,googleProvider).catch(console.error)}
           style={{...S.row,gap:10,margin:"0 auto",border:BD2,borderRadius:10,padding:"11px 22px",fontSize:13.5,fontWeight:600,cursor:"pointer",background:"#fff",fontFamily:"inherit",color:"#333",boxShadow:"0 1px 4px rgba(0,0,0,.06)",transition:"all .12s"}}
@@ -1139,9 +1139,9 @@ function PortalAuthWrapper({children}){
           <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Googleでログイン
         </button>
-        <a href={PORTAL_URL} style={{display:"block",marginTop:24,fontSize:11,color:"#c4b8ad",textDecoration:"none",letterSpacing:".2px"}}
-          onMouseEnter={e=>e.currentTarget.style.color="#888"}
-          onMouseLeave={e=>e.currentTarget.style.color="#c4b8ad"}>
+        <a href={PORTAL_URL} style={{display:"block",marginTop:24,fontSize:11,color:"#736a62",textDecoration:"none",letterSpacing:".2px"}}
+          onMouseEnter={e=>e.currentTarget.style.color="#6b6259"}
+          onMouseLeave={e=>e.currentTarget.style.color="#736a62"}>
           ポータルサイトへ戻る →
         </a>
       </div>

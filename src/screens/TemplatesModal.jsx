@@ -60,12 +60,12 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
           <span style={{fontWeight:800,fontSize:14,color:'#111'}}>型の一覧</span>
           <div style={{display:'flex',background:'#f5f0eb',borderRadius:8,padding:2,gap:2,border:BD2,marginLeft:6}}>
             {TEMPLATE_KINDS.map(([k,l])=>(
-              <button key={k} onClick={()=>setKind(k)} style={{padding:'4px 12px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:700,background:kind===k?'#fff':'transparent',color:kind===k?'#111':'#a8a09a',boxShadow:kind===k?'0 1px 2px rgba(0,0,0,.06)':'none'}}>
-                {l} <span style={{fontWeight:600,color:'#b8afa5'}}>{templates.filter(t=>t.kind===k).length}</span>
+              <button key={k} onClick={()=>setKind(k)} style={{padding:'4px 12px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,fontWeight:700,background:kind===k?'#fff':'transparent',color:kind===k?'#111':'#736a62',boxShadow:kind===k?'0 1px 2px rgba(0,0,0,.06)':'none'}}>
+                {l} <span style={{fontWeight:600,color:'#736a62'}}>{templates.filter(t=>t.kind===k).length}</span>
               </button>
             ))}
           </div>
-          <button onClick={onClose} style={{marginLeft:'auto',background:'none',border:BD,borderRadius:20,padding:'5px 11px',fontSize:12,fontWeight:600,color:'#888',cursor:'pointer'}}>閉じる</button>
+          <button onClick={onClose} style={{marginLeft:'auto',background:'none',border:BD,borderRadius:20,padding:'5px 11px',fontSize:12,fontWeight:600,color:'#6b6259',cursor:'pointer'}}>閉じる</button>
         </div>
         <div style={{padding:'10px 14px',borderBottom:BD2,background:'#fcfaf8',fontSize:11.5,color:'#6b6560',lineHeight:1.7}}>
           {HINT[kind]}<br/>
@@ -91,7 +91,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
               </div>
             </div>
           ))}
-          {!items.length&&<div style={{textAlign:'center',color:'#a8a09a',fontSize:12.5,padding:'24px 0'}}>{TEMPLATE_KINDS.find(([k])=>k===kind)[1]}の型はまだありません。</div>}
+          {!items.length&&<div style={{textAlign:'center',color:'#736a62',fontSize:12.5,padding:'24px 0'}}>{TEMPLATE_KINDS.find(([k])=>k===kind)[1]}の型はまだありません。</div>}
           <button onClick={add} style={{border:'1px dashed #d8d0c6',background:'#fff',borderRadius:12,padding:'10px 0',fontSize:12.5,fontWeight:700,color:'#b45309',cursor:'pointer'}}>＋ {TEMPLATE_KINDS.find(([k])=>k===kind)[1]}の型を足す</button>
         </div>
         {error&&<div style={{padding:'8px 14px',background:'#fef2f2',color:'#dc2626',fontSize:12,borderTop:'1px solid #fca5a5'}}>保存できませんでした：{error}</div>}

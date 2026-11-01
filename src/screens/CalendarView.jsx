@@ -52,7 +52,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
 
       {/* 繰り返しタイプ */}
       <div style={{marginBottom:10}}>
-        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>繰り返し</label>
+        <label style={{fontSize:10,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>繰り返し</label>
         <div style={{display:"flex",gap:4}}>
           {SLOT_TYPES.map(([v,l])=>(
             <button key={v} onClick={()=>setType(v)}
@@ -67,7 +67,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
         {/* 第N */}
         {type==="nth_weekday"&&(
           <div>
-            <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>第N</label>
+            <label style={{fontSize:10,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>第N</label>
             <div style={{display:"flex",gap:4}}>
               {SLOT_NTHS.map(([v,l])=>(
                 <button key={v} onClick={()=>setNth(v)}
@@ -81,7 +81,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
         {/* 曜日 */}
         {type!=="daily"&&(
           <div style={{flex:1,minWidth:120}}>
-            <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
+            <label style={{fontSize:10,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>曜日</label>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {SLOT_DOWS.map(([v,l])=>(
                 <button key={v} onClick={()=>setDow(v)}
@@ -94,7 +94,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
         )}
         {/* 時刻（分単位） */}
         <div style={{minWidth:100}}>
-          <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
+          <label style={{fontSize:10,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>時刻</label>
           <input type="time" value={time} onChange={e=>setTime(e.target.value)}
             style={{border:BD,borderRadius:7,padding:"5px 8px",fontSize:12,color:"#555",outline:"none",background:"#fff",cursor:"pointer"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"}
@@ -104,7 +104,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
 
       {/* 投稿種類 */}
       <div style={{marginBottom:10}}>
-        <label style={{fontSize:10,color:"#888",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
+        <label style={{fontSize:10,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
         <select value={postType} onChange={e=>setPostType(e.target.value)}
           style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
           {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}

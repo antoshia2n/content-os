@@ -126,7 +126,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                         {post.score}
                         <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
                       </span>
-                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#a8a09a",cursor:"pointer"}}>
+                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#736a62",cursor:"pointer"}}>
                         スコア
                         <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
                       </span>
@@ -153,20 +153,20 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                           <span key={i} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:99,background:"#f5f0eb",border:"1.5px solid #e0d8ce",fontSize:11,fontWeight:600,color:"#555"}}>
                             {l}
                             <span onClick={e=>{e.stopPropagation();const next=(post.labels||[]).filter((_,j)=>j!==i);onSaveMeta(post.id,{memo,memoLinks,labels:next});}}
-                              style={{cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,marginLeft:1}}>×</span>
+                              style={{cursor:"pointer",color:"#736a62",fontSize:12,lineHeight:1,marginLeft:1}}>×</span>
                           </span>
                         ))}
-                        <span style={{display:"inline-flex",alignItems:"center",padding:"3px 7px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,color:"#bbb"}}>
+                        <span style={{display:"inline-flex",alignItems:"center",padding:"3px 7px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,color:"#736a62"}}>
                           +
                         </span>
                       </div>
-                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,fontWeight:600,color:"#a8a09a",cursor:"pointer"}}>
+                    : <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:99,background:"#f5f0eb",border:"1.5px dashed #e0d8ce",fontSize:11,fontWeight:600,color:"#736a62",cursor:"pointer"}}>
                         + ラベル
                       </span>
                 }
               />
 
-              <span style={{fontSize:11,color:"#c4bab0",marginLeft:2}}>{post.datetime.replace("T"," ")}</span>
+              <span style={{fontSize:11,color:"#736a62",marginLeft:2}}>{post.datetime.replace("T"," ")}</span>
             </div>
 
             {/* ── 反応の数字（Buffer から毎日取り込む。人手の評価とは別） ── */}
@@ -178,7 +178,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                   </span>
                 )}
                 {[["表示",post.impressions],["いいね",post.reactions],["返信",post.replies],["リポスト",post.reposts],["クリック",post.clicks]].map(([l,v])=>(
-                  <span key={l} style={{fontSize:11,color:"#777"}}>
+                  <span key={l} style={{fontSize:11,color:"#6b6259"}}>
                     {l} <b style={{color:"#333",fontSize:12}}>{(v===null||v===undefined)?"—":Number(v).toLocaleString("ja-JP")}</b>
                   </span>
                 ))}
@@ -210,7 +210,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
               onMouseEnter={e=>{e.currentTarget.style.background="#f59e0b";e.currentTarget.style.color="#fff";e.currentTarget.style.borderColor="#f59e0b";}} onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#555";e.currentTarget.style.borderColor="#e0d8ce";}}>再投稿</button>}
             {!post._unsaved&&<button onClick={()=>onDelete(post)} style={{background:"none",border:"1px solid #fca5a5",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,color:"#ef4444",cursor:"pointer"}}
               onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"} onMouseLeave={e=>e.currentTarget.style.background="none"}>削除</button>}
-            <button onClick={onClose} style={{background:"none",border:BD,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#888",cursor:"pointer"}}>✕</button>
+            <button onClick={onClose} style={{background:"none",border:BD,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#6b6259",cursor:"pointer"}}>✕</button>
           </div>
         </div>
 
@@ -218,7 +218,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 本文 */}
           <div style={{flex:1,overflowY:"auto",padding:"20px 28px"}}>
-            <div className="xb" dangerouslySetInnerHTML={{__html:post.body||"<p style='color:#aaa'>本文はまだありません</p>"}}/>
+            <div className="xb" dangerouslySetInnerHTML={{__html:post.body||"<p style='color:#736a62'>本文はまだありません</p>"}}/>
           </div>
 
           {/* リサイズハンドル */}
@@ -233,7 +233,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
             {/* ラベル */}
             {(post.labels||[]).length>0&&(
               <div style={{padding:"10px 14px",borderBottom:BD2}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>ラベル</div>
+                <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:6}}>ラベル</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
                   {(post.labels||[]).map((l,i)=>(
                     <span key={i} style={{fontSize:11,color:"#555",background:"#f5f0eb",border:BD,borderRadius:99,padding:"2px 9px",fontWeight:600}}>{l}</span>
@@ -245,7 +245,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
             {/* メモ */}
             <div style={{padding:"12px 14px",borderBottom:BD2}}>
               <div style={{...S.rowB,marginBottom:6}}>
-                <span style={{fontSize:11,fontWeight:700,color:"#888"}}>📝 メモ</span>
+                <span style={{fontSize:11,fontWeight:700,color:"#6b6259"}}>📝 メモ</span>
                 <button onClick={insertBullet} title="箇条書きを挿入"
                   style={{border:BD,background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:"#555",cursor:"pointer"}}>
                   ・ 箇条書き
@@ -259,7 +259,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
 
             {/* リンク */}
             <div style={{padding:"12px 14px",borderBottom:BD2}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:6}}>🔗 リンク</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#6b6259",marginBottom:6}}>🔗 リンク</div>
               {memoLinks.length>0&&(
                 <div style={{...S.col,gap:4,marginBottom:8}}>
                   {memoLinks.map((l,i)=>(
@@ -270,7 +270,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                       </div>
                       <CopyBtn url={l.url}/>
                       <button onClick={()=>{setMemoLinks(prev=>prev.filter((_,j)=>j!==i));setMetaDirty(true);}}
-                        style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
+                        style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
                     </div>
                   ))}
                 </div>
@@ -303,16 +303,16 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
             <div style={{padding:"10px 14px"}}>
               <button onClick={()=>setShowComments(v=>!v)}
                 style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",border:"none",background:"none",cursor:"pointer",fontFamily:"inherit",padding:0}}>
-                <span style={{fontSize:11,fontWeight:700,color:"#888"}}>💬 コメント ({localComments.length})</span>
-                <span style={{fontSize:10,color:"#bbb"}}>{showComments?"▲":"▼"}</span>
+                <span style={{fontSize:11,fontWeight:700,color:"#6b6259"}}>💬 コメント ({localComments.length})</span>
+                <span style={{fontSize:10,color:"#736a62"}}>{showComments?"▲":"▼"}</span>
               </button>
               {showComments&&(
                 <div style={{marginTop:8}}>
-                  {localComments.length===0&&<div style={{fontSize:"0.75em",color:"#ccc",textAlign:"center",padding:"10px 0"}}>コメントなし</div>}
+                  {localComments.length===0&&<div style={{fontSize:"0.75em",color:"#736a62",textAlign:"center",padding:"10px 0"}}>コメントなし</div>}
                   {localComments.map((c,i)=>(
                     <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",marginBottom:5}}>
                       <div style={{fontSize:"0.75em",color:"#444",lineHeight:1.5}}>{typeof c==="string"?c:c.text}</div>
-                      {c.at&&<div style={{fontSize:"0.65em",color:"#aaa",marginTop:2}}>{new Date(c.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>}
+                      {c.at&&<div style={{fontSize:"0.65em",color:"#736a62",marginTop:2}}>{new Date(c.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>}
                     </div>
                   ))}
                   <div style={{display:"flex",gap:5,marginTop:6}}>

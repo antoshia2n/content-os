@@ -53,7 +53,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
 
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
         固定タイプ（変更不可）
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
@@ -69,11 +69,11 @@ function PostTypeManager({ activeAcc, onUpdate }) {
         ))}
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
         カスタムタイプ（追加・編集・削除可）
       </div>
       {customTypes.length === 0 && (
-        <div style={{ fontSize: 12, color: "#ccc", textAlign: "center", padding: "12px 0", marginBottom: 10 }}>
+        <div style={{ fontSize: 12, color: "#736a62", textAlign: "center", padding: "12px 0", marginBottom: 10 }}>
           まだカスタムタイプがありません
         </div>
       )}
@@ -134,7 +134,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
 /* ── 小さな見出しラベル ── */
 function FieldLabel({ children }) {
   return (
-    <label style={{ fontSize: 11, color: "#999", fontWeight: 700, display: "block", marginBottom: 4 }}>
+    <label style={{ fontSize: 11, color: "#736a62", fontWeight: 700, display: "block", marginBottom: 4 }}>
       {children}
     </label>
   );
@@ -187,7 +187,7 @@ export function AccountSettings({
             <div style={{ fontSize: 15, fontWeight: 900 }}>
               {tab === "clients" ? "クライアント管理" : "投稿タイプ管理"}
             </div>
-            <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: "#736a62", marginTop: 2 }}>
               {tab === "clients" ? "名前・カラー・並び順・既定を設定できます" : "媒体・コンテンツ種別を追加・編集・削除できます"}
             </div>
           </div>
@@ -201,7 +201,7 @@ export function AccountSettings({
               onClick={() => setTab(id)}
               style={{
                 flex: 1, padding: "10px 0", fontSize: 12, fontWeight: tab === id ? 700 : 400,
-                color: tab === id ? "#f59e0b" : "#aaa",
+                color: tab === id ? "#f59e0b" : "#736a62",
                 background: "none", border: "none", cursor: "pointer",
                 borderBottom: tab === id ? "2px solid #f59e0b" : "2px solid transparent",
                 transition: "all .15s",
@@ -248,7 +248,7 @@ export function AccountSettings({
                             </button>
                           ))}
                         </div>
-                        <div style={{ fontSize: 10.5, color: "#aaa", marginTop: 5, lineHeight: 1.6 }}>
+                        <div style={{ fontSize: 10.5, color: "#736a62", marginTop: 5, lineHeight: 1.6 }}>
                           新しく投稿を作るときに最初から選ばれている媒体です。一覧の絞り込みには使いません。
                         </div>
                       </div>
@@ -271,7 +271,7 @@ export function AccountSettings({
                       <div style={{ ...S.row, gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                         <span style={{ width: 10, height: 10, borderRadius: "50%", background: acc.color, display: "inline-block" }} />
                         <span style={{ fontWeight: 800, fontSize: 14 }}>{acc.name}</span>
-                        <span style={{ fontSize: 12, color: "#bbb" }}>{acc.handle}</span>
+                        <span style={{ fontSize: 12, color: "#736a62" }}>{acc.handle}</span>
                         {acc.is_default && (
                           <Badge color="#b45309" bg="#fef3c7" border="#fcd34d">既定</Badge>
                         )}
@@ -280,7 +280,7 @@ export function AccountSettings({
                         )}
                       </div>
 
-                      <div style={{ background: "#fff", border: BD2, borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#bbb", fontFamily: "monospace", marginBottom: 10, wordBreak: "break-all" }}>
+                      <div style={{ background: "#fff", border: BD2, borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#736a62", fontFamily: "monospace", marginBottom: 10, wordBreak: "break-all" }}>
                         {typeof window !== "undefined" ? window.location.href.split("?")[0] : "https://your-app.pages.dev/"}?account={acc.id}
                       </div>
 
@@ -326,13 +326,13 @@ export function AccountSettings({
               ))}
 
               {onAdd && <button onClick={onAdd}
-                style={{ width: "100%", background: "#fff", border: "2px dashed #e0d8ce", borderRadius: 10, padding: "11px", color: "#bbb", cursor: "pointer", fontSize: 13, transition: "all 0.15s" }}
+                style={{ width: "100%", background: "#fff", border: "2px dashed #e0d8ce", borderRadius: 10, padding: "11px", color: "#736a62", cursor: "pointer", fontSize: 13, transition: "all 0.15s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.color = "#f59e0b"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#e0d8ce"; e.currentTarget.style.color = "#bbb"; }}>
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#e0d8ce"; e.currentTarget.style.color = "#736a62"; }}>
                 + クライアントを追加
               </button>}
 
-              <div style={{ fontSize: 11, color: "#aaa", lineHeight: 1.7, marginTop: 12, background: "#faf8f5", border: BD2, borderRadius: 9, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "#736a62", lineHeight: 1.7, marginTop: 12, background: "#faf8f5", border: BD2, borderRadius: 9, padding: "10px 12px" }}>
                 アカウントは削除できません。使わなくなったものは「無効にする」を押してください。
                 過去の投稿はそのまま残り、切替の並びからだけ消えます。
               </div>
@@ -342,7 +342,7 @@ export function AccountSettings({
           {tab === "types" && (
             activeAcc
               ? <PostTypeManager activeAcc={activeAcc} onUpdate={onUpdate} />
-              : <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", paddingTop: 24 }}>アカウントを選択してください</div>
+              : <div style={{ fontSize: 12, color: "#736a62", textAlign: "center", paddingTop: 24 }}>アカウントを選択してください</div>
           )}
         </div>
       </div>

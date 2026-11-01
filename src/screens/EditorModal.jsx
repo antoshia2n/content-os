@@ -276,7 +276,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             </div>
             <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:2,border:BD2}}>
               {[[null,"本文"],["meta","メモ"]].map(([k,l])=>(
-                <button key={l} onClick={()=>setSidePanel(k)} style={{flex:1,padding:"5px 0",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:sidePanel===k?"#fff":"transparent",color:sidePanel===k?"#111":"#a8a09a",boxShadow:sidePanel===k?"0 1px 2px rgba(0,0,0,.06)":"none"}}>{l}</button>
+                <button key={l} onClick={()=>setSidePanel(k)} style={{flex:1,padding:"5px 0",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:sidePanel===k?"#fff":"transparent",color:sidePanel===k?"#111":"#736a62",boxShadow:sidePanel===k?"0 1px 2px rgba(0,0,0,.06)":"none"}}>{l}</button>
               ))}
             </div>
           </div>
@@ -316,7 +316,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           .em-chip:hover,.em-chip:focus-visible{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06)}
           .em-btn{background:#fff;border:1px solid #e6dfd6;border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;color:#4b4540;cursor:pointer;white-space:nowrap;font-family:inherit}
           .em-btn:hover{border-color:#d4cbbf;background:#faf7f3}
-          .em-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:none;border-radius:9px;color:#a8a09a;cursor:pointer;flex-shrink:0}
+          .em-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;background:none;border-radius:9px;color:#736a62;cursor:pointer;flex-shrink:0}
           .em-icon:hover{background:#f5f0eb;color:#4b4540}
         `}</style>
 
@@ -342,7 +342,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
               </div>
             </div>
-            <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"0.67em",color:"#aaa",flexShrink:0}}>
+            <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"0.67em",color:"#736a62",flexShrink:0}}>
               {((draft.title||"")+(draft.body||"").replace(/<[^>]+>/g,"")).length.toLocaleString()} 文字
             </div>
           </div>
@@ -367,7 +367,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
                   {sidePanel==="meta"?"メモ":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
                 </span>
-                <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#aaa",cursor:"pointer"}}>✕</button>
+                <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer"}}>✕</button>
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
                 {sidePanel==="search"&&(
@@ -390,29 +390,29 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                       <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:6}}>
                           <span style={{fontSize:"0.7em",fontWeight:800,color:"#6b6560"}}>Notion へ送る</span>
-                          <span style={{fontSize:"0.64em",fontWeight:600,color:"#a8a09a"}}>送るとコンテンツくんには残りません</span>
+                          <span style={{fontSize:"0.64em",fontWeight:600,color:"#736a62"}}>送るとコンテンツくんには残りません</span>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
                           {[["inbox","inbox"],["input","インプット"],["output","アウトプット"]].map(([k,l])=>{
                             const off=!hasMemo||!!sendTo;
                             return <button key={k} disabled={off} onClick={()=>sendToNotion(k)}
-                              style={{border:BD2,background:"#fff",borderRadius:8,padding:"7px 4px",fontSize:12,fontWeight:800,color:off&&sendTo!==k?"#c8bfb5":"#333",cursor:off?"default":"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sendTo===k?"送信中…":l}</button>;
+                              style={{border:BD2,background:"#fff",borderRadius:8,padding:"7px 4px",fontSize:12,fontWeight:800,color:off&&sendTo!==k?"#736a62":"#333",cursor:off?"default":"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sendTo===k?"送信中…":l}</button>;
                           })}
                         </div>
                         {sendErr&&<div style={{fontSize:"0.72em",fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px"}}>{sendErr}</div>}
                       </div>
                     )}
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>概要メモ・リンク</label>
+                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>概要メモ・リンク</label>
                       <MemoEditor textareaRef={memoRef} memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
                     </div>
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>ラベル</label>
+                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>ラベル</label>
                       <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
                     </div>
                     {(draft.comments||[]).length>0&&(
                       <div>
-                        <label style={{fontSize:"0.7em",fontWeight:700,color:"#888",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
+                        <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
                         {draft.comments.map((c,i)=>(
                           <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",fontSize:"0.77em",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
                         ))}
@@ -422,7 +422,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 )}
                 {sidePanel==="history"&&(
                   <div>
-                    <div style={{fontSize:"0.71em",color:"#aaa",marginBottom:11,lineHeight:1.5}}>保存のたびに自動記録</div>
+                    <div style={{fontSize:"0.71em",color:"#736a62",marginBottom:11,lineHeight:1.5}}>保存のたびに自動記録</div>
                     {[...(draft.history||[])].reverse().map((h,i,arr)=>(
                       <div key={i} style={{display:"flex",gap:9,marginBottom:11}}>
                         <div style={{...S.col,alignItems:"center",flexShrink:0,paddingTop:3}}>
@@ -431,15 +431,15 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                         </div>
                         <div style={{flex:1}}>
                           <div style={{fontSize:"0.77em",fontWeight:i===0?700:400,color:i===0?"#0f1419":"#536471"}}>{h.note}</div>
-                          <div style={{fontSize:"0.69em",color:"#aaa",marginTop:1}}>{new Date(h.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+                          <div style={{fontSize:"0.69em",color:"#736a62",marginTop:1}}>{new Date(h.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
                         </div>
                       </div>
                     ))}
-                    {(draft.history||[]).length===0&&<div style={{fontSize:"0.8em",color:"#ccc",textAlign:"center",paddingTop:16}}>履歴なし</div>}
+                    {(draft.history||[]).length===0&&<div style={{fontSize:"0.8em",color:"#736a62",textAlign:"center",paddingTop:16}}>履歴なし</div>}
                   </div>
                 )}
                 {sidePanel==="share"&&(
-                  <div style={{fontSize:"0.8em",color:"#aaa",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
+                  <div style={{fontSize:"0.8em",color:"#736a62",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
                     共有機能は<br/>準備中です
                   </div>
                 )}
