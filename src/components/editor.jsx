@@ -166,7 +166,7 @@ export function Toolbar({onInsertOpen}){
       <ToolbarBtn title="書式クリア" onClick={()=>exec("removeFormat")} active={false} ch="✕"/>
       {/* 現在の形式バッジ */}
       <div style={{marginLeft:6,fontSize:"0.68em",color:"#1d9bf0",background:"#e8f5fe",border:"1px solid #93d3fc",borderRadius:10,padding:"1px 7px",fontWeight:700}}>{blockLabel}</div>
-      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#bbb"}}>Enter=新段落　⇧Enter=同形式改行</div>
+      <div style={{marginLeft:"auto",fontSize:"0.6em",color:"#736a62"}}>Enter=新段落　⇧Enter=同形式改行</div>
     </div>
   );
 }
@@ -236,14 +236,14 @@ export function InsertModal({onClose,savedRange,bodyRef}){
       <div style={{background:"#fff",border:BD2,borderRadius:14,width:"100%",maxWidth:360,overflow:"hidden",boxShadow:"0 20px 60px #00000025"}}>
         <div style={{display:"flex",borderBottom:BD2}}>
           {[["image","🖼 画像"],["post","リンク挿入"]].map(([t,l])=>(
-            <button key={t} onClick={()=>setTab(t)} style={{flex:1,border:"none",background:"none",padding:"11px 0",fontWeight:tab===t?700:500,color:tab===t?"#f59e0b":"#999",borderBottom:tab===t?"2px solid #f59e0b":"2px solid transparent",cursor:"pointer",fontSize:"0.82em"}}>{l}</button>
+            <button key={t} onClick={()=>setTab(t)} style={{flex:1,border:"none",background:"none",padding:"11px 0",fontWeight:tab===t?700:500,color:tab===t?"#f59e0b":"#736a62",borderBottom:tab===t?"2px solid #f59e0b":"2px solid transparent",cursor:"pointer",fontSize:"0.82em"}}>{l}</button>
           ))}
         </div>
         <div style={{padding:"14px 16px 8px"}}>
           {tab==="image"&&(<><input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleImage}/>
             {/* サイズ選択 */}
             <div style={{marginBottom:8}}>
-              <div style={{fontSize:10,fontWeight:700,color:"#888",marginBottom:5}}>サイズ</div>
+              <div style={{fontSize:10,fontWeight:700,color:"#6b6259",marginBottom:5}}>サイズ</div>
               <div style={{display:"flex",gap:4}}>
                 {IMG_SIZES_OPTS.map(([v,l])=>(
                   <button key={v} onClick={()=>setImgSize(v)}
@@ -255,7 +255,7 @@ export function InsertModal({onClose,savedRange,bodyRef}){
             </div>
             {/* 配置選択 */}
             <div style={{marginBottom:10}}>
-              <div style={{fontSize:10,fontWeight:700,color:"#888",marginBottom:5}}>配置</div>
+              <div style={{fontSize:10,fontWeight:700,color:"#6b6259",marginBottom:5}}>配置</div>
               <div style={{display:"flex",gap:4}}>
                 {IMG_ALIGNS_OPTS.map(([v,l])=>(
                   <button key={v} onClick={()=>setImgAlign(v)}
@@ -265,12 +265,12 @@ export function InsertModal({onClose,savedRange,bodyRef}){
                 ))}
               </div>
             </div>
-            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f8f5f1",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#aaa",fontSize:"0.83em",fontWeight:600}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e6dfd6";e.currentTarget.style.color="#aaa";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
+            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f8f5f1",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#736a62",fontSize:"0.83em",fontWeight:600}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e6dfd6";e.currentTarget.style.color="#736a62";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
           {tab==="post"&&(<><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."
             style={{width:"100%",border:BD2,borderRadius:8,padding:"9px 11px",fontSize:"0.82em",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e6dfd6"}
             onKeyDown={e=>{if(e.key==="Enter")handlePost();}}/>
-          <button onClick={handlePost} disabled={!url.trim()} style={{width:"100%",background:url.trim()?"#f59e0b":"#eff3f4",color:url.trim()?"#fff":"#aaa",border:"none",borderRadius:20,padding:"9px 0",fontWeight:700,fontSize:"0.82em",cursor:url.trim()?"pointer":"default"}}>挿入</button></>)}
+          <button onClick={handlePost} disabled={!url.trim()} style={{width:"100%",background:url.trim()?"#f59e0b":"#eff3f4",color:url.trim()?"#fff":"#736a62",border:"none",borderRadius:20,padding:"9px 0",fontWeight:700,fontSize:"0.82em",cursor:url.trim()?"pointer":"default"}}>挿入</button></>)}
         </div>
         <div style={{padding:"8px 16px 14px"}}><button onClick={onClose} style={{width:"100%",border:BD2,background:"none",color:"#536471",borderRadius:7,padding:"7px",fontWeight:500,fontSize:"0.8em",cursor:"pointer"}}>キャンセル</button></div>
       </div>
@@ -344,9 +344,9 @@ export function SideIcon({id,icon,label,sidePanel,setSidePanel}){
   const active=sidePanel===id;
   return(
     <button onClick={()=>setSidePanel(active?null:id)} title={label} aria-pressed={active}
-      style={{...S.col,alignItems:"center",gap:4,padding:"9px 0 8px",margin:"2px 6px",border:"none",borderRadius:10,background:active?"#fef3c7":"none",color:active?"#b45309":"#a8a09a",cursor:"pointer",transition:"background .12s,color .12s",fontFamily:"inherit"}}
+      style={{...S.col,alignItems:"center",gap:4,padding:"9px 0 8px",margin:"2px 6px",border:"none",borderRadius:10,background:active?"#fef3c7":"none",color:active?"#b45309":"#736a62",cursor:"pointer",transition:"background .12s,color .12s",fontFamily:"inherit"}}
       onMouseEnter={e=>{if(!active){e.currentTarget.style.background="#f5f0eb";e.currentTarget.style.color="#4b4540";}}}
-      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#a8a09a";}}}>
+      onMouseLeave={e=>{if(!active){e.currentTarget.style.background="none";e.currentTarget.style.color="#736a62";}}}>
       {typeof icon==="string"?<span style={{fontSize:"1.1em"}}>{icon}</span>:icon}
       <span style={{fontSize:10,fontWeight:700,letterSpacing:".02em"}}>{label}</span>
     </button>
@@ -404,9 +404,9 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
             onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
             placeholder="タイトル・本文・メモで検索…"
             style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:12,color:"#333",minWidth:0}}/>
-          {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#bbb",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
+          {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
         </div>
-        <div style={{fontSize:10,color:"#bbb",marginTop:5,textAlign:"right"}}>
+        <div style={{fontSize:10,color:"#736a62",marginTop:5,textAlign:"right"}}>
           クリックしてカーソル位置を選択後、リンクを挿入
         </div>
       </div>
@@ -414,12 +414,12 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
       {/* 結果リスト */}
       <div style={{flex:1,overflowY:"auto"}}>
         {!q.trim()&&(
-          <div style={{padding:"24px 12px",textAlign:"center",color:"#ccc",fontSize:12,lineHeight:1.8}}>
+          <div style={{padding:"24px 12px",textAlign:"center",color:"#736a62",fontSize:12,lineHeight:1.8}}>
             キーワードを入力してください
           </div>
         )}
         {q.trim()&&results.length===0&&(
-          <div style={{padding:"24px 12px",textAlign:"center",color:"#ccc",fontSize:12}}>
+          <div style={{padding:"24px 12px",textAlign:"center",color:"#736a62",fontSize:12}}>
             該当なし
           </div>
         )}
@@ -435,7 +435,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
               <div style={{...S.row,gap:5,marginBottom:4,flexWrap:"wrap"}}>
                 <span style={{width:6,height:6,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
                 <span style={{fontSize:10,color:pt.color,fontWeight:700,background:pt.bg,border:`1px solid ${pt.border}`,padding:"0 5px",borderRadius:99}}>{pt.label}</span>
-                <span style={{fontSize:10,color:"#bbb"}}>{p.datetime.slice(0,10)}</span>
+                <span style={{fontSize:10,color:"#736a62"}}>{p.datetime.slice(0,10)}</span>
               </div>
               <div style={{fontSize:12,fontWeight:700,color:"#222",lineHeight:1.4,marginBottom:6,wordBreak:"break-all"}}>
                 {p.title||"（タイトルなし）"}
@@ -461,7 +461,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
                   })}
                 </div>
               ):(
-                <div style={{fontSize:10,color:"#ccc",fontStyle:"italic"}}>リンクなし</div>
+                <div style={{fontSize:10,color:"#736a62",fontStyle:"italic"}}>リンクなし</div>
               )}
             </div>
           );

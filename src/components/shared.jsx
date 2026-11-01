@@ -75,7 +75,7 @@ export function TagSelector({
         }}>
           {/* ヘッダー */}
           <div style={{padding:"8px 10px 6px",borderBottom:"1px solid #f0ebe4"}}>
-            <div style={{fontSize:10,fontWeight:700,color:"#a8a09a",marginBottom:5,letterSpacing:".4px"}}>{label}</div>
+            <div style={{fontSize:10,fontWeight:700,color:"#736a62",marginBottom:5,letterSpacing:".4px"}}>{label}</div>
             <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
               placeholder="検索…"
               style={{width:"100%",border:BD,borderRadius:6,padding:"4px 8px",fontSize:12,fontFamily:"inherit",outline:"none",boxSizing:"border-box",color:"#333"}}
@@ -91,7 +91,7 @@ export function TagSelector({
                 × クリア
               </button>
             )}
-            {filtered.length===0&&<div style={{padding:"12px 11px",fontSize:12,color:"#ccc"}}>該当なし</div>}
+            {filtered.length===0&&<div style={{padding:"12px 11px",fontSize:12,color:"#736a62"}}>該当なし</div>}
             {filtered.map(o=>{
               const sel=isSelected(o.value);
               return(
@@ -174,7 +174,7 @@ export function LabelEditor({labels,onChange}){
             <span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,background:"#f5f0eb",border:BD,borderRadius:99,padding:"2px 8px",fontSize:"0.72em",fontWeight:600,color:"#555"}}>
               {l}
               <button onClick={()=>onChange(labels.filter((_,j)=>j!==i))}
-                style={{border:"none",background:"none",color:"#aaa",cursor:"pointer",fontSize:"0.9em",padding:0,lineHeight:1}}>×</button>
+                style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"0.9em",padding:0,lineHeight:1}}>×</button>
             </span>
           ))}
         </div>
@@ -298,7 +298,7 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
   return(
     <div style={{...S.col,gap:7}}>
       <div style={{...S.rowB,marginBottom:2}}>
-        <span style={{fontSize:"0.7em",fontWeight:700,color:"#888"}}>メモ</span>
+        <span style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259"}}>メモ</span>
         <button onClick={insertBullet}
           style={{border:BD,background:"#fff",borderRadius:5,padding:"2px 7px",fontSize:"0.68em",fontWeight:700,color:"#555",cursor:"pointer"}}>
           ・ 箇条書き
@@ -317,7 +317,7 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
                 <a href={l.url} target="_blank" rel="noreferrer" style={{fontSize:"0.7em",color:"#0369a1",textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{l.url}</a>
               </div>
               <CopyBtn url={l.url}/>
-              <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#94a3b8",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
+              <button onClick={()=>onChange({memo,memoLinks:links.filter((_,j)=>j!==i)})} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:"0.8em",flexShrink:0}}>×</button>
             </div>
           ))}
         </div>
