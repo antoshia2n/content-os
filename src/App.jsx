@@ -585,7 +585,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           --border-strong:#d4cbbf;
           --text-primary:#111;
           --text-secondary:#6b6560;
-          --text-muted:#a8a09a;
+          --text-muted:#736a62;
           --accent:#f59e0b;
           --accent-hover:#e08c00;
           --accent-light:#fef3c7;

@@ -13,7 +13,7 @@ import { slotMatchesDate } from "./CalendarView.jsx";
 
 // ── 見た目（スワイプくん・思考整理くんと同じ色と形） ─────────
 export const CK_CSS = `
-.ck{--bg:#f5f0eb;--panel:#fff;--soft:#f7f3ee;--hair:#f3eee8;--line:#e6dfd6;--fg:#1a1a1a;--muted:#6b6259;--faint:#a8a09a;--rowhover:#fffbf5;
+.ck{--bg:#f5f0eb;--panel:#fff;--soft:#f7f3ee;--hair:#f3eee8;--line:#e6dfd6;--fg:#1a1a1a;--muted:#6b6259;--faint:#736a62;--rowhover:#fffbf5;
   --accent:#f59e0b;--accent-ink:#b45309;--accent-bg:#fef3c7;--accent-line:#fcd34d;--accent-soft:rgba(245,158,11,.2);--ink:#1a1a1a;--on-ink:#fff;--ok:#047857;--warn:#b91c1c;
   --shadow:0 1px 2px rgba(60,40,20,.05),0 8px 24px rgba(60,40,20,.09);
   --s-idea:#c2410c;--s-draft:#6b7280;--s-review:#d97706;--s-wait:#2563eb;--s-res:#7c3aed;--s-pub:#059669;
