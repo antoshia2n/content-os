@@ -13,7 +13,8 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
   const setTab=t=>{setTabRaw(t);try{localStorage.setItem('contentos.panel.tab',t);}catch{/* 覚えられなくても動く */}};
   const [cap,setCap]=React.useState('');
   const inbox=React.useMemo(()=>posts.filter(p=>p.status==='idea'&&!p.genre&&!(p.labels||[]).includes('寝かせ')).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')||b.id-a.id).slice(0,8),[posts]);
-  const send=async()=>{const t=cap.trim();if(!t||!onQuick)return;const [first,...rest]=t.split('\n');if(await onQuick({title:first.trim(),memo:rest.join('\n').trim()}))setCap('');};
+  const capRef=React.useRef(null);
+  const send=async()=>{const t=cap.trim();if(!t){capRef.current?.focus();return;}if(!onQuick)return;const [first,...rest]=t.split('\n');if(await onQuick({title:first.trim(),memo:rest.join('\n').trim()}))setCap('');};
   const days=React.useMemo(()=>{
     const list=[];
     for(let i=0;i<7;i++){
@@ -38,11 +39,13 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
     <div className="cpanel">
       <style>{`
         .cpanel{min-height:100vh;display:flex;flex-direction:column;background:#f5f0eb;overflow-x:hidden}
-        .cpanel-head{position:sticky;top:0;z-index:5;background:#fff;border-bottom:${BD2};padding:10px 12px;display:flex;align-items:center;gap:8px}
+        .cpanel-head{position:sticky;top:0;z-index:5;background:#fff;border-bottom:${BD2};padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+        .cpanel-headrow{display:flex;align-items:center;gap:8px}
+        .cpanel-headrow .cpanel-tabs{flex:1}
         .cpanel-brand{font-weight:900;font-size:14px;color:#111;white-space:nowrap}
-        .cpanel-add{margin-left:auto;background:#f59e0b;border:none;color:#fff;border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap}
-        .cpanel-add:hover{background:#e08c00}
-        .cpanel-add kbd{font-family:inherit;font-size:12px;font-weight:700;background:rgba(255,255,255,.25);border-radius:4px;padding:1px 4px;margin-left:6px}
+        .cpanel-add{background:#fff;border:${BD2};color:#b45309;border-radius:8px;height:32px;padding:0 10px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;font-family:inherit}
+        .cpanel-add:hover{background:#fffbeb;border-color:#fcd34d}
+        .cpanel-add kbd{font-family:inherit;font-size:12px;font-weight:700;color:#736a62;border:${BD2};border-radius:4px;padding:0 4px}
         .cpanel-body{flex:1;padding:10px 10px 4px;display:flex;flex-direction:column;gap:8px}
         .cpanel-cap{display:flex;justify-content:space-between;align-items:baseline;padding:0 2px;font-size:12px;font-weight:700;color:#6b6560}
         .cpanel-cap span:last-child{font-weight:600;color:#736a62}
@@ -58,40 +61,46 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
         .cpanel-title{font-size:12.5px;font-weight:700;color:#111;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all}
         .cpanel-title.is-empty{color:#736a62;font-weight:600}
         .cpanel-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
-        .cpanel-pill{display:inline-block;border-radius:99px;padding:1px 7px;font-size:12px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-        .cpanel-acc{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:8px;padding:2px;overflow-x:auto}
-        .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:1 0 auto;border:none;background:transparent;border-radius:6px;padding:4px 9px;font-size:12px;font-weight:600;color:#736a62;cursor:pointer;white-space:nowrap;font-family:inherit}
-        .cpanel-acc button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+        .cpanel-pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:#6b6259;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+        .cpanel-pill i{width:7px;height:7px;border-radius:50%;flex:none}
+        .cpanel-dot{color:#c2b8ad}
+        .cpanel-title{font-size:13.5px!important}
+        .cpanel-day.is-empty{background:transparent;border-style:dashed}
+        .cpanel-day.is-empty .cpanel-dayhead{background:transparent;padding:5px 10px;color:#736a62;font-weight:700}
+        .cpanel-acc{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+        .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:0 0 auto;border:1px solid transparent;background:transparent;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;color:#6b6259;cursor:pointer;white-space:nowrap;font-family:inherit}
+        .cpanel-acc button.is-on{background:#fff;border-color:#e6dfd6;color:#111}
         .cpanel-acc i{width:6px;height:6px;border-radius:50%;display:inline-block}
         .cpanel-tabs{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:9px;padding:2px}
-        .cpanel-tabs button{flex:1;border:none;background:transparent;border-radius:7px;padding:6px 0;font-size:12.5px;font-weight:700;color:#6b6259;cursor:pointer;font-family:inherit}
+        .cpanel-tabs button{flex:1;border:none;background:transparent;border-radius:7px;padding:5px 0;font-size:12.5px;font-weight:700;color:#6b6259;cursor:pointer;font-family:inherit}
         .cpanel-tabs button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-        .cpanel-cap2{background:#fff;border:${BD2};border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+        .cpanel-cap2{background:#fff;border:${BD2};border-radius:12px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 1px 2px rgba(26,26,26,.04)}
         .cpanel-cap2:focus-within{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
-        .cpanel-cap2 textarea{border:0;outline:none;resize:none;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.65;min-height:72px;background:transparent;width:100%;box-sizing:border-box}
-        .cpanel-capft{display:flex;align-items:center;gap:6px;font-size:12px;color:#736a62}
-        .cpanel-capft button{margin-left:auto;background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
-        .cpanel-capft button:disabled{opacity:.4;cursor:default}
+        .cpanel-cap2 textarea{border:0;outline:none;resize:none;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.65;min-height:64px;background:transparent;width:100%;box-sizing:border-box;padding:10px 12px 6px}
+        .cpanel-capft{display:flex;align-items:center;gap:6px;font-size:12px;color:#736a62;border-top:1px solid #f3eee8;background:#f7f3ee;padding:6px 8px 6px 12px}
+        .cpanel-capft button{margin-left:auto;background:#b45309;color:#fff;border:none;border-radius:8px;height:30px;padding:0 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
         .cpanel-foot{padding:10px 12px 14px;text-align:center}
         .cpanel-foot a{font-size:12px;font-weight:700;color:#6b6560;text-decoration:none;border:${BD2};background:#fff;border-radius:99px;padding:6px 14px;display:inline-block}
         .cpanel-foot a:hover{color:#111;border-color:#d4cbbf}
       `}</style>
+      {/* 2026-11-02：アプリ名はシアニンパネルの帯に出ているので外し、切り替えと「＋ アイデア」を 1 行に。アカウントはその下に小さく */}
       <div className="cpanel-head">
-        <span className="cpanel-brand">コンテンツ<span style={{color:'#f59e0b'}}>くん</span></span>
-        <button className="cpanel-add" onClick={onAddIdea}>アイデアメモ<kbd>N</kbd></button>
-      </div>
-      <div className="cpanel-body">
+        <div className="cpanel-headrow">
+          <div className="cpanel-tabs">{[['memo','メモ'],['find','探す'],['week','今週']].map(([k,l])=><button key={k} className={tab===k?'is-on':''} aria-pressed={tab===k} onClick={()=>setTab(k)}>{l}</button>)}</div>
+          <button className="cpanel-add" onClick={onAddIdea} title="アイデアを書いて開く（N）">＋ アイデア<kbd>N</kbd></button>
+        </div>
         {accounts.length>1&&(
           <div className="cpanel-acc">
-            {accounts.map(a=><button key={a.id} className={account?.id===a.id?'is-on':''} onClick={()=>onAccount(a.id)}><i style={{background:account?.id===a.id?a.color:'#736a62'}}/>{a.name}</button>)}
+            {accounts.map(a=><button key={a.id} className={account?.id===a.id?'is-on':''} aria-pressed={account?.id===a.id} onClick={()=>onAccount(a.id)}><i style={{background:account?.id===a.id?a.color:'#a39a90'}}/>{a.name}</button>)}
           </div>
         )}
-        <div className="cpanel-tabs">{[['memo','メモ'],['find','探す'],['week','今週']].map(([k,l])=><button key={k} className={tab===k?'is-on':''} onClick={()=>setTab(k)}>{l}</button>)}</div>
+      </div>
+      <div className="cpanel-body">
         {tab==='memo'&&<>
           <div className="cpanel-cap2">
-            <textarea value={cap} onChange={e=>setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱へ" autoFocus
+            <textarea ref={capRef} value={cap} onChange={e=>setCap(e.target.value)} placeholder="思いついたことを書く" autoFocus
               onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/>
-            <div className="cpanel-capft"><span>⌘＋Enter で受け箱へ</span><button onClick={send} disabled={!cap.trim()}>受け箱へ</button></div>
+            <div className="cpanel-capft"><span>Enter は改行・⌘／Ctrl＋Enter で受け箱へ</span><button onClick={send}>受け箱へ</button></div>
           </div>
           <div className="cpanel-cap"><span>受け箱の新しい順</span><span>{inbox.length} 件</span></div>
           <div className="cpanel-day">{inbox.map(p=><button key={p.id} className="cpanel-row" style={{gridTemplateColumns:'minmax(0,1fr)'}} onClick={()=>onOpen(p)}>
@@ -118,8 +127,9 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
                     <span className="cpanel-time">{p.datetime.slice(11,16)}</span>
                     <span className={`cpanel-title ${p.title?'':'is-empty'}`}>{p.title||'（タイトルなし）'}</span>
                     <span className="cpanel-meta">
-                      <span className="cpanel-pill" style={{color:st.text,background:st.chip,border:`1px solid ${st.border}`}}>{st.label}</span>
-                      <span className="cpanel-pill" style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`}}>{postTypes[p.postType]?.label||pt.label}</span>
+                      <span className="cpanel-pill"><i style={{background:st.text}}/>{st.label}</span>
+                      <span className="cpanel-dot" aria-hidden="true">·</span>
+                      <span className="cpanel-pill">{postTypes[p.postType]?.label||pt.label}</span>
                     </span>
                   </button>
                 );
