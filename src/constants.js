@@ -63,7 +63,7 @@ export const S = {
   col: {display:"flex",flexDirection:"column"},
   rowC:{display:"flex",alignItems:"center",justifyContent:"center"},
   rowB:{display:"flex",alignItems:"center",justifyContent:"space-between"},
-  chip:{display:"inline-flex",alignItems:"center",borderRadius:99,fontWeight:600,fontSize:11},
+  chip:{display:"inline-flex",alignItems:"center",borderRadius:99,fontWeight:600,fontSize:12},
   inp: {border:BD,borderRadius:8,outline:"none",boxSizing:"border-box",background:"#fff",color:"#333",fontSize:13},
 };
 

@@ -26,7 +26,7 @@ export const REVIEW_CSS = `
 @media (max-width:860px){.ck-rv-grid{grid-template-columns:1fr}}
 .ck-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .ck-box h2{font-size:13px;font-weight:800;margin:0;display:flex;align-items:center;gap:8px}
-.ck-box h2 small{font-weight:600;color:var(--faint);font-size:11.5px}
+.ck-box h2 small{font-weight:600;color:var(--faint);font-size:12px}
 .ck-today{display:flex;gap:18px;align-items:center}
 .ck-today .big{font-size:30px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
 .ck-today .big small{font-size:13px;color:var(--faint);font-weight:600;margin-left:4px}
@@ -47,16 +47,16 @@ export const REVIEW_CSS = `
 .ck-bar.today{background:var(--accent)}
 .ck-bar.zero{background:var(--hair)}
 .ck-weeks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.ck-wk{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:11.5px;color:var(--muted)}
+.ck-wk{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted)}
 .ck-wk b{display:block;font-size:16px;color:var(--fg);font-variant-numeric:tabular-nums}
 .ck-month{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 @media (max-width:860px){.ck-month{grid-template-columns:1fr 1fr}}
 .ck-mc{background:var(--soft);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;min-height:120px}
-.ck-mc .k{font-size:11px;font-weight:700;color:var(--faint)}
+.ck-mc .k{font-size:12px;font-weight:700;color:var(--faint)}
 .ck-mc .v{font-size:28px;font-weight:800;letter-spacing:-.02em}
 .ck-mc .v small{font-size:13px;color:var(--faint);margin-left:3px}
 .ck-mc .t{font-size:13.5px;font-weight:700;line-height:1.5}
-.ck-mc .s{font-size:11.5px;color:var(--muted);line-height:1.6}
+.ck-mc .s{font-size:12px;color:var(--muted);line-height:1.6}
 .ck-warn{font-size:12px;color:var(--accent-ink);background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:10px;padding:8px 12px;line-height:1.6}
 .ck-sep{font-size:12px;font-weight:700;color:var(--faint);letter-spacing:.04em;padding:10px 2px 0}
 `;

@@ -54,7 +54,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
 
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
         固定タイプ（変更不可）
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
@@ -62,7 +62,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
           <div key={k} style={{
             display: "inline-flex", alignItems: "center", gap: 5,
             background: v.bg, border: `1px solid ${v.border}`,
-            borderRadius: 20, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: v.color,
+            borderRadius: 20, padding: "4px 10px", fontSize: 12, fontWeight: 700, color: v.color,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: v.dot, display: "inline-block" }} />
             {v.label}
@@ -70,7 +70,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
         ))}
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>
         カスタムタイプ（追加・編集・削除可）
       </div>
       {customTypes.length === 0 && (
@@ -94,14 +94,14 @@ function PostTypeManager({ activeAcc, onUpdate }) {
                 style={{ ...INP, flex: 1, padding: "3px 7px", fontSize: 12 }}
                 autoFocus
               />
-              <Btn primary onClick={() => commitEdit(t.key)} style={{ padding: "3px 10px", fontSize: 11 }}>保存</Btn>
-              <Btn onClick={() => setEditingKey(null)} style={{ padding: "3px 8px", fontSize: 11 }}>×</Btn>
+              <Btn primary onClick={() => commitEdit(t.key)} style={{ padding: "3px 10px", fontSize: 12 }}>保存</Btn>
+              <Btn onClick={() => setEditingKey(null)} style={{ padding: "3px 8px", fontSize: 12 }}>×</Btn>
             </>
           ) : (
             <>
               <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#333" }}>{t.label}</span>
-              <Btn onClick={() => startEdit(t)} style={{ padding: "3px 10px", fontSize: 11 }}>編集</Btn>
-              <Btn danger onClick={() => deleteType(t.key)} style={{ padding: "3px 10px", fontSize: 11 }}>削除</Btn>
+              <Btn onClick={() => startEdit(t)} style={{ padding: "3px 10px", fontSize: 12 }}>編集</Btn>
+              <Btn danger onClick={() => deleteType(t.key)} style={{ padding: "3px 10px", fontSize: 12 }}>削除</Btn>
             </>
           )}
         </div>
@@ -135,7 +135,7 @@ function PostTypeManager({ activeAcc, onUpdate }) {
 /* ── 小さな見出しラベル ── */
 function FieldLabel({ children }) {
   return (
-    <label style={{ fontSize: 11, color: "#736a62", fontWeight: 700, display: "block", marginBottom: 4 }}>
+    <label style={{ fontSize: 12, color: "#736a62", fontWeight: 700, display: "block", marginBottom: 4 }}>
       {children}
     </label>
   );
@@ -145,7 +145,7 @@ function FieldLabel({ children }) {
 function Badge({ color, bg, border, children }) {
   return (
     <span style={{
-      fontSize: 10, fontWeight: 700, color, background: bg,
+      fontSize: 12, fontWeight: 700, color, background: bg,
       border: `1px solid ${border}`, borderRadius: 99, padding: "2px 7px", whiteSpace: "nowrap",
     }}>
       {children}
@@ -190,7 +190,7 @@ export function AccountSettings({
             <div id="account-settings-title" style={{ fontSize: 15, fontWeight: 900 }}>
               {tab === "clients" ? "クライアント管理" : "投稿タイプ管理"}
             </div>
-            <div style={{ fontSize: 11, color: "#736a62", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "#736a62", marginTop: 2 }}>
               {tab === "clients" ? "名前・カラー・並び順・既定を設定できます" : "媒体・コンテンツ種別を追加・編集・削除できます"}
             </div>
           </div>
@@ -251,7 +251,7 @@ export function AccountSettings({
                             </button>
                           ))}
                         </div>
-                        <div style={{ fontSize: 10.5, color: "#736a62", marginTop: 5, lineHeight: 1.6 }}>
+                        <div style={{ fontSize: 12, color: "#736a62", marginTop: 5, lineHeight: 1.6 }}>
                           新しく投稿を作るときに最初から選ばれている媒体です。一覧の絞り込みには使いません。
                         </div>
                       </div>
@@ -283,7 +283,7 @@ export function AccountSettings({
                         )}
                       </div>
 
-                      <div style={{ background: "#fff", border: BD2, borderRadius: 7, padding: "6px 10px", fontSize: 11, color: "#736a62", fontFamily: "monospace", marginBottom: 10, wordBreak: "break-all" }}>
+                      <div style={{ background: "#fff", border: BD2, borderRadius: 7, padding: "6px 10px", fontSize: 12, color: "#736a62", fontFamily: "monospace", marginBottom: 10, wordBreak: "break-all" }}>
                         {typeof window !== "undefined" ? window.location.href.split("?")[0] : "https://your-app.pages.dev/"}?account={acc.id}
                       </div>
 
@@ -306,7 +306,7 @@ export function AccountSettings({
                         ))}
 
                         {!acc.is_default && (
-                          <Btn onClick={() => onSetDefault(acc.id)} style={{ padding: "5px 10px", fontSize: 11.5 }}>
+                          <Btn onClick={() => onSetDefault(acc.id)} style={{ padding: "5px 10px", fontSize: 12 }}>
                             既定にする
                           </Btn>
                         )}
@@ -314,11 +314,11 @@ export function AccountSettings({
                         <div style={{ flex: 1 }} />
 
                         {acc.is_active === false ? (
-                          <Btn primary onClick={() => onSetActive(acc.id, true)} style={{ padding: "5px 12px", fontSize: 11.5 }}>
+                          <Btn primary onClick={() => onSetActive(acc.id, true)} style={{ padding: "5px 12px", fontSize: 12 }}>
                             有効に戻す
                           </Btn>
                         ) : (
-                          <Btn onClick={() => onSetActive(acc.id, false)} style={{ padding: "5px 12px", fontSize: 11.5 }}>
+                          <Btn onClick={() => onSetActive(acc.id, false)} style={{ padding: "5px 12px", fontSize: 12 }}>
                             無効にする
                           </Btn>
                         )}
@@ -335,7 +335,7 @@ export function AccountSettings({
                 + クライアントを追加
               </button>}
 
-              <div style={{ fontSize: 11, color: "#736a62", lineHeight: 1.7, marginTop: 12, background: "#faf8f5", border: BD2, borderRadius: 9, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, color: "#736a62", lineHeight: 1.7, marginTop: 12, background: "#faf8f5", border: BD2, borderRadius: 9, padding: "10px 12px" }}>
                 アカウントは削除できません。使わなくなったものは「無効にする」を押してください。
                 過去の投稿はそのまま残り、切替の並びからだけ消えます。
               </div>

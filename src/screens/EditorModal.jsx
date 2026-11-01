@@ -265,21 +265,21 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             </div>
             <div style={{...S.row,gap:5,flexWrap:"wrap"}}>
               <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
-                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}>
+                style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}>
                 {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
               <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))}
-                style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+                style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
                 {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
               {accounts.length>1&&(
                 <select value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))}
-                  style={{background:"#fff7ed",border:"1px solid #fcd34d",borderRadius:20,padding:"3px 8px",fontSize:11,fontWeight:700,color:"#b45309",outline:"none",cursor:"pointer",fontFamily:"inherit",maxWidth:"100%"}}>
+                  style={{background:"#fff7ed",border:"1px solid #fcd34d",borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700,color:"#b45309",outline:"none",cursor:"pointer",fontFamily:"inherit",maxWidth:"100%"}}>
                   {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               )}
               <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))}
-                style={{border:BD,borderRadius:8,padding:"3px 6px",fontSize:11,color:"#555",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}/>
+                style={{border:BD,borderRadius:8,padding:"3px 6px",fontSize:12,color:"#555",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}/>
             </div>
             <div style={{display:"flex",background:"#f5f0eb",borderRadius:8,padding:2,gap:2,border:BD2}}>
               {[[null,"本文"],["meta","メモ"]].map(([k,l])=>(
@@ -349,7 +349,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
               </div>
             </div>
-            <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"0.67em",color:"#736a62",flexShrink:0}}>
+            <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"max(12px,0.67em)",color:"#736a62",flexShrink:0}}>
               {((draft.title||"")+(draft.body||"").replace(/<[^>]+>/g,"")).length.toLocaleString()} 文字
             </div>
           </div>
@@ -371,7 +371,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
-                <span style={{fontWeight:700,fontSize:"0.84em",color:"#0f1419"}}>
+                <span style={{fontWeight:700,fontSize:"max(12px,0.84em)",color:"#0f1419"}}>
                   {sidePanel==="meta"?"メモ":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
                 </span>
                 <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer"}}>✕</button>
@@ -396,8 +396,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                     {canSend&&(
                       <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:6}}>
-                          <span style={{fontSize:"0.7em",fontWeight:800,color:"#6b6560"}}>Notion へ送る</span>
-                          <span style={{fontSize:"0.64em",fontWeight:600,color:"#736a62"}}>送るとコンテンツくんには残りません</span>
+                          <span style={{fontSize:"max(12px,0.7em)",fontWeight:800,color:"#6b6560"}}>Notion へ送る</span>
+                          <span style={{fontSize:"max(12px,0.64em)",fontWeight:600,color:"#736a62"}}>送るとコンテンツくんには残りません</span>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
                           {[["inbox","inbox"],["input","インプット"],["output","アウトプット"]].map(([k,l])=>{
@@ -406,22 +406,22 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                               style={{border:BD2,background:"#fff",borderRadius:8,padding:"7px 4px",fontSize:12,fontWeight:800,color:off&&sendTo!==k?"#736a62":"#333",cursor:off?"default":"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sendTo===k?"送信中…":l}</button>;
                           })}
                         </div>
-                        {sendErr&&<div style={{fontSize:"0.72em",fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px"}}>{sendErr}</div>}
+                        {sendErr&&<div style={{fontSize:"max(12px,0.72em)",fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px"}}>{sendErr}</div>}
                       </div>
                     )}
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>概要メモ・リンク</label>
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>概要メモ・リンク</label>
                       <MemoEditor textareaRef={memoRef} memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
                     </div>
                     <div>
-                      <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>ラベル</label>
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>ラベル</label>
                       <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
                     </div>
                     {(draft.comments||[]).length>0&&(
                       <div>
-                        <label style={{fontSize:"0.7em",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
+                        <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
                         {draft.comments.map((c,i)=>(
-                          <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",fontSize:"0.77em",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
+                          <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",fontSize:"max(12px,0.77em)",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
                         ))}
                       </div>
                     )}
@@ -429,7 +429,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 )}
                 {sidePanel==="history"&&(
                   <div>
-                    <div style={{fontSize:"0.71em",color:"#736a62",marginBottom:11,lineHeight:1.5}}>保存のたびに自動記録</div>
+                    <div style={{fontSize:"max(12px,0.71em)",color:"#736a62",marginBottom:11,lineHeight:1.5}}>保存のたびに自動記録</div>
                     {[...(draft.history||[])].reverse().map((h,i,arr)=>(
                       <div key={i} style={{display:"flex",gap:9,marginBottom:11}}>
                         <div style={{...S.col,alignItems:"center",flexShrink:0,paddingTop:3}}>
@@ -437,16 +437,16 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                           {i<arr.length-1&&<div style={{width:1,height:20,background:"#e6dfd6",margin:"3px 0"}}/>}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:"0.77em",fontWeight:i===0?700:400,color:i===0?"#0f1419":"#536471"}}>{h.note}</div>
-                          <div style={{fontSize:"0.69em",color:"#736a62",marginTop:1}}>{new Date(h.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+                          <div style={{fontSize:"max(12px,0.77em)",fontWeight:i===0?700:400,color:i===0?"#0f1419":"#536471"}}>{h.note}</div>
+                          <div style={{fontSize:"max(12px,0.69em)",color:"#736a62",marginTop:1}}>{new Date(h.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
                         </div>
                       </div>
                     ))}
-                    {(draft.history||[]).length===0&&<div style={{fontSize:"0.8em",color:"#736a62",textAlign:"center",paddingTop:16}}>履歴なし</div>}
+                    {(draft.history||[]).length===0&&<div style={{fontSize:"max(12px,0.8em)",color:"#736a62",textAlign:"center",paddingTop:16}}>履歴なし</div>}
                   </div>
                 )}
                 {sidePanel==="share"&&(
-                  <div style={{fontSize:"0.8em",color:"#736a62",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
+                  <div style={{fontSize:"max(12px,0.8em)",color:"#736a62",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
                     共有機能は<br/>準備中です
                   </div>
                 )}

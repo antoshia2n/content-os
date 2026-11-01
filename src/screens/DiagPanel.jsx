@@ -34,7 +34,7 @@ function Light({ state }) {
   };
   const [color, bg, border, label] = map[state] || map.skip;
   return (
-    <span style={{ fontSize: 11, fontWeight: 800, color, background: bg, border: `1px solid ${border}`, borderRadius: 99, padding: "2px 10px", whiteSpace: "nowrap" }}>
+    <span style={{ fontSize: 12, fontWeight: 800, color, background: bg, border: `1px solid ${border}`, borderRadius: 99, padding: "2px 10px", whiteSpace: "nowrap" }}>
       {label}
     </span>
   );
@@ -46,7 +46,7 @@ function Row({ title, detail, state }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>{title}</div>
         {detail && (
-          <div style={{ fontSize: 11, color: "#736a62", marginTop: 2 }}>{detail}</div>
+          <div style={{ fontSize: 12, color: "#736a62", marginTop: 2 }}>{detail}</div>
         )}
       </div>
       <Light state={state} />
@@ -133,17 +133,17 @@ export function DiagPanel() {
           この画面は誰でも開けるため、中身は表示せず OK / NG だけを出しています。
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>設定値（環境変数）</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, marginBottom: 8 }}>設定値（環境変数）</div>
         {envRows.map(r => <Row key={r.title} {...r} />)}
 
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>データベース（Supabase）</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>データベース（Supabase）</div>
         <Row title="画面からの読み書き（サーバー経由）" detail={checks.gateway.detail}  state={checks.gateway.state} />
         <Row title="AI から操作する窓口"               detail={checks.internal.detail} state={checks.internal.state} />
 
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>Buffer との接続</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>Buffer との接続</div>
         <Row title="反応の数字を取りに行く鍵" detail={checks.buffer.detail} state={checks.buffer.state} />
 
-        <div style={{ fontSize: 11, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>Claude との接続（MCP）</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62", letterSpacing: 0.5, margin: "18px 0 8px" }}>Claude との接続（MCP）</div>
         <Row title="MCP サーバーの疎通" detail={checks.mcp.detail} state={checks.mcp.state} />
 
         <div style={{ marginTop: 22, display: "flex", gap: 8 }}>

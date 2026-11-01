@@ -42,25 +42,25 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
         .cpanel-brand{font-weight:900;font-size:14px;color:#111;white-space:nowrap}
         .cpanel-add{margin-left:auto;background:#f59e0b;border:none;color:#fff;border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap}
         .cpanel-add:hover{background:#e08c00}
-        .cpanel-add kbd{font-family:inherit;font-size:9.5px;font-weight:700;background:rgba(255,255,255,.25);border-radius:4px;padding:1px 4px;margin-left:6px}
+        .cpanel-add kbd{font-family:inherit;font-size:12px;font-weight:700;background:rgba(255,255,255,.25);border-radius:4px;padding:1px 4px;margin-left:6px}
         .cpanel-body{flex:1;padding:10px 10px 4px;display:flex;flex-direction:column;gap:8px}
-        .cpanel-cap{display:flex;justify-content:space-between;align-items:baseline;padding:0 2px;font-size:11px;font-weight:700;color:#6b6560}
+        .cpanel-cap{display:flex;justify-content:space-between;align-items:baseline;padding:0 2px;font-size:12px;font-weight:700;color:#6b6560}
         .cpanel-cap span:last-child{font-weight:600;color:#736a62}
         .cpanel-day{background:#fff;border:${BD2};border-radius:10px;overflow:hidden}
-        .cpanel-dayhead{display:flex;align-items:center;gap:6px;padding:7px 10px;font-size:11.5px;font-weight:800;color:#555;border-bottom:${BD2};background:#fcfaf8}
+        .cpanel-dayhead{display:flex;align-items:center;gap:6px;padding:7px 10px;font-size:12px;font-weight:800;color:#555;border-bottom:${BD2};background:#fcfaf8}
         .cpanel-day.is-empty .cpanel-dayhead{border-bottom:none}
-        .cpanel-dayhead .tag{font-size:9.5px;font-weight:800;color:#b45309;background:#fef3c7;border-radius:99px;padding:1px 7px}
-        .cpanel-dayhead .n{margin-left:auto;font-size:10px;font-weight:600;color:#736a62}
+        .cpanel-dayhead .tag{font-size:12px;font-weight:800;color:#b45309;background:#fef3c7;border-radius:99px;padding:1px 7px}
+        .cpanel-dayhead .n{margin-left:auto;font-size:12px;font-weight:600;color:#736a62}
         .cpanel-row{display:grid;grid-template-columns:38px minmax(0,1fr);gap:2px 8px;width:100%;text-align:left;border:none;border-top:${BD2};background:#fff;padding:8px 10px;cursor:pointer;font-family:inherit}
         .cpanel-row:first-of-type{border-top:none}
         .cpanel-row:hover{background:#fffbeb}
-        .cpanel-time{grid-row:1 / span 2;font-size:11.5px;font-weight:700;color:#555;padding-top:1px;font-variant-numeric:tabular-nums}
+        .cpanel-time{grid-row:1 / span 2;font-size:12px;font-weight:700;color:#555;padding-top:1px;font-variant-numeric:tabular-nums}
         .cpanel-title{font-size:12.5px;font-weight:700;color:#111;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all}
         .cpanel-title.is-empty{color:#736a62;font-weight:600}
         .cpanel-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
-        .cpanel-pill{display:inline-block;border-radius:99px;padding:1px 7px;font-size:9.5px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+        .cpanel-pill{display:inline-block;border-radius:99px;padding:1px 7px;font-size:12px;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
         .cpanel-acc{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:8px;padding:2px;overflow-x:auto}
-        .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:1 0 auto;border:none;background:transparent;border-radius:6px;padding:4px 9px;font-size:11.5px;font-weight:600;color:#736a62;cursor:pointer;white-space:nowrap;font-family:inherit}
+        .cpanel-acc button{display:flex;align-items:center;gap:5px;flex:1 0 auto;border:none;background:transparent;border-radius:6px;padding:4px 9px;font-size:12px;font-weight:600;color:#736a62;cursor:pointer;white-space:nowrap;font-family:inherit}
         .cpanel-acc button.is-on{background:#fff;color:#111;box-shadow:0 1px 2px rgba(0,0,0,.06)}
         .cpanel-acc i{width:6px;height:6px;border-radius:50%;display:inline-block}
         .cpanel-tabs{display:flex;gap:2px;background:#f5f0eb;border:${BD2};border-radius:9px;padding:2px}
@@ -69,11 +69,11 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
         .cpanel-cap2{background:#fff;border:${BD2};border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
         .cpanel-cap2:focus-within{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2)}
         .cpanel-cap2 textarea{border:0;outline:none;resize:none;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.65;min-height:72px;background:transparent;width:100%;box-sizing:border-box}
-        .cpanel-capft{display:flex;align-items:center;gap:6px;font-size:11px;color:#736a62}
+        .cpanel-capft{display:flex;align-items:center;gap:6px;font-size:12px;color:#736a62}
         .cpanel-capft button{margin-left:auto;background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
         .cpanel-capft button:disabled{opacity:.4;cursor:default}
         .cpanel-foot{padding:10px 12px 14px;text-align:center}
-        .cpanel-foot a{font-size:11.5px;font-weight:700;color:#6b6560;text-decoration:none;border:${BD2};background:#fff;border-radius:99px;padding:6px 14px;display:inline-block}
+        .cpanel-foot a{font-size:12px;font-weight:700;color:#6b6560;text-decoration:none;border:${BD2};background:#fff;border-radius:99px;padding:6px 14px;display:inline-block}
         .cpanel-foot a:hover{color:#111;border-color:#d4cbbf}
       `}</style>
       <div className="cpanel-head">

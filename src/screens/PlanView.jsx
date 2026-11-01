@@ -20,19 +20,19 @@ export const PLAN_CSS = `
 .ck-cal-main{flex:1;min-width:0}
 .ck-tray{width:250px;flex:none;border-left:1px solid var(--line);background:var(--panel);position:sticky;top:0;align-self:flex-start;height:calc(100vh - 100px);overflow:auto;padding:12px 10px 40px}
 .ck-tray.off{display:none}
-.ck-tray-h{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.04em;padding:10px 6px 6px;display:flex;justify-content:space-between}
-.ck-tray-note{font-size:11.5px;color:var(--faint);line-height:1.6;padding:0 6px 6px}
+.ck-tray-h{font-size:12px;font-weight:700;color:var(--faint);letter-spacing:.04em;padding:10px 6px 6px;display:flex;justify-content:space-between}
+.ck-tray-note{font-size:12px;color:var(--faint);line-height:1.6;padding:0 6px 6px}
 .ck-chip{display:flex;flex-direction:column;gap:4px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:var(--panel);margin-bottom:6px;cursor:grab;text-align:left;width:100%}
 .ck-chip:hover{border-color:var(--accent-line);background:var(--rowhover)}
 .ck-chip.dragging{opacity:.4}
 .ck-chip .t{font-size:12.5px;font-weight:600;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ck-chip .m{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--faint)}
+.ck-chip .m{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--faint)}
 .ck-list{max-width:980px;margin:0 auto;padding:16px 16px 72px;display:flex;flex-direction:column;gap:14px}
 .ck-day{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .ck-day.today{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
 .ck-dayh{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--hair);font-weight:800;font-size:14px}
-.ck-dayh small{font-size:11.5px;color:var(--faint);font-weight:600}
-.ck-dayh .n{margin-left:auto;font-size:11.5px;color:var(--faint);font-weight:600}
+.ck-dayh small{font-size:12px;color:var(--faint);font-weight:600}
+.ck-dayh .n{margin-left:auto;font-size:12px;color:var(--faint);font-weight:600}
 .ck-dayh .add{font-size:12px;color:var(--faint);font-weight:600;padding:2px 8px;border-radius:6px}
 .ck-dayh .add:hover{background:var(--soft);color:var(--fg)}
 .ck-lrow{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 14px;border-top:1px solid var(--hair);cursor:pointer;min-height:50px}
@@ -42,19 +42,19 @@ export const PLAN_CSS = `
 .ck-lrow.dragging{opacity:.4}
 .ck-lrow .tm{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--muted)}
 .ck-lrow .ti{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ck-lrow .sub{display:flex;gap:6px;align-items:center;margin-top:3px;font-size:11.5px;color:var(--faint)}
+.ck-lrow .sub{display:flex;gap:6px;align-items:center;margin-top:3px;font-size:12px;color:var(--faint)}
 .ck-lrow .acts{display:flex;gap:6px;align-items:center}
 .ck-lrow.ghost{cursor:pointer}
 .ck-lrow.ghost .ti{color:var(--faint);font-weight:500}
 .ck-lrow.ghost .tm{color:var(--faint)}
 .ck-ghostbox{border:1.5px dashed var(--line);border-radius:8px;padding:6px 10px;display:flex;gap:8px;align-items:center}
-.ck-buf{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
+.ck-buf{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
 .ck-buf.done{color:var(--ok);background:#d1fae5}
 .ck-buf.go{color:#fff;background:var(--ink);cursor:pointer}
 .ck-buf.go:hover{opacity:.85}
 .ck-bq{padding:4px 18px 8px;display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto}
 .ck-bq .it{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:14px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;position:relative}
-.ck-bq .it .c{position:absolute;right:8px;top:6px;font-size:10.5px;font-weight:700;color:var(--faint);font-family:'Geist',system-ui,sans-serif}
+.ck-bq .it .c{position:absolute;right:8px;top:6px;font-size:12px;font-weight:700;color:var(--faint);font-family:'Geist',system-ui,sans-serif}
 .ck-bq .it.over{border-color:var(--warn)}
 .ck-bq .it.over .c{color:var(--warn)}
 .ck-berr{margin:0 18px 8px;font-size:12.5px;color:var(--warn);font-weight:600;line-height:1.6}
