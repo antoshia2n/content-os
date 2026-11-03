@@ -43,7 +43,9 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
     put(await dbAddTemplate(uid,{name:'新しい型',kind,post_type:null,content:kind==='closing'?'':CURSOR_MARK,sort_order:order}));
   });
   const update=(t,fields)=>run(async()=>put(await dbUpdateTemplate(uid,t.id,fields)));
-  const remove=t=>{if(!window.confirm(`「${t.name||'（名前なし）'}」を消しますか？`))return;run(async()=>{await dbRemoveTemplate(uid,t.id);setTemplates(ts=>ts.filter(x=>x.id!==t.id));});};
+  // 2026-11-03 便 C：確かめの窓（window.confirm）をやめ、2 回押しで消す（1 回目でボタンの字が変わる）
+  const [armed,setArmed]=useState(null);
+  const remove=t=>{if(armed!==t.id){setArmed(t.id);setTimeout(()=>setArmed(x=>x===t.id?null:x),4000);return;}setArmed(null);run(async()=>{await dbRemoveTemplate(uid,t.id);setTemplates(ts=>ts.filter(x=>x.id!==t.id));});};
   const move=(i,dir)=>{
     if(!items[i+dir])return;
     const next=[...items];[next[i],next[i+dir]]=[next[i+dir],next[i]];
@@ -87,7 +89,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
               <div style={{display:'flex',gap:4,justifyContent:'flex-end'}}>
                 <button disabled={i===0} onClick={()=>move(i,-1)} style={btn(i===0)}>上へ</button>
                 <button disabled={i===items.length-1} onClick={()=>move(i,1)} style={btn(i===items.length-1)}>下へ</button>
-                <button onClick={()=>remove(t)} style={{...btn(false),color:'#b45353'}}>消す</button>
+                <button onClick={()=>remove(t)} style={{...btn(false),color:'#b91c1c',fontWeight:armed===t.id?700:undefined}} aria-live="polite">{armed===t.id?'もう一度押すと消す':'消す'}</button>
               </div>
             </div>
           ))}
