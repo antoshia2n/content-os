@@ -42,8 +42,17 @@ export const CK_CSS = `
 .ck-hm button:hover{color:var(--fg)}
 .ck-hm button.on{color:var(--fg);border-bottom-color:var(--accent)!important}
 .ck-hm .n{font-size:12px;color:var(--faint);font-weight:600}
-.ck-q{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px!important;border:1px solid var(--line)!important;border-radius:8px;color:var(--faint);font-size:12.5px;background:var(--soft)!important;min-width:170px}
+.ck-q{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px!important;border:1px solid var(--line)!important;border-radius:8px;color:var(--faint);font-size:12.5px;background:var(--soft)!important;}
 .ck-q:hover{color:var(--muted)}
+/* 2026-11-03 上の帯の整理（Naoki OK 23:03）：予約のまま過ぎた数・新規・設定の印・区切り */
+.ck-late{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:var(--warn);font-variant-numeric:tabular-nums}
+.ck-late i{width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.ck-new{display:inline-flex!important;align-items:center;gap:4px;height:32px;padding:0 12px!important;border-radius:8px;background:var(--accent-ink)!important;color:#fff!important;font-size:12.5px;font-weight:700;white-space:nowrap;flex:none}
+.ck-new:hover{background:#92400e!important}
+.ck-ico{display:inline-grid!important;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--muted)}
+.ck-ico:hover,.ck-ico.on{background:var(--soft)!important;color:var(--fg)}
+.ck-sep{width:1px;height:20px;background:var(--line);margin:0 3px;flex:none}
+@media (max-width:1180px){.ck-brand span{display:none}.ck-q .ql,.ck-q .ck-kbd{display:none}.ck-top [data-tour="today"] .ql{display:none}}
 .ck-kbd{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:var(--faint);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;line-height:16px;background:var(--panel);margin-left:auto}
 .ck-screen{display:flex;min-height:calc(100vh - 55px);position:relative}
 .ck-nav{width:236px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px 10px;position:sticky;top:0;align-self:flex-start;height:calc(100vh - 55px);overflow:auto}
@@ -274,7 +283,7 @@ export function AccountPill({ accounts, activeAcc, onPick, onManage }) {
   useEffect(() => { if (!open) return; const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, [open]);
   return <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
     <button className="ck-acc" onClick={() => setOpen(o => !o)} aria-label="アカウントを切り替える">
-      <i style={{ background: activeAcc?.color || "#ccc" }} /><span>{activeAcc?.name || "アカウント"}</span>{activeAcc?.handle && <small>{activeAcc.handle}</small>}{I.down}
+      <i style={{ background: activeAcc?.color || "#ccc" }} /><span>{activeAcc?.name || "アカウント"}</span>{I.down}
     </button>
     {open && <div className="ck-accpop">
       <div className="h">アカウント（1 つずつ開く）</div>

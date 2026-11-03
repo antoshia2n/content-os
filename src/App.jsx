@@ -662,7 +662,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         <nav className="ck-hm" aria-label="機能" data-tour="nav">
           {VIEWS.map(([v,l])=>{
             const n=v==="idea"?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:v==="out"?posts.filter(p=>p.status==="draft").length:0;
-            return <button key={v} className={view===v?"on":""} onClick={()=>setView(v)}>{l}{n>0&&<span className="n">{v==="out"?`書きかけ ${n}`:n}</span>}</button>;
+            // 2026-11-03 上の帯の整理：予約のまま日時が過ぎた数は、直す場所（カレンダー）のタブの横に赤丸と数で出す
+            const late=v==="calendar"&&isAdmin?overdueCount:0;
+            return <button key={v} className={view===v?"on":""} onClick={()=>setView(v)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title={v==="out"?"書きかけ":"受け箱"}>{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}</button>;
           })}
         </nav>
         {/* 共有リンクバッジ */}
@@ -676,24 +678,16 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+          <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)} title="探す・足す（⌘K）" aria-label="探す・足す（⌘K）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span className="ql">探す・足す</span><span className="ck-kbd">⌘K</span></button>
           {!isClient&&<button data-tour="today" style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
-            <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>今日 {dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
-          <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg><span className="ql">ネタ・検索</span><span className="ck-kbd">⌘K</span></button>
+            <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>{dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
+          <button className="ck-new" onClick={()=>openNew()}>＋ 新規</button>
           {isAdmin&&(
             <>
-              {overdueCount>0&&(
-                <button onClick={()=>setFilter("reserved")}
-                  style={{...S.row,gap:4,background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:8,padding:"4px 9px",fontSize:12,fontWeight:700,color:"#dc2626",cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" opacity=".8"><path d="M8 1.5L1.5 13.5h13L8 1.5zM8 6v4m0 2v1"/><rect x="7.25" y="6" width="1.5" height="4" rx=".75"/><rect x="7.25" y="11" width="1.5" height="1.5" rx=".75"/></svg>
-                  {overdueCount}件
-                </button>
-              )}
+              <span className="ck-sep" aria-hidden="true"/>
               <div ref={shareRef} style={{position:"relative"}} data-tour="settings">
-                <button onClick={()=>setShowShare(s=>!s)}
-                  style={{...S.row,gap:5,border:BD2,background:showShare?"#f5f0eb":"#fff",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:600,color:"#555",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="3" cy="8" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="13" cy="13" r="1.5"/><path d="m4.5 7.1 7-3.2M4.5 8.9l7 3.2"/></svg>
-                  設定
-                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 3.5 5 6.5 8 3.5"/></svg>
+                <button className={`ck-ico ${showShare?"on":""}`} onClick={()=>setShowShare(s=>!s)} aria-label="設定" aria-expanded={showShare} title="設定">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
                 </button>
                 {showShare&&(
                   <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:BD2,borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
@@ -731,10 +725,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               </div>
             </>
           )}
-          <button onClick={()=>openNew()}
-            style={{background:"#111",border:"none",borderRadius:8,padding:"6px 13px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0,letterSpacing:"-.1px"}}>
-            + 新規
-          </button>
           {!isClient&&<span ref={shellSlot} className="shell-slot" style={{display:"inline-flex",alignItems:"center"}}/>}
         </div>
       </div>
