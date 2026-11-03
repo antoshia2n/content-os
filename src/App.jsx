@@ -3,7 +3,7 @@ import { auth, db, googleProvider } from "./firebase.js";
 import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import {
-  PORTAL_APP_ID, PORTAL_URL,
+  PORTAL_URL,
   POST_TYPE, getPostTypeStyle, STATUS, SCORE,
   DAYS, HOURS, BD, BD2, S,
   OVERDUE_STATUS,
@@ -39,7 +39,6 @@ const PreviewOverlay     =lazyNamed(()=>import("./screens/PreviewOverlay.jsx"),"
 const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),"AccountSettings");
 const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
-const NotifySettingsModal=lazyNamed(()=>import("./screens/NotifySettingsModal.jsx"),"NotifySettingsModal");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
 import { Btn } from "./components/shared.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
@@ -97,6 +96,13 @@ function App({uid,panel=false,owner=false}){
   // 2026-11-03 便 B：続けて出したとき、前のタイマーが次の知らせを早く消さないようにする。長い文は長く出す
   const toastTimer=useRef(null);
   const showToast=React.useCallback((msg)=>{clearTimeout(toastTimer.current);setToast(msg);toastTimer.current=setTimeout(()=>setToast(null),Math.max(2500,Math.min(6000,String(msg||"").length*90)));},[]);
+  // 2026-11-03 便 C：消すときは確かめの窓を出さず、すぐ消して「元に戻す」を 7 秒出す（シアニンのアプリの決まり）
+  //   commit があるもの（投稿を消す）は、7 秒たつか次の「元に戻す」が出たときに本当に消す。戻せば何も消さない
+  const [undo,setUndoRaw]=useState(null);const undoTimer=useRef(null),undoRef=useRef(null);
+  const setUndo=React.useCallback(u=>{clearTimeout(undoTimer.current);const prev=undoRef.current;undoRef.current=u;if(prev&&prev.commit)prev.commit();setUndoRaw(u);
+    if(u)undoTimer.current=setTimeout(()=>{const c=undoRef.current;undoRef.current=null;setUndoRaw(null);if(c&&c.commit)c.commit();},7000);},[]);
+  const runUndo=React.useCallback(()=>{const u=undoRef.current;undoRef.current=null;clearTimeout(undoTimer.current);setUndoRaw(null);if(u)u.run();},[]);
+  useEffect(()=>{const h=()=>{const c=undoRef.current;if(c&&c.commit){undoRef.current=null;c.commit();}};window.addEventListener("pagehide",h);return()=>window.removeEventListener("pagehide",h);},[]);
 
   // ── データフック（showToast が必要なため先に定義）──────
   const {
@@ -167,12 +173,10 @@ function App({uid,panel=false,owner=false}){
   const [showShare,          setShowShare]          = useState(false);
   const [showAccountSettings,setShowAccountSettings]= useState(false);
   const [repostTgt,          setRepostTgt]          = useState(null);
-  const [deleteConfirm,      setDeleteConfirm]      = useState(null);
+  const setDeleteConfirm=React.useCallback(()=>{},[]); // 2026-11-03 便 C：確かめの窓は無くした（usePostActions に渡すだけ）
   const [showSlotSettings,   setShowSlotSettings]   = useState(false);
   const [dragId,             setDragId]             = useState(null);
   const [dragOver,           setDragOver]           = useState(null);
-  const [showNotifySettings, setShowNotifySettings] = useState(false);
-  const [notifySettings,     setNotifySettings]     = useState(null);
   const [showExport,         setShowExport]         = useState(null);
   // 2026-10-06：同じ端末で開いているほかの画面（サイドパネルと広い画面など）と食い違わないようにする。
   // 自分で投稿を変えたら「変わった」を知らせ、受け取った側は表から読み直す。読み直しで変わった分は知らせ返さない
@@ -288,6 +292,13 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
+  // 2026-11-03 便 C：投稿を消す。確かめの窓をやめ、画面からすぐ外して「元に戻す」を出す（7 秒後に本当に消す）
+  const deleteWithUndo=React.useCallback(p=>{
+    if(!p)return;removePost(p.id);setPreview(x=>x&&x.id===p.id?null:x);setEditing(x=>x&&x.id===p.id?null:x);
+    const back=()=>setAllPosts(prev=>({...prev,[p.account_id]:[...(prev[p.account_id]||[]).filter(x=>x.id!==p.id),p]}));
+    setUndo({msg:`「${String(p.title||"タイトルなし").slice(0,24)}」を消しました`,run:()=>{back();showToast("元に戻しました");},
+      commit:async()=>{const {error}=await dbDeletePost(p.id);if(error){back();showToast("消せませんでした。もう一度押してください");}}});
+  },[removePost,setAllPosts,setUndo,showToast]);
   // 2026-11-03 思考整理くんとの連携 便 1：?post=<id> で開くと、そのネタ（投稿）を開く（マップの上の「ネタ：名前 ↗」から来る）
   const deepPostRef=React.useRef(typeof window!=="undefined"&&!panel?new URLSearchParams(window.location.search).get("post"):null);
   useEffect(()=>{
@@ -458,37 +469,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     addIdeaAndEdit(panelAcc.id);
   },[panel,uid,panelAcc?.id,addIdeaAndEdit]);
 
-  const saveNotifySettings=React.useCallback(async(s)=>{
-    setNotifySettings(s);
-    await supabase.from("notification_settings").upsert({...s,account_id:targetAccId});
-    showToast("通知設定を保存しました");
-  },[targetAccId,showToast]);
-
-  // メール通知設定ロード
-  useEffect(()=>{
-    if(!activeAccId)return;
-    supabase.from("notification_settings").select("*").eq("account_id",activeAccId).maybeSingle()
-      .then(({data})=>{
-        if(data)setNotifySettings(data);
-        else setNotifySettings({account_id:activeAccId,email:"",notify_overdue:true,notify_today:true,notify_daily:false,send_hour:8,enabled:false});
-      });
-  },[activeAccId]);
-
-  const handleTestSend=React.useCallback(async(email)=>{
-    if(!email){alert("メールアドレスを入力してください");return;}
-    try{
-      const res=await fetch("/api/cron-notify",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({accountId:activeAccId,testMode:true,email}),
-      });
-      const d=await res.json();
-      if(res.ok)showToast("テストメールを送信しました");
-      else alert("送信失敗:\n"+(d.error||JSON.stringify(d)));
-    }catch(e){
-      alert("通信エラー: "+e.message);
-    }
-  },[activeAccId,showToast]);
 
   useEffect(()=>{
     const h=e=>{
@@ -593,25 +573,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
-        :root{
-          --bg:#f5f0eb;
-          --surface:#fff;
-          --border:#e6dfd6;
-          --border-strong:#d4cbbf;
-          --text-primary:#111;
-          --text-secondary:#6b6560;
-          --text-muted:#736a62;
-          --accent:#f59e0b;
-          --accent-hover:#e08c00;
-          --accent-light:#fef3c7;
-          --radius-sm:6px;
-          --radius-md:10px;
-          --radius-lg:14px;
-          --radius-xl:20px;
-          --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-          --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-          --shadow-lg:0 20px 48px rgba(0,0,0,.12),0 8px 16px rgba(0,0,0,.06);
-        }
+        :root{--bg:#f5f0eb;--accent:#f59e0b;} /* 2026-11-03 便 C：使われていない古い色の決まりを外した（色は CK_CSS の .ck が正本） */
         ::-webkit-scrollbar{width:4px;height:4px;}
         ::-webkit-scrollbar-thumb{background:#d4cbbf;border-radius:99px;}
         ::-webkit-scrollbar-track{background:transparent;}
@@ -640,11 +602,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         .xb em,.xb i{font-style:italic;}
         .xb s{text-decoration:line-through;}
         .xb img{max-width:100%;border-radius:8px;margin:.6em 0;display:block;}
-        .chip{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:12px;font-weight:700;letter-spacing:.2px;}
-        .btn-ghost{background:none;border:1.5px solid var(--border);color:var(--text-secondary);border-radius:var(--radius-md);padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;}
-        .btn-ghost:hover{background:#f5f0eb;border-color:var(--border-strong);color:var(--text-primary);}
-        .btn-primary{background:var(--accent);border:none;color:#fff;border-radius:var(--radius-md);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;}
-        .btn-primary:hover{background:var(--accent-hover);}
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
@@ -696,10 +653,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["型の一覧",()=>{setShowTemplates(true);setShowShare(false);}],
-                      ...(owner?[["通知設定",()=>{setShowNotifySettings(true);setShowShare(false);}]]:[]), // 会員には出さない（送る仕組みが動いていない・2026-10-28）
-                      ["AIコンテキスト出力",()=>{setShowExport("ai");setShowShare(false);}],
-                      ["ローカル保存",()=>{setShowExport("file");setShowShare(false);}],
-                      ["CSVエクスポート",()=>{setShowExport("csv");setShowShare(false);}],
+                      ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
                       <button key={label} onClick={fn}
@@ -736,10 +690,10 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
         <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} owner={owner} onClearSamples={()=>clearSamples(targetAccId)} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
-          onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={p=>setDeleteConfirm(p)} showToast={showToast}
-          keysOff={!!editing||!!deleteConfirm||!!toOut||quickOpen||!!bufferFor||!!preview}
+          onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={deleteWithUndo} showToast={showToast}
+          keysOff={!!editing||!!toOut||quickOpen||!!bufferFor||!!preview}
           onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
-          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={p=>setDeleteConfirm(p)} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
+          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={deleteWithUndo} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
       {quickOpen&&!panel&&<FindModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
         onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpenPost={p=>{setQuickOpen(false);openPost(p);}} onToInbox={r=>toInboxFrom(r)}/>}
@@ -974,8 +928,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
                         onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
                       />
                       <span style={{fontSize:12,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
-                      <button onClick={()=>saveSlots(slots.filter((_,j)=>j!==i))}
-                        style={{border:"none",background:"none",color:"#fca5a5",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0,padding:0}}>×</button>
+                      <button aria-label="この予約枠を消す" title="この予約枠を消す" onClick={()=>{const before=slots;saveSlots(slots.filter((_,j)=>j!==i));setUndo({msg:"予約枠を 1 つ消しました",run:()=>saveSlots(before)});}}
+                        style={{border:"none",background:"none",color:"#b91c1c",cursor:"pointer",fontSize:15,fontWeight:700,flexShrink:0,padding:"0 4px"}}>×</button>
                     </div>
                   );
                 })
@@ -986,16 +940,6 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         </div>
       )}
 
-      {/* ── 通知設定モーダル ── */}
-      {showNotifySettings&&isAdmin&&notifySettings&&(
-        <NotifySettingsModal
-          settings={notifySettings}
-          accountName={activeAcc?.name||""}
-          onSave={saveNotifySettings}
-          onClose={()=>setShowNotifySettings(false)}
-          onTestSend={handleTestSend}
-        />
-      )}
 
       {/* ── エクスポートモーダル ── */}
       {showExport&&isAdmin&&(
@@ -1032,7 +976,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         }}
         onRepost={p=>{setPreview(null);setRepostTgt(p);}}
         onDuplicate={handleDuplicate}
-        onDelete={p=>setDeleteConfirm(p)}
+        onDelete={deleteWithUndo}
         onSaveComment={saveComment}
         onChangeStatus={changeStatus}
         onSaveMeta={saveMeta}
@@ -1062,25 +1006,13 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       )}
 
       {/* 削除確認ダイアログ */}
-      {deleteConfirm&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <DialogFocus onClose={()=>setDeleteConfirm(null)}>{box=>(
-          <div ref={box} role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,padding:28,boxShadow:"0 20px 60px #00000030",textAlign:"center"}}>
-            <div style={{fontSize:32,marginBottom:12}}>🗑️</div>
-            <div id="delete-confirm-title" style={{fontWeight:800,fontSize:"1.05em",color:"#0f1419",marginBottom:8}}>この投稿を削除しますか？</div>
-            <div style={{fontSize:"max(12px,0.84em)",color:"#536471",marginBottom:6,lineHeight:1.5}}>「{deleteConfirm.title||"（タイトルなし）"}」</div>
-            <div style={{fontSize:"max(12px,0.76em)",color:"#ef4444",marginBottom:22}}>この操作は取り消せません。</div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setDeleteConfirm(null)} style={{flex:1,border:BD,background:"#fff",borderRadius:20,padding:"10px 0",fontWeight:600,fontSize:"max(12px,0.88em)",color:"#536471",cursor:"pointer"}}>キャンセル</button>
-              <button onClick={()=>del(deleteConfirm.id)} style={{flex:1,background:"#ef4444",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"max(12px,0.88em)",color:"#fff",cursor:"pointer"}}>削除する</button>
-            </div>
-          </div>
-          )}</DialogFocus>
-        </div>
-      )}
 
       </div>
       {/* 2026-11-03 便 B：知らせは読み上げにも届く。いつも置いておき、中身だけ入れ替える */}
+      {undo&&<div role="status" aria-live="polite" style={{position:"fixed",bottom:toast?76:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:"8px 8px 8px 18px",borderRadius:10,fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:14,zIndex:9999,boxShadow:"0 8px 24px rgba(0,0,0,.18)",maxWidth:"min(560px,calc(100vw - 32px))"}}>
+        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{undo.msg}</span>
+        <button onClick={runUndo} style={{background:"#fff",color:"#1a1a1a",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>元に戻す</button>
+      </div>}
       <div role="status" aria-live="polite" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:toast?"10px 18px":0,borderRadius:10,fontSize:13,fontWeight:600,lineHeight:1.6,maxWidth:"min(560px,calc(100vw - 32px))",zIndex:9999,boxShadow:toast?"0 8px 24px rgba(0,0,0,.18)":"none",pointerEvents:"none",opacity:toast?1:0,transition:"opacity .15s"}}>{toast||""}</div>
     </div>
   );
