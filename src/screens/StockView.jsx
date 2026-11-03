@@ -11,6 +11,7 @@ import { POST_TYPE, getPostTypeStyle, STATUS, genId, nowStr, fmtDate, stripHtml 
 import { dbFetchSheetGenres, dbAddSheetGenre } from "../lib/supabase.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
+import { makeStructure } from "../lib/mindmapLink.js";
 
 // ── 見た目（スワイプくん・思考整理くんと同じ色と形） ─────────
 export const CK_CSS = `
@@ -258,7 +259,7 @@ function Srcs({ p }) {
   const n = (p.memoLinks || []).length;
   if (!p.mm_url && !n) return null;
   return <span style={{ display: "inline-flex", gap: 4 }}>
-    {p.mm_url && <span className="ck-src" style={{ color: "#7c3aed", background: "#ede9fe" }}>思考整理</span>}
+    {p.mm_url && <a className="ck-src" href={p.mm_url} target="_blank" rel="noopener noreferrer" title="構成のマップを別のタブで開く" style={{ color: "#6d28d9", background: "#ede9fe", textDecoration: "none" }}>思考整理 ↗</a>}
     {n > 0 && <span className="ck-src" style={{ color: "#6b6259", background: "#f3eee8" }}>{I.link}{n}</span>}
   </span>;
 }
@@ -353,6 +354,12 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
     await changeStatus(p.id, next, p.score ?? null);
     if (next === "reserved") { setPop(p.id); setTimeout(() => setPop(x => x === p.id ? null : x), 900); }
   }, [changeStatus, showToast]);
+  // 2026-11-03 思考整理くんとの連携 便 1：ネタから構成のマップを作る（持ち主だけ。思考整理くんは持ち主だけが使える）
+  const [making, setMaking] = useState(null);
+  const mkMap = async p => { if (making) return; setMaking(p.id); try { await makeStructure(p, url => patch(p, { mm_url: url }), showToast); } finally { setMaking(null); } };
+  const mapBtn = p => !owner || readOnly ? null : p.mm_url
+    ? <a className="ck-ghost" href={p.mm_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }} aria-label={`「${headOf(p) || "空のネタ"}」の構成のマップを別のタブで開く`}>構成を開く ↗</a>
+    : <button className="ck-ghost" onClick={() => mkMap(p)} aria-busy={making === p.id} aria-label={`「${headOf(p) || "空のネタ"}」から構成のマップを作って別のタブで開く`}>{making === p.id ? "作っています…" : "構成をつくる →"}</button>;
   const patch = useCallback(async (p, fields, msg) => { const ok = patchFields ? await patchFields(p, fields) : await saveToDb({ ...p, ...fields }); if (ok && msg) showToast(msg); return ok; }, [patchFields, saveToDb, showToast]);
   const toggleLabel = useCallback((p, label, on) => { const ls = new Set(p.labels || []); if (on) ls.add(label); else ls.delete(label); if (label === SLEEP && on) ls.delete(GROW); if (label === GROW && on) ls.delete(SLEEP); return patch(p, { labels: [...ls] }); }, [patch]);
   const addIdea = useCallback(async ({ title, memo, genre = null, postType = "x_post", count = true }) => {
@@ -499,12 +506,13 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         onKeyDown={async e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); const t = cap.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); if (await addIdea({ title: first.trim(), memo: rest.join("\n").trim() })) { setCap(""); setSel(0); } } }} />
         <div className="ck-capft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ<span style={{ marginLeft: "auto" }}>どの画面からでも <span className="ck-kbd" style={{ marginLeft: 2 }}>⌘K</span></span></div></div>}
       {!readOnly && inbox.length > 0 && <div className="ck-keys"><span><span className="ck-kbd">J</span><span className="ck-kbd">K</span>選ぶ</span><span><span className="ck-kbd">1</span>アウトプットにする</span><span><span className="ck-kbd">2</span>表へ振り分け</span><span><span className="ck-kbd">H</span>寝かせる</span><span><span className="ck-kbd">Enter</span>開く</span><span><span className="ck-kbd">⌫</span>消す</span></div>}
-      <div className="ck-card">{inbox.length ? inbox.map((p, j) => <div key={p.id} className={`ck-irow ${j === sel ? "sel" : ""}`} onClick={e => { if (!e.target.closest("select,button")) setSel(j); }} draggable={!readOnly} onDragStart={dragStart(p)} onDragEnd={dragEnd}>
+      <div className="ck-card">{inbox.length ? inbox.map((p, j) => <div key={p.id} className={`ck-irow ${j === sel ? "sel" : ""}`} onClick={e => { if (!e.target.closest("select,button,a")) setSel(j); }} draggable={!readOnly} onDragStart={dragStart(p)} onDragEnd={dragEnd}>
         <div style={{ minWidth: 0 }}><div className={`ck-it ${headOf(p) ? "" : "empty"}`} onClick={() => onOpen(p)}>{headOf(p) || "（空のネタ。開いて書くか、⌫ で消す）"}</div>
           <div className="ck-im"><TypeTag t={p.postType} postTypes={postTypes} />{bornOf(p) && <span>{fmtDt(toLocal(bornOf(p)))}</span>}{p.memo && p.title && <span>・{p.memo.split("\n")[0].slice(0, 60)}</span>}</div>
           {!readOnly && anOf(p).map(a => <div key={a.l} className="ck-im" style={{ marginTop: 6 }}><span className="ck-src" style={{ color: "#7c3aed", background: "#ede9fe" }}>Claude の案</span><b style={{ color: "var(--fg)", fontWeight: 700 }}>{a.g}</b>
             <button className="ck-go" onClick={() => adoptAn(p, a.g)}>採用</button><button className="ck-ghost" style={{ minHeight: 26 }} onClick={() => rejectAn(p, a.l)}>却下</button></div>)}</div>
         {!readOnly && <div className="ck-ia">
+          {mapBtn(p)}
           <select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
             <option value="">表へ振り分け</option>{genreNames.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
@@ -545,14 +553,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
             : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th></>}
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
-            <tr key={p.id} onClick={e => { if (!e.target.closest("button,select")) onOpen(p); }}>
+            <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
               <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{(p.title ? p.memo : "") || "メモはまだ"}</div></td>
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
-              <td style={{ textAlign: "right" }}>{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}</td>
             </tr> :
-            <tr key={p.id} onClick={e => { if (!e.target.closest("button,select")) onOpen(p); }}>
+            <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
               <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || "本文はまだ"}</div></td>
               <td className={pop === p.id ? "ck-pop" : ""}>{readOnly ? <StTag s={p.status} /> : <select className="ck-stsel" value={p.status} onChange={e => setStatus(p, e.target.value)} style={{ backgroundImage: `radial-gradient(circle,${ST_COLOR[p.status]} 3.5px,transparent 4px)` }}>
                 {OUT_FLOW.map(s => <option key={s} value={s}>{STATUS[s]?.label || s}</option>)}</select>}</td>
