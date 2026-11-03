@@ -33,7 +33,7 @@ export function RepostModal({post,onClose,onRepost}){
           {repeat!=="none"&&<div style={{marginTop:8,background:"#fffbeb",border:"1px solid #fde68a",borderRadius:7,padding:"7px 10px",fontSize:"max(12px,0.73em)",color:"#92400e"}}>{REPOST_REPEATS.find(([v])=>v===repeat)?.[1]}に自動作成されます</div>}
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>onRepost(dt,repeat)} style={{flex:1,background:"#f59e0b",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"max(12px,0.85em)",color:"#fff",cursor:"pointer"}}>再投稿を作成</button>
+          <button onClick={()=>onRepost(dt,repeat)} style={{flex:1,background:"#b45309",border:"none",borderRadius:20,padding:"10px 0",fontWeight:800,fontSize:"max(12px,0.85em)",color:"#fff",cursor:"pointer"}}>再投稿を作成</button>
           <button onClick={onClose} style={{border:BD,background:"none",borderRadius:20,padding:"10px 14px",fontWeight:600,fontSize:"max(12px,0.85em)",color:"#6b6259",cursor:"pointer"}}>キャンセル</button>
         </div>
       </div>

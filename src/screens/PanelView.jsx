@@ -87,7 +87,7 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
       <div className="cpanel-head">
         <div className="cpanel-headrow">
           <div className="cpanel-tabs">{[['memo','メモ'],['find','探す'],['week','今週']].map(([k,l])=><button key={k} className={tab===k?'is-on':''} aria-pressed={tab===k} onClick={()=>setTab(k)}>{l}</button>)}</div>
-          <button className="cpanel-add" onClick={onAddIdea} title="アイデアを書いて開く（N）">＋ アイデア<kbd>N</kbd></button>
+          <button className="cpanel-add" onClick={onAddIdea} title="ネタを書いて開く（N）">＋ ネタ<kbd>N</kbd></button>
         </div>
         {accounts.length>1&&(
           <div className="cpanel-acc">

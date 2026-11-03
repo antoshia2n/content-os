@@ -193,11 +193,12 @@ export function InsertModal({onClose,savedRange,bodyRef}){
     return `max-width:${w};width:${w};border-radius:8px;display:block;margin-left:${ml};margin-right:${mr};`;
   })();
   const [uploading,setUploading]=useState(false);
+  const [upErr,setUpErr]=useState(""); // 2026-11-03 便 B：ブラウザの警告の窓をやめ、その場の赤字で出す
   // 【2026-08-09 変更】画像の保存を、このアプリのサーバー（/api/storage/upload）経由にした。
   // 保存先の名前はサーバーが決める。表示用の住所は返ってきた名前から作る（置き場は公開のまま）。
   const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
-    if(file.size>50*1024*1024){alert("画像は50MB以下にしてください");return;}
+    setUpErr("");if(file.size>50*1024*1024){setUpErr("画像は 50MB 以下にしてください");return;}
     setUploading(true);
     try{
       const user=auth.currentUser;
@@ -220,14 +221,15 @@ export function InsertModal({onClose,savedRange,bodyRef}){
       insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="${imgStyleStr}"/></p>`);
       onClose();
     }catch(err){
-      alert("画像のアップロードに失敗しました:\n"+err.message);
+      setUpErr("画像を上げられませんでした："+err.message);
     }finally{
       setUploading(false);
       if(fileRef.current)fileRef.current.value="";
     }
   };
   const handlePost=()=>{
-    if(!url.trim())return;
+    if(!url.trim()){setUpErr("埋め込むポストの住所（https://…）を入れてください");return;}
+    setUpErr("");
     const isNote=/note\.com/.test(url);
     const icon=isNote?"📄":"𝕏";
     insertAt(`<div style="border:1px solid #e6dfd6;border-radius:10px;padding:10px 14px;margin:.6em 0;background:#f7f9f9;display:flex;align-items:center;gap:10px;" contenteditable="false"><span>${icon}</span><a href="${url}" target="_blank" style="color:#1d9bf0;text-decoration:none;font-size:13px;word-break:break-all;">${url}</a></div><p><br></p>`);
@@ -268,12 +270,14 @@ export function InsertModal({onClose,savedRange,bodyRef}){
                 ))}
               </div>
             </div>
-            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f8f5f1",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#736a62",fontSize:"max(12px,0.83em)",fontWeight:600}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e6dfd6";e.currentTarget.style.color="#736a62";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button></>)}
+            <button onClick={()=>!uploading&&fileRef.current?.click()} style={{width:"100%",border:"2px dashed #e8e0d6",background:"#f8f5f1",borderRadius:9,padding:"20px 0",cursor:uploading?"default":"pointer",color:uploading?"#f59e0b":"#736a62",fontSize:"max(12px,0.83em)",fontWeight:600}} onMouseEnter={e=>{if(!uploading){e.currentTarget.style.borderColor="#f59e0b";e.currentTarget.style.color="#f59e0b";}}} onMouseLeave={e=>{if(!uploading){e.currentTarget.style.borderColor="#e6dfd6";e.currentTarget.style.color="#736a62";}}}>{uploading?"⏳ アップロード中…":"📁 クリックして画像を選択"}</button>
+            {upErr&&<div role="alert" style={{color:"#b91c1c",fontSize:12.5,marginTop:8,lineHeight:1.6}}>{upErr}</div>}</>)}
           {tab==="post"&&(<><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..."
             style={{width:"100%",border:BD2,borderRadius:8,padding:"9px 11px",fontSize:"max(12px,0.82em)",fontFamily:"inherit",color:"#1a1a1a",marginBottom:10,outline:"none",boxSizing:"border-box"}}
             onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e6dfd6"}
             onKeyDown={e=>{if(e.key==="Enter")handlePost();}}/>
-          <button onClick={handlePost} disabled={!url.trim()} style={{width:"100%",background:url.trim()?"#f59e0b":"#eff3f4",color:url.trim()?"#fff":"#736a62",border:"none",borderRadius:20,padding:"9px 0",fontWeight:700,fontSize:"max(12px,0.82em)",cursor:url.trim()?"pointer":"default"}}>挿入</button></>)}
+          <button onClick={handlePost} style={{width:"100%",background:url.trim()?"#b45309":"#eff3f4",color:url.trim()?"#fff":"#736a62",border:"none",borderRadius:20,padding:"9px 0",fontWeight:700,fontSize:"max(12px,0.82em)",cursor:url.trim()?"pointer":"default"}}>挿入</button>
+          {upErr&&<div role="alert" style={{color:"#b91c1c",fontSize:12.5,marginTop:8}}>{upErr}</div>}</>)}
         </div>
         <div style={{padding:"8px 16px 14px"}}><button onClick={onClose} style={{width:"100%",border:BD2,background:"none",color:"#536471",borderRadius:7,padding:"7px",fontWeight:500,fontSize:"max(12px,0.8em)",cursor:"pointer"}}>キャンセル</button></div>
       </div>

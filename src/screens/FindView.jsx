@@ -154,7 +154,7 @@ export function FindModal({ posts, accountName, onClose, onAdd, onOpenPost, onTo
         {x.k !== "post" && <button className="ck-mini" onClick={e => { e.stopPropagation(); onToInbox(x); }}>受け箱へ</button>}
       </div>)}</div>}
       {v.trim() && !others && <div className="ck-mft" style={{ paddingTop: 0 }}>スワイプと思考整理を読み込んでいます…</div>}
-      <div className="ck-mft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ　<span className="ck-kbd">↓</span>探した結果を開く<button className="ck-ink" onClick={add} disabled={!v.trim()}>受け箱へ</button></div>
+      <div className="ck-mft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ　<span className="ck-kbd">↓</span>探した結果を開く<button className="ck-ink" onClick={()=>{if(!v.trim()){ref.current?.focus();return;}add();}} title="1 行目がタイトル、2 行目からメモ">受け箱へ</button></div>
     </div>
   </div>;
 }

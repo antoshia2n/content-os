@@ -116,10 +116,9 @@ function PostTypeManager({ activeAcc, onUpdate }) {
           style={{ ...INP, flex: 1 }}
         />
         <button
-          onClick={addType}
-          disabled={!newLabel.trim()}
+          onClick={e=>{if(!newLabel.trim()){e.currentTarget.parentElement?.querySelector("input")?.focus();return;}addType();}}
           style={{
-            background: newLabel.trim() ? "#f59e0b" : "#e0d8ce",
+            background: newLabel.trim() ? "#b45309" : "#d6cdc2",
             color: "#fff", border: "none", borderRadius: 8,
             padding: "6px 14px", fontSize: 12, fontWeight: 700,
             cursor: newLabel.trim() ? "pointer" : "default", whiteSpace: "nowrap",
@@ -188,7 +187,7 @@ export function AccountSettings({
         <div style={{ padding: "15px 20px", borderBottom: BD2, background: "#f5f0eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div id="account-settings-title" style={{ fontSize: 15, fontWeight: 900 }}>
-              {tab === "clients" ? "クライアント管理" : "投稿タイプ管理"}
+              {tab === "clients" ? "クライアント管理" : "種類の管理"}
             </div>
             <div style={{ fontSize: 12, color: "#736a62", marginTop: 2 }}>
               {tab === "clients" ? "名前・カラー・並び順・既定を設定できます" : "媒体・コンテンツ種別を追加・編集・削除できます"}
@@ -198,7 +197,7 @@ export function AccountSettings({
         </div>
 
         <div style={{ display: "flex", borderBottom: BD2, background: "#faf8f5" }}>
-          {[["clients", "クライアント"], ["types", "投稿タイプ"]].map(([id, label]) => (
+          {[["clients", "クライアント"], ["types", "種類"]].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}

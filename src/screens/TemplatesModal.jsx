@@ -78,7 +78,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
                 <div style={{flex:1,minWidth:0}}><Field value={t.name} placeholder="型の名前" onSave={v=>update(t,{name:v})} style={{fontWeight:700}}/></div>
                 <select value={t.post_type||''} onChange={e=>update(t,{post_type:e.target.value||null})}
                   style={{border:BD,borderRadius:8,padding:'6px 8px',fontSize:12,fontFamily:'inherit',color:'#555',background:'#fff',maxWidth:150}}>
-                  <option value="">全部の投稿タイプ</option>
+                  <option value="">すべての種類</option>
                   {t.post_type&&!postTypes[t.post_type]&&<option value={t.post_type}>{t.post_type}</option>}
                   {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                 </select>

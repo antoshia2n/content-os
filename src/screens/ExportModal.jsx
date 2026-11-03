@@ -165,9 +165,11 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
     a.href=url;a.download=`${sanitizeFilename(accountName)}_export.csv`;a.click();URL.revokeObjectURL(url);
   };
 
+  const [pickErr,setPickErr]=useState(""); // 2026-11-03 便 B：警告の窓をやめ、その場の赤字で出す
   const pickFolder=async()=>{
+    setPickErr("");
     try{const h=await window.showDirectoryPicker({mode:"readwrite"});setFolderHandle(h);}
-    catch(e){if(e.name!=="AbortError")alert("フォルダの取得に失敗しました: "+e.message);}
+    catch(e){if(e.name!=="AbortError")setPickErr("フォルダを開けませんでした："+e.message);}
   };
 
   const runExport=async()=>{
@@ -262,7 +264,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                 </div>
               </div>
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>投稿種類</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#6b6259",marginBottom:7}}>種類</div>
                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                   {chipBtn("全て",postTypes.length===0,()=>setPostTypes([]))}
                   {Object.entries(allPostTypes).map(([k,v])=>chipBtn(v.label,postTypes.includes(k),()=>toggle(postTypes,setPostTypes,k),v.color))}
@@ -356,6 +358,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
                     style={{flex:1,border:`1.5px solid ${folderHandle?"#10b981":"#e0d8ce"}`,borderRadius:9,padding:"10px 14px",background:folderHandle?"#d1fae5":"#fff",color:folderHandle?"#059669":"#555",fontSize:12,fontWeight:600,cursor:"pointer",textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {folderHandle?`📁 ${folderHandle.name}`:"📁 フォルダを選択…"}
                   </button>
+                  {pickErr&&<div role="alert" style={{color:"#b91c1c",fontSize:12.5,marginTop:6}}>{pickErr}</div>}
                   {folderHandle&&<button onClick={()=>setFolderHandle(null)} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:16,padding:"4px"}}>×</button>}
                 </div>
               ):(
@@ -367,7 +370,7 @@ export function ExportModal({tab:initialTab="ai",posts,accountName,allPostTypes=
             {progress&&(
               <div style={{background:"#f8f5f1",border:BD2,borderRadius:9,padding:"12px 14px"}}>
                 <div style={{...S.rowB,fontSize:12,fontWeight:700,marginBottom:6,color:done?"#059669":"#555"}}>
-                  <span>{done?"✅ 完了":"⏳ 書き出し中…"}</span>
+                  <span>{done?"完了":"書き出し中…"}</span>
                   <span>{progress.done} / {progress.total}</span>
                 </div>
                 <div style={{height:6,background:"#e6dfd6",borderRadius:3,overflow:"hidden"}}>

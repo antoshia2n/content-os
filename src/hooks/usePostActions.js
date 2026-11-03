@@ -98,7 +98,7 @@ export function usePostActions({
     if (!ok) return;
     setEditing(null);
     setPreview(p);
-    showToast("保存しました ✅");
+    showToast("保存しました");
   }, [saveToDb, showToast, setEditing, setPreview]);
 
   const del = useCallback(async (id) => {
@@ -106,7 +106,7 @@ export function usePostActions({
     if (error) { showToast("削除に失敗しました"); return; }
     removePost(id);
     setPreview(null); setDeleteConfirm(null);
-    showToast("削除しました 🗑️");
+    showToast("削除しました");
   }, [removePost, showToast, setPreview, setDeleteConfirm]);
 
   const changeStatus = useCallback(async (id, s, score) => {
@@ -153,7 +153,7 @@ export function usePostActions({
     const ok = await saveToDb(newPost, { count: false });
     if (!ok) return;
     setRepostTgt(null);
-    showToast("再投稿を作成しました ✅");
+    showToast("再投稿を作成しました");
   }, [saveToDb, showToast, setRepostTgt]);
 
   const handleDuplicate = useCallback(async (p) => {
@@ -170,7 +170,7 @@ export function usePostActions({
     const ok = await saveToDb(newPost, { count: false });
     if (!ok) return;
     setPreview(null);
-    showToast("翌日同時刻に複製しました ✅");
+    showToast("翌日同時刻に複製しました");
   }, [saveToDb, showToast, setPreview]);
 
   const addCustomPostType = useCallback(async (label) => {

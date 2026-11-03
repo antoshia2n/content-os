@@ -201,7 +201,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                 保存
               </button>
             )}
-            <button onClick={()=>onEdit(getEditPost())} style={{background:"#f59e0b",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer"}}>
+            <button onClick={()=>onEdit(getEditPost())} style={{background:"#b45309",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer"}}>
               {post._unsaved?"編集して作成":"編集"}
             </button>
             {!post._unsaved&&<button onClick={()=>onDuplicate(post)} style={{background:"none",border:BD,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:600,color:"#555",cursor:"pointer"}}
@@ -293,7 +293,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
             {metaDirty&&!post._unsaved&&(
               <div style={{padding:"10px 14px",borderBottom:BD2}}>
                 <button onClick={handleSaveMeta}
-                  style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>
+                  style={{width:"100%",background:"#b45309",border:"none",borderRadius:8,padding:"7px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>
                   メモ・リンクを保存
                 </button>
               </div>
@@ -321,7 +321,7 @@ export function PreviewOverlay({post,onClose,onEdit,onRepost,onDuplicate,onDelet
                       placeholder="コメントを追加…"
                       style={{flex:1,background:"#fff",border:BD,borderRadius:7,padding:"6px 8px",fontSize:"max(12px,0.73em)",outline:"none",fontFamily:"inherit"}}
                       onFocus={e=>e.target.style.borderColor="#f59e0b"} onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-                    <button onClick={addComment} style={{background:"#f59e0b",border:"none",borderRadius:7,padding:"6px 9px",fontSize:"max(12px,0.73em)",fontWeight:700,color:"#fff",cursor:"pointer",flexShrink:0}}>追加</button>
+                    <button onClick={addComment} style={{background:"#b45309",border:"none",borderRadius:7,padding:"6px 9px",fontSize:"max(12px,0.73em)",fontWeight:700,color:"#fff",cursor:"pointer",flexShrink:0}}>追加</button>
                   </div>
                 </div>
               )}

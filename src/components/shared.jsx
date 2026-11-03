@@ -125,8 +125,8 @@ export function TagSelector({
                 style={{flex:1,border:BD,borderRadius:6,padding:"4px 8px",fontSize:12,fontFamily:"inherit",outline:"none",color:"#333",minWidth:0}}
                 onFocus={e=>e.target.style.borderColor="#f59e0b"}
                 onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-              <button onClick={handleAdd} disabled={!newVal.trim()}
-                style={{background:newVal.trim()?"#111":"#e0d8ce",border:"none",borderRadius:6,padding:"4px 9px",fontSize:12,fontWeight:700,color:"#fff",cursor:newVal.trim()?"pointer":"default",flexShrink:0}}>
+              <button onClick={e=>{if(!newVal.trim()){e.currentTarget.parentElement?.querySelector("input")?.focus();return;}handleAdd();}}
+                style={{background:newVal.trim()?"#b45309":"#d6cdc2",border:"none",borderRadius:6,padding:"4px 9px",fontSize:12,fontWeight:700,color:"#fff",cursor:newVal.trim()?"pointer":"default",flexShrink:0}}>
                 追加
               </button>
             </div>
@@ -188,8 +188,8 @@ export function LabelEditor({labels,onChange}){
           style={{flex:1,border:BD,borderRadius:7,padding:"5px 9px",fontSize:"max(12px,0.77em)",fontFamily:"inherit",color:"#333",outline:"none",boxSizing:"border-box"}}
           onFocus={e=>e.target.style.borderColor="#f59e0b"}
           onBlur={e=>e.target.style.borderColor="#e0d8ce"}/>
-        <button onClick={add} disabled={!input.trim()}
-          style={{background:input.trim()?"#555":"#e0d8ce",border:"none",borderRadius:7,padding:"5px 9px",fontSize:"max(12px,0.77em)",fontWeight:700,color:"#fff",cursor:input.trim()?"pointer":"default"}}>
+        <button onClick={e=>{if(!input.trim()){e.currentTarget.parentElement?.querySelector("input")?.focus();return;}add();}}
+          style={{background:input.trim()?"#b45309":"#d6cdc2",border:"none",borderRadius:7,padding:"5px 9px",fontSize:"max(12px,0.77em)",fontWeight:700,color:"#fff",cursor:input.trim()?"pointer":"default"}}>
           追加
         </button>
       </div>
@@ -348,7 +348,7 @@ export function MemoEditor({memo,memoLinks,onChange,autoFocus=false,textareaRef:
 export function Btn({children,onClick,primary,danger,style}){
   const base={border:"1px solid",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .12s",fontFamily:"inherit"};
   const t=primary
-    ?{background:"#f59e0b",borderColor:"#f59e0b",color:"#fff"}
+    ?{background:"#b45309",borderColor:"#b45309",color:"#fff"}
     :danger
     ?{background:"#fff",borderColor:"#fca5a5",color:"#ef4444"}
     :{background:"#fff",borderColor:"#e6dfd6",color:"#555"};
