@@ -286,6 +286,18 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
+  // 2026-11-03 思考整理くんとの連携 便 1：?post=<id> で開くと、そのネタ（投稿）を開く（マップの上の「ネタ：名前 ↗」から来る）
+  const deepPostRef=React.useRef(typeof window!=="undefined"&&!panel?new URLSearchParams(window.location.search).get("post"):null);
+  useEffect(()=>{
+    const id=deepPostRef.current;if(!id||loading)return;
+    const all=Object.values(allPosts).flat();if(!all.length)return;
+    deepPostRef.current=null;
+    try{const u=new URL(window.location.href);u.searchParams.delete("post");window.history.replaceState(null,"",u.pathname+u.search+u.hash);}catch{ /* 住所が直せなくても開く */ }
+    const p=all.find(x=>x.id===id);
+    if(!p){showToast("そのネタは見つかりませんでした（消された可能性があります）");return;}
+    if(isAdmin&&p.account_id&&p.account_id!==activeAccId)setActiveAccId(p.account_id);
+    openPost(p);
+  },[allPosts,loading,isAdmin,activeAccId,setActiveAccId,openPost,showToast]);
   // ⌘K・受け箱：ネタを 1 件入れる（状態＝アイデア・ジャンル空＝受け箱）
   const quickAdd=React.useCallback(async({title,memo,memoLinks=[],mm_url=null,accId,note="受け箱に入れた",count=true})=>{
     const to=accId||targetAccId;
