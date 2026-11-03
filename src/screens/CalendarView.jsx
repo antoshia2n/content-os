@@ -104,7 +104,7 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
 
       {/* 投稿種類 */}
       <div style={{marginBottom:10}}>
-        <label style={{fontSize:12,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>投稿種類</label>
+        <label style={{fontSize:12,color:"#6b6259",fontWeight:700,display:"block",marginBottom:4}}>種類</label>
         <select value={postType} onChange={e=>setPostType(e.target.value)}
           style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"4px 10px",fontSize:12,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
           {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -112,12 +112,12 @@ export function SlotAddForm({onAdd,postTypes=POST_TYPE}){
       </div>
 
       <div style={{background:"#fff",border:"1px solid #fcd34d",borderRadius:7,padding:"6px 10px",fontSize:12,color:"#92400e",marginBottom:10,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>
-        <span>📅 {preview}</span>
+        <span>{preview}</span>
         <span style={{color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,borderRadius:10,padding:"0 7px",fontSize:12,fontWeight:700}}>{pt.label}</span>
       </div>
 
       <button onClick={()=>onAdd({type,dow,nth,time,postType,title:""})}
-        style={{width:"100%",background:"#f59e0b",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
+        style={{width:"100%",background:"#b45309",border:"none",borderRadius:20,padding:"8px 0",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>
         この枠を追加
       </button>
     </div>

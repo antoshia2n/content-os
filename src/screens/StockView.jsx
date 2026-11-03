@@ -16,7 +16,7 @@ import { makeStructure } from "../lib/mindmapLink.js";
 // ── 見た目（スワイプくん・思考整理くんと同じ色と形） ─────────
 export const CK_CSS = `
 .ck{--bg:#f5f0eb;--panel:#fff;--soft:#f7f3ee;--hair:#f3eee8;--line:#e6dfd6;--fg:#1a1a1a;--muted:#6b6259;--faint:#736a62;--rowhover:#fffbf5;
-  --accent:#f59e0b;--accent-ink:#b45309;--accent-bg:#fef3c7;--accent-line:#fcd34d;--accent-soft:rgba(245,158,11,.2);--ink:#1a1a1a;--on-ink:#fff;--ok:#047857;--warn:#b91c1c;
+  --field:#a39a90;--accent:#f59e0b;--accent-ink:#b45309;--accent-bg:#fef3c7;--accent-line:#fcd34d;--accent-soft:rgba(245,158,11,.2);--ink:#1a1a1a;--on-ink:#fff;--ok:#047857;--warn:#b91c1c;
   --shadow:0 1px 2px rgba(60,40,20,.05),0 8px 24px rgba(60,40,20,.09);
   --s-idea:#c2410c;--s-draft:#6b7280;--s-review:#d97706;--s-wait:#2563eb;--s-res:#7c3aed;--s-pub:#059669;
   font-family:'Geist','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;color:var(--fg);font-size:14px}
@@ -49,6 +49,9 @@ export const CK_CSS = `
 .ck-late i{width:7px;height:7px;border-radius:50%;background:var(--warn)}
 .ck-new{display:inline-flex!important;align-items:center;gap:4px;height:32px;padding:0 12px!important;border-radius:8px;background:var(--accent-ink)!important;color:#fff!important;font-size:12.5px;font-weight:700;white-space:nowrap;flex:none}
 .ck-new:hover{background:#92400e!important}
+/* 2026-11-03 便 B：書く欄・選ぶ欄の枠は欄の枠の色（--field）。枠の無い欄はそのまま */
+.ck :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=range]):not(.ck-stsel){border-color:var(--field)!important}
+.ck :is(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=range]):focus{border-color:var(--accent)!important}
 .ck-ico{display:inline-grid!important;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--muted)}
 .ck-ico:hover,.ck-ico.on{background:var(--soft)!important;color:var(--fg)}
 .ck-sep{width:1px;height:20px;background:var(--line);margin:0 3px;flex:none}
@@ -149,8 +152,9 @@ export const CK_CSS = `
 .ck-go:hover{filter:brightness(.97)}
 .ck-ghost{font-size:12.5px;font-weight:600;border:1px solid var(--line)!important;border-radius:8px;padding:0 11px!important;min-height:30px;background:var(--panel)!important;color:var(--muted);white-space:nowrap;display:inline-flex!important;align-items:center;gap:6px}
 .ck-ghost:hover{background:var(--soft)!important;color:var(--fg)}
-.ck-ink{background:var(--ink)!important;color:var(--on-ink)!important;font-weight:700;font-size:12.5px;padding:0 14px!important;border-radius:8px;display:inline-flex!important;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-height:34px}
-.ck-ink:hover{opacity:.88}
+/* 2026-11-03 便 B：主のボタンは黒い板をやめ、差し色の濃い色にそろえる（シアニンのアプリの決まり） */
+.ck-ink{background:var(--accent-ink)!important;color:#fff!important;font-weight:700;font-size:12.5px;padding:0 14px!important;border-radius:8px;display:inline-flex!important;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-height:34px}
+.ck-ink:hover{background:#92400e!important}
 .ck-ink[disabled]{opacity:.45;cursor:default}
 .ck-empty{color:var(--faint);text-align:center;padding:28px 12px;font-size:13px}
 .ck-scrim{position:fixed;inset:0;z-index:700;background:rgba(20,14,8,.3);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px}
@@ -563,14 +567,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
-              <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{(p.title ? p.memo : "") || "メモはまだ"}</div></td>
+              <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{p.title ? p.memo : ""}</div></td>
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}</td>
             </tr> :
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
-              <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || "本文はまだ"}</div></td>
+              <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || ""}</div></td>
               <td className={pop === p.id ? "ck-pop" : ""}>{readOnly ? <StTag s={p.status} /> : <select className="ck-stsel" value={p.status} onChange={e => setStatus(p, e.target.value)} style={{ backgroundImage: `radial-gradient(circle,${ST_COLOR[p.status]} 3.5px,transparent 4px)` }}>
                 {OUT_FLOW.map(s => <option key={s} value={s}>{STATUS[s]?.label || s}</option>)}</select>}</td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}

@@ -7,19 +7,20 @@ export const PORTAL_APP_ID  = "content-os";
 export const PORTAL_URL     = "https://portal.shia2n.jp";
 
 // ── 投稿タイプ定数 ────────────────────────────────────
+// 2026-11-03 便 B：color は札の字にも使うため、地（bg）との差を 4.5:1 以上にした（前は note 1.8:1・Xポスト 2.7:1 など）。dot は今のまま
 export const POST_TYPE = {
-  x_post:    { label:"Xポスト",  color:"#1d9bf0", bg:"#e8f5fe", border:"#93d3fc", dot:"#1d9bf0" },
-  x_quote:   { label:"X引用",   color:"#0ea5e9", bg:"#e0f2fe", border:"#7dd3fc", dot:"#0ea5e9" },
-  x_article: { label:"X記事",   color:"#2563eb", bg:"#dbeafe", border:"#93c5fd", dot:"#2563eb" },
-  note:      { label:"note",   color:"#41c9b4", bg:"#d1faf5", border:"#6ee7da", dot:"#41c9b4" },
-  membership:{ label:"メンシプ", color:"#8b5cf6", bg:"#ede9fe", border:"#c4b5fd", dot:"#8b5cf6" },
-  paid:      { label:"有料",    color:"#f59e0b", bg:"#fef3c7", border:"#fcd34d", dot:"#f59e0b" },
-  other:     { label:"その他",  color:"#6b7280", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af" },
+  x_post:    { label:"Xポスト",  color:"#0369a1", bg:"#e8f5fe", border:"#93d3fc", dot:"#1d9bf0" },
+  x_quote:   { label:"X引用",   color:"#075985", bg:"#e0f2fe", border:"#7dd3fc", dot:"#0ea5e9" },
+  x_article: { label:"X記事",   color:"#1d4ed8", bg:"#dbeafe", border:"#93c5fd", dot:"#2563eb" },
+  note:      { label:"note",   color:"#0f766e", bg:"#d1faf5", border:"#6ee7da", dot:"#41c9b4" },
+  membership:{ label:"メンシプ", color:"#6d28d9", bg:"#ede9fe", border:"#c4b5fd", dot:"#8b5cf6" },
+  paid:      { label:"有料",    color:"#b45309", bg:"#fef3c7", border:"#fcd34d", dot:"#f59e0b" },
+  other:     { label:"その他",  color:"#4b5563", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af" },
 };
 
 // 未登録の投稿タイプは媒体に依存しない見た目で表示する。
 export const DEFAULT_POST_TYPE = Object.freeze({
-  label:"その他", color:"#6b7280", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af",
+  label:"その他", color:"#4b5563", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af",
 });
 export function getPostTypeStyle(postType, postTypes = POST_TYPE){
   return Object.prototype.hasOwnProperty.call(postTypes, postType)
@@ -29,12 +30,12 @@ export function getPostTypeStyle(postType, postTypes = POST_TYPE){
 
 // ── ステータス定数 ────────────────────────────────────
 export const STATUS = {
-  idea:      { label:"アイデア", chip:"#ffedd5", text:"#c2410c", border:"#fdba74" },
-  draft:     { label:"下書き",      chip:"#f3f4f6", text:"#6b7280", border:"#d1d5db" },
-  review:    { label:"レビュー待ち", chip:"#fef3c7", text:"#d97706", border:"#fcd34d" },
-  waiting:   { label:"日時未定",    chip:"#dbeafe", text:"#2563eb", border:"#93c5fd" },
+  idea:      { label:"ネタ", chip:"#ffedd5", text:"#c2410c", border:"#fdba74" },
+  draft:     { label:"下書き",      chip:"#f3f4f6", text:"#4b5563", border:"#d1d5db" },
+  review:    { label:"レビュー待ち", chip:"#fef3c7", text:"#b45309", border:"#fcd34d" },
+  waiting:   { label:"日時未定",    chip:"#dbeafe", text:"#1d4ed8", border:"#93c5fd" },
   reserved:  { label:"予約済み",    chip:"#ede9fe", text:"#7c3aed", border:"#c4b5fd" },
-  published: { label:"公開済",      chip:"#d1fae5", text:"#059669", border:"#6ee7b7" },
+  published: { label:"公開済",      chip:"#d1fae5", text:"#047857", border:"#6ee7b7" },
 };
 // 「好評 / 不評」は状態ではなく投稿後の成績のため、v1.1 で status から廃止した。
 // 成績は score（S/A/B/C/D）または labels で表す（要件 v1.1 §4.3）

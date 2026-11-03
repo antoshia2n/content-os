@@ -261,12 +261,12 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
               <div style={{flex:1}}/>
               <TemplatePicker compact templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
               <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
-              <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
+              <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
             </div>
             <div style={{...S.row,gap:5,flexWrap:"wrap"}}>
               <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
                 style={{border:`1.5px solid ${pt.border}`,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700,color:pt.color,background:pt.bg,cursor:"pointer",fontFamily:"inherit",outline:"none",maxWidth:"100%"}}>
-                {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
               <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))}
                 style={{border:`1.5px solid ${st?.border}`,borderRadius:20,padding:"3px 8px",fontSize:12,fontWeight:700,color:st?.text,background:st?.chip,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
@@ -290,10 +290,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
         )}
 
         {/* ヘッダー（広い幅）：左に投稿の属性、右に「型・コピー・その他・保存・閉じる」。2026-10-05 整理 */}
-        {!compact&&<div style={{...S.row,padding:"0 12px 0 14px",borderBottom:BD2,background:"#fff",height:54,gap:6,flexShrink:0}}>
+        {!compact&&<div style={{...S.row,padding:"6px 12px 6px 14px",borderBottom:BD2,background:"#fff",minHeight:54,gap:6,flexShrink:0,flexWrap:"wrap",rowGap:6}}>
           <div style={{...S.row,gap:4,background:"#f7f3ee",border:BD2,borderRadius:12,padding:3,minWidth:0}}>
             <select className="em-chip" value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))} style={{color:pt.color}}>
-              {Object.entries(POST_TYPE).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+              {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
             </select>
             <select className="em-chip" value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))} style={{color:st?.text}}>
               {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
@@ -312,7 +312,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない（Naoki の Notion へ送る口）
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
           ]}/>
-          <button onClick={handleSave} style={{background:"#f59e0b",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
+          <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
           <button className="em-icon" onClick={close} title="閉じる（Esc）" aria-label="閉じる">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
           </button>
@@ -332,7 +332,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             <span style={{fontWeight:700}}>保存していない書きかけがあります（{new Date(restore.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}）</span>
             {restore.base!==(post.updated_at||null)&&<span style={{color:"#b45309"}}>このあと別の場所で保存されています。戻すとその分を上書きします</span>}
             <span style={{flex:1}}/>
-            <button onClick={()=>{setDraft(d=>({...d,...restore.fields}));setRestore(null);}} style={{background:"#f59e0b",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:800,cursor:"pointer"}}>戻す</button>
+            <button onClick={()=>{setDraft(d=>({...d,...restore.fields}));setRestore(null);}} style={{background:"#b45309",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:800,cursor:"pointer"}}>戻す</button>
             <button onClick={()=>{dropLocal();setRestore(null);}} style={{background:"#fff",color:"#92400e",border:"1px solid #fcd34d",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>捨てる</button>
           </div>
         )}

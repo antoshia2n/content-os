@@ -68,7 +68,7 @@ export function TemplatePicker({templates,side,postType,postTypes,bodyRef,memoRe
               </div>
             );
           })}
-          {!list.length&&<div style={{fontSize:12,color:'#736a62',padding:'10px 9px',lineHeight:1.6}}>この投稿タイプで使える{side==='memo'?'メモ':'本文・締め'}の型はまだありません。</div>}
+          {!list.length&&<div style={{fontSize:12,color:'#736a62',padding:'10px 9px',lineHeight:1.6}}>この種類で使える{side==='memo'?'メモ':'本文・締め'}の型はまだありません。</div>}
           {onManage&&<button onMouseDown={e=>e.preventDefault()} onClick={()=>{setOpen(false);onManage();}} style={{display:'block',width:'100%',textAlign:'center',border:'none',borderTop:BD2,background:'none',padding:'8px 0 4px',marginTop:2,fontSize:12,fontWeight:700,color:'#6b6560',cursor:'pointer'}}>型の一覧を開く</button>}
         </div>
       )}
