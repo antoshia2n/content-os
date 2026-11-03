@@ -135,10 +135,10 @@ test("Notion へ送る口：合言葉か持ち主だけ。札なし・ほかの�
   assert.equal(await isOwnerOrInternal(req("Bearer " + fakeToken("someone@example.com")), env, bad), false);
 });
 
-test("会員の画面：Notion・通知設定・共有リンク・アカウントの追加は管理者だけ。はじめての人にアカウントを 1 つ作る", () => {
+test("会員の画面：Notion・共有リンク・アカウントの追加は管理者だけ。通知設定は無い。はじめての人にアカウントを 1 つ作る", () => {
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf-8");
   assert.match(app, /onSentToNotion=\{panel&&owner\?sentToNotion:undefined\} owner=\{owner\}/);
-  assert.match(app, /\.\.\.\(owner\?\[\["通知設定"/);
+  assert.doesNotMatch(app, /通知設定/); // 2026-11-03 便 C：送る先の無い通知設定は外した
   assert.match(app, /\{owner&&<div style=\{\{borderTop:BD2,marginTop:2,paddingTop:6\}\}>/);
   assert.match(app, /onAdd=\{owner\?addAccount:undefined\}/);
   assert.match(app, /mountAppShell\(\{appId:"content-os"/);
