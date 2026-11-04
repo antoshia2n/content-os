@@ -7,7 +7,7 @@ import {CK_CSS} from './StockView.jsx';
 // 拡張機能は枠だけで、機能はすべてここに置く（直すたびに拡張機能を入れ直さないため）。
 const WD=['日','月','火','水','木','金','土'];
 
-export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TYPE,onAddIdea,onOpen,onQuick,renderFind}){
+export function PanelView({ws=null,posts,accounts=[],account,onAccount,postTypes=POST_TYPE,onAddIdea,onOpen,onQuick,renderFind}){
   const today=fmtDate(new Date());
   const [tab,setTabRaw]=React.useState(()=>{try{return localStorage.getItem('contentos.panel.tab')||'memo';}catch{return 'memo';}});
   const setTab=t=>{setTabRaw(t);try{localStorage.setItem('contentos.panel.tab',t);}catch{/* 覚えられなくても動く */}};
@@ -89,6 +89,7 @@ export function PanelView({posts,accounts=[],account,onAccount,postTypes=POST_TY
           <div className="cpanel-tabs">{[['memo','メモ'],['find','探す'],['week','今週']].map(([k,l])=><button key={k} className={tab===k?'is-on':''} aria-pressed={tab===k} onClick={()=>setTab(k)}>{l}</button>)}</div>
           <button className="cpanel-add" onClick={onAddIdea} title="ネタを書いて開く（N）">＋ ネタ<kbd>N</kbd></button>
         </div>
+        {ws}
         {accounts.length>1&&(
           <div className="cpanel-acc">
             {accounts.map(a=><button key={a.id} className={account?.id===a.id?'is-on':''} aria-pressed={account?.id===a.id} onClick={()=>onAccount(a.id)}><i style={{background:account?.id===a.id?a.color:'#a39a90'}}/>{a.name}</button>)}

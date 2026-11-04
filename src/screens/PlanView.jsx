@@ -2,6 +2,7 @@
 // 2026-10-23 作り直し 2便：カレンダーの「リスト」・横の「ネタの棚」・Buffer に入れる確認の窓。
 // 週の表（App.jsx の週表示）と同じ週・同じ動き（ネタを空き枠へ置く／2 本の日時を入れ替える）を、縦の一覧で見せる。
 // 編集画面（EditorModal）には触らない。行を押すと今の編集画面が開く。
+import { getWorkspace } from "shia2n-core/lib/supabase.js"; // 2026-11-04 場所の投稿は Buffer に入れない（サーバーで断る）
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, slotTime, stripHtml } from "../constants.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
@@ -134,7 +135,7 @@ export function BufferModal({ post, onClose, onDone }) {
       const user = auth.currentUser;
       if (!user) throw new Error("ログインを確認できませんでした。開き直してください");
       const token = await user.getIdToken();
-      const res = await fetch("/api/buffer-schedule", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ post_id: post.id, texts }) });
+      const res = await fetch("/api/buffer-schedule", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(getWorkspace() ? { "X-Workspace": getWorkspace() } : {}) }, body: JSON.stringify({ post_id: post.id, texts }) });
       const raw = await res.text();
       let data = {}; try { data = JSON.parse(raw); } catch { /* JSON でない返事はそのまま一部を見せる */ }
       if (!data.ok) throw new Error(data.error || `入れられませんでした（${res.status}）${raw ? "：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) : ""}`);
