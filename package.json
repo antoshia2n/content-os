@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "node node_modules/shia2n-core/tools/release-stable.mjs"
   },
   "dependencies": {
     "shia2n-core": "github:antoshia2n/shia2n-core",
