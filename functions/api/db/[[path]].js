@@ -8,6 +8,7 @@
  */
 
 import { createDbGateway, verifyIdToken } from "shia2n-core/server/db-gateway.js";
+import { resolveWorkspaceOwner } from "shia2n-core/server/workspace.js";
 import { canUseContent, allowListOf } from "../../_lib/content-access.js";
 
 // 2026-10-28 開発部（会員公開の関門 2・3）：使える人は CONTENT_ALLOW_UID（空なら Naoki）と、門番が content-os を開けると答えた人だけ。
@@ -21,6 +22,9 @@ function gatewayFor(allowUids) {
 const makeGateway = (allowUids) => createDbGateway({
   allowUids,
   basePath: "/api/db",
+  // 2026-11-04 場所（ワークスペース）：見出し X-Workspace があれば、入っている場所の番号を持ち主にする。無ければ本人（スワイプくん・X攻略くんと同じ）
+  // sw_swipes・mm_maps（探すために読むだけ）も場所に付く：みんなの場所では、その場所のスワイプとマップを探す
+  resolveOwner: resolveWorkspaceOwner,
   tables: {
     posts:                 { owner: "user_id" },
     accounts:              { owner: "user_id" },
@@ -62,6 +66,10 @@ export async function onRequest(context) {
         const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
         if (!token) return deny(401, "ログインが必要です。");
         const uid = await verifyIdToken(token, projectId);
+        // 2026-11-04 場所で開いているときの持ち主は場所の番号（入っていなければここで断る）
+        let owner;
+        try { owner = await resolveWorkspaceOwner({ uid, request, env }); }
+        catch (e) { return deny(Number.isInteger(e?.status) ? e.status : 403, e?.message || "この場所は開けません。"); }
         const cols = (url.searchParams.get("on_conflict") || "id").split(",").map(c => c.replace(/"/g, "").trim()).filter(Boolean);
         if (!cols.includes(OWNER)) {
           let parsed;
@@ -73,7 +81,7 @@ export async function onRequest(context) {
           const headers = { apikey: serviceKey };
           if (/^eyJ/.test(String(serviceKey))) headers.Authorization = `Bearer ${serviceKey}`;
           for (let i = 0; i < keys.length; i += 50) {
-            const p = new URLSearchParams({ select: OWNER, or: `(${keys.slice(i, i + 50).join(",")})`, [OWNER]: `neq.${uid}`, limit: "1" });
+            const p = new URLSearchParams({ select: OWNER, or: `(${keys.slice(i, i + 50).join(",")})`, [OWNER]: `neq.${owner}`, limit: "1" });
             const res = await fetch(`${supabaseUrl}/rest/v1/${table}?${p.toString()}`, { headers });
             const found = res.ok ? await res.json().catch(() => null) : null;
             if (!Array.isArray(found)) return deny(502, "上書きする前に、行の持ち主を確かめられませんでした。");

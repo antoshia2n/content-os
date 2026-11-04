@@ -18,7 +18,9 @@ import { dbToPost, genId } from "../constants.js";
 import { samplePosts, SAMPLE_TEMPLATE } from "../lib/samples.js";
 
 // 選択中アカウントの保存先（ブラウザ内）
-const ACTIVE_ACC_KEY = "contentos.activeAccountId";
+// 2026-11-04 場所ごとに覚える（場所が違うとアカウントも別のため）
+import { getWorkspace } from "shia2n-core/lib/supabase.js";
+const ACTIVE_ACC_KEY = "contentos.activeAccountId" + (getWorkspace() ? "." + getWorkspace() : "");
 
 function readStoredAccId() {
   try { return window.localStorage.getItem(ACTIVE_ACC_KEY) || null; }
@@ -42,7 +44,7 @@ function sortAccounts(list) {
   });
 }
 
-export function useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate = false }) {
+export function useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate = false, shared = false }) {
   const [accounts, setAccountsRaw] = useState([]);
   const [allPosts, setAllPosts] = useState({});
   const [activeAccId, setActiveAccIdRaw] = useState(urlAccountId || null);
@@ -81,9 +83,11 @@ export function useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate
       // 2026-10-28 開発部（会員公開の関門 4）：はじめて入った人はアカウントが 0 で、ネタも投稿も入れられなかった。
       // 1 つだけ自動で作る（名前は「自分のアカウント」・あとからアカウントの設定で直せる）。読めなかったとき（accs が null）は作らない
       if (autoCreate && Array.isArray(accs) && accs.length === 0) {
-        const first = { id: "acc_" + Date.now(), name: "自分のアカウント", handle: "", color: "#f59e0b", user_id: uid, is_default: true, sort_order: 0, is_active: true };
+        // 2026-11-04 場所（みんなの場所）ではじめて開いたときは「みんなのアカウント」にし、見本は入れない（3 人で見るため）
+        const first = { id: "acc_" + Date.now(), name: shared ? "みんなのアカウント" : "自分のアカウント", handle: "", color: "#f59e0b", user_id: uid, is_default: true, sort_order: 0, is_active: true };
         const { error } = await dbInsertAccount(first);
-        if (!error) {
+        if (!error && shared) accs = [first];
+        else if (!error) {
           accs = [first];
           // 見本を入れる（2026-10-28・消せる「例」の札つき）。入らなくても使い始めは止めない
           try {

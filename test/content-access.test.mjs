@@ -145,6 +145,6 @@ test("会員の画面：Notion・共有リンク・アカウントの追加は�
   const ed = readFileSync(new URL("../src/screens/EditorModal.jsx", import.meta.url), "utf-8");
   assert.match(ed, /\.\.\.\(owner\?\[\{label:notionState/);
   const ua = readFileSync(new URL("../src/hooks/useAccounts.js", import.meta.url), "utf-8");
-  assert.match(ua, /name: "自分のアカウント"/);
+  assert.match(ua, /name: shared \? "みんなのアカウント" : "自分のアカウント"/); // 2026-11-04 みんなの場所では名前を替え、見本を入れない
   assert.match(ua, /if \(autoCreate && Array\.isArray\(accs\) && accs\.length === 0\)/);
 });

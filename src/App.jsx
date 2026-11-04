@@ -47,7 +47,9 @@ import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
 import { isSample, SAMPLE_TEMPLATE_NAME } from "./lib/samples.js";
-import { mountAppShell } from "shia2n-core/shell/app-shell.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
+import { mountAppShell } from "shia2n-core/shell/app-shell.js";
+import { WsChip } from "./components/WsChip.jsx"; // 2026-11-04 場所の切り替え
+import { getWorkspace } from "shia2n-core/lib/supabase.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
 import { MANUAL, KEYS, makeTours } from "./manual.js";
 import { DialogFocus } from "./lib/useDialogFocus.js";
 
@@ -110,7 +112,7 @@ function App({uid,panel=false,owner=false}){
     switchableAccounts,
     addAccount, updateAccount, copyShareLink,
     setDefaultAccount, setAccountActive, moveAccount,
-  } = useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate: !isClient });
+  } = useAccounts({ uid, urlAccountId, isClient, showToast, autoCreate: !isClient, shared: !isClient && !!getWorkspace() });
 
   // ── 残りの UI State ────────────────────────────────────
   const [view,               setViewRaw]            = useState(firstView);
@@ -280,6 +282,12 @@ function App({uid,panel=false,owner=false}){
 const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s=>(s.postType||"x_post")===filterPlatform),[slots,filterPlatform]);
   // 2026-10-23 4便：1 日 1 行の記録（書いた字数・計画・ひとこと）
   const dayApi = useDays(isClient?null:uid);
+  // 2026-11-04 場所を替える前：書きかけの投稿の窓が開いていたら替えない。消す途中（元に戻すの帯）を確定し、今日の字数を書き切る
+  const wsBeforeSwitch=React.useCallback(async()=>{
+    if(editing){showToast("書きかけの投稿を閉じてから場所を替えてください");return "skip";}
+    const c=undoRef.current;if(c&&c.commit){undoRef.current=null;clearTimeout(undoTimer.current);setUndoRaw(null);await c.commit();}
+    return (await dayApi.flushNow())!==false;
+  },[editing,dayApi,showToast]);
   const {
     saveToDb, save, del, removePost, changeStatus, changePostType,
     saveMeta, saveComment, handleRepost, handleDuplicate,
@@ -605,7 +613,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
-      {panel&&<PanelView posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}
+      {panel&&<PanelView ws={<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast} note="ここで選んだ場所のネタと予定を見る（ほかの場所のデータは混ざらない）"/>} posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}
         onQuick={v=>quickAdd({...v,accId:panelAcc?.id})}
         renderFind={()=>{const ps=panelAcc?(allPosts[panelAcc.id]||[]):[];return <FindPanel posts={ps} postTypes={panelPostTypes} autoFocus
           targets={ps.filter(p=>["draft","review"].includes(p.status)).sort((a,b)=>(b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""))}
@@ -616,6 +624,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       <div className="ck-top">
         {(view==="idea"||view==="out")&&<button className="ck-ghost" style={{width:32,padding:0,justifyContent:"center",border:"0"}} aria-label="メニュー" onClick={()=>setNavOn(o=>!o)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>}
         <span className="ck-brand">{BRAND_ICON}<span>コンテンツくん<b>.</b></span></span>
+        {!isClient&&<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast}/>}
         {isAdmin&&<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)}/>}
 
         <nav className="ck-hm" aria-label="機能" data-tour="nav">

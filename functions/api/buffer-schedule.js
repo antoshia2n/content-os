@@ -73,6 +73,9 @@ async function handle({ request, env }) {
     return out({ ok: false, error: "この機能は持ち主だけが使えます" });
   }
 
+  // 2026-11-04 場所（みんなの場所）の投稿は Buffer に入れない（Buffer の窓口は Naoki のアカウントにだけ結んであるため）
+  if ((request.headers.get("X-Workspace") || "").trim()) return out({ ok: false, error: "みんなの場所の投稿は Buffer に入れられません。自分の場所で予約してください" });
+
   // 2. 送られた中身
   let body;
   try { body = await request.json(); } catch { return out({ ok: false, error: "送られた形が正しくありません" }); }
