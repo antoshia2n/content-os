@@ -89,6 +89,21 @@ const VIEWS=[["idea","ネタ帳"],["out","アウトプット"],["calendar","カ�
 const VIEW_KEY="contentos.view";
 function firstView(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="sheet")return "out";if(VIEWS.some(([k])=>k===v))return v;}catch{/* 覚えられなくても動く */}return "out";}
 
+// 2026-11-06 便 B2-5：シアラボの教材のメモ（住所の # に入れて来る。サーバーへは送らない）
+const LAB_ORIGINS=["https://lab.shia2n.jp"];
+export function labMemoFromHash(path,hash){
+  try{
+    if(!/^\/new\/?$/.test(String(path||"")))return null;
+    const m=String(hash||"").match(/^#d=([A-Za-z0-9_-]+)$/);if(!m)return null;
+    const bin=atob(m[1].replace(/-/g,"+").replace(/_/g,"/"));
+    const d=JSON.parse(new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0))));
+    const title=String(d.title||"").replace(/\s+/g," ").trim().slice(0,200);
+    const text=String(d.text||"").replace(/\r\n?/g,"\n").slice(0,8000);
+    let src="";try{const u=new URL(String(d.src||""));if(LAB_ORIGINS.includes(u.origin))src=u.href;}catch{ /* 住所でなければ入れない */ }
+    return title||text?{title:title||"教材のメモ",text,src}:null;
+  }catch{return null;}
+}
+
 function App({uid,panel=false,owner=false}){
   const isClient=_isClient,urlAccountId=_urlAccountId;
   const isAdmin=!isClient;
@@ -307,6 +322,17 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     setUndo({msg:`「${String(p.title||"タイトルなし").slice(0,24)}」を消しました`,run:()=>{back();showToast("元に戻しました");},
       commit:async()=>{const {error}=await dbDeletePost(p.id);if(error){back();showToast("消せませんでした。もう一度押してください");}}});
   },[removePost,setAllPosts,setUndo,showToast]);
+  // 2026-11-06 便 B2-5：シアラボの教材のメモから、アイデアメモを開く（/new#d=<base64url の JSON { title, text, src }>）。
+  // 保存はいつもどおり本人が確かめてから（閉じたときに中身があれば保存）。src はシアラボの住所だけを素材のリンクに入れる
+  const labMemoRef=React.useRef(typeof window!=="undefined"&&!panel?labMemoFromHash(window.location.pathname,window.location.hash):null);
+  useEffect(()=>{
+    const d=labMemoRef.current;if(!d||loading||!uid||!targetAccId)return;
+    labMemoRef.current=null;
+    try{window.history.replaceState(null,"","/");}catch{ /* 住所が直せなくても開く */ }
+    setPreview(null);
+    setEditing({id:genId(),account_id:targetAccId,status:"idea",datetime:"",title:d.title,postType:"x_post",body:"",memo:d.text,memoLinks:d.src?[{label:`教材：${d.title.slice(0,30)}`,url:d.src}]:[],comments:[],history:[{at:nowStr(),note:"シアラボの教材のメモから"}],labels:[],genre:null,theme:null,mm_url:null,manabu:false,_unsaved:true});
+    showToast("教材のメモをアイデアメモに入れました。確かめて保存してください");
+  },[loading,uid,targetAccId,showToast]);
   // 2026-11-03 思考整理くんとの連携 便 1：?post=<id> で開くと、そのネタ（投稿）を開く（マップの上の「ネタ：名前 ↗」から来る）
   const deepPostRef=React.useRef(typeof window!=="undefined"&&!panel?new URLSearchParams(window.location.search).get("post"):null);
   useEffect(()=>{
