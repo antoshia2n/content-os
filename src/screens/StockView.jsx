@@ -201,7 +201,7 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 export const CK_PHONE_CSS = `
 /* スマホ対応（2026-10-29 先行の 3 人がスマホだけで迷わず使う・app-design-rules 5b・X攻略くんと同じ直し方）
    読む：字は 12px 以上、書く欄は 16px（iPhone が勝手に拡大しない）／押す：44px 以上／
-   崩れない：上の帯は画面の幅に収める・ネタ帳とアウトプットと振り返りの表は 1 件 1 枚のカード（各欄の名前は App.jsx の phoneTables が付ける） */
+   崩れない：上の帯は画面の幅に収める・ネタとアウトプットと積み上げの表は 1 件 1 枚のカード（各欄の名前は App.jsx の phoneTables が付ける） */
 @media (max-width:640px){
   .ck-accpop .h,.ck-accpop button small,.ck-bft,.ck-calf .ck-chip-f,.ck-col-hint,.ck-colh .n,.ck-colh .w,.ck-hm .n,.ck-im,.ck-kbd,.ck-keys,.ck-mini,.ck-mrow>span,.ck-mv .ck-table .faint,.ck-mvh .sub,.ck-mvn,.ck-mvs,.ck-mvt,.ck-nav-foot,.ck-nh,.ck-nv .n,.ck-score,.ck-snip,.ck-src,.ck-tab .n,.ck-table th,.ck-type{font-size:12px}
   .ck [style*="font-size: 9px"],.ck [style*="font-size: 9.5px"],.ck [style*="font-size: 10px"],.ck [style*="font-size: 10.5px"],.ck [style*="font-size: 11px"],.ck [style*="font-size: 11.5px"]{font-size:12px!important}
