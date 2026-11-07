@@ -71,40 +71,63 @@ export function bundleNames(thumb, images) {
   return out;
 }
 
+// ── zip を 1 つ作る（圧縮なしの zip。Mac・Windows とも、開けば中のフォルダが出る）──
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+export function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let off = 0;
+  const now = new Date();
+  const dosT = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosD = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); // 0x0800＝名前は UTF-8
+    lh.setUint16(8, 0, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    off += 30 + name.length + data.length;
+  }
+  const cSize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, cSize, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: "application/zip" });
+}
+
 /**
- * サムネと本文の画像を、名前の順にまとめて保存する。
- * フォルダを選べるブラウザ（Chrome・Edge）は、選んだフォルダの中に「日付_題」のフォルダを作って入れる。
- * 選べないブラウザは、1 枚ずつ保存する（ブラウザが「複数のファイルを保存しますか」と聞くことがある）。
- * 戻り値：{ saved: 入った枚数, failed: 取れなかった枚数, folder: 作ったフォルダの名前 }
+ * サムネと本文の画像を、名前の順に zip 1 つにまとめて保存する（2026-11-07 15:14 直し）。
+ * 前はフォルダを選ばせていたが、Chrome は「ダウンロード」「デスクトップ」などを選ぶと
+ * 「システム ファイルが含まれているため開けません」で断る。zip ならいつものダウンロードに 1 つ落ちるだけで、
+ * 開けば「日付_題」のフォルダに 00_サムネ・01・02… が並ぶ。
+ * 戻り値：{ saved: 入った枚数, failed: 取れなかった枚数, file: zip の名前 }
  */
 export async function saveImageBundle({ thumb, images, title, date }) {
   const list = bundleNames(thumb, images);
-  if (!list.length) return { saved: 0, failed: 0, folder: "" };
+  if (!list.length) return { saved: 0, failed: 0, file: "" };
   const folder = `${(date || "").slice(0, 10) || "日付なし"}_${safeName(title)}`;
-  let dir = null;
-  if (typeof window.showDirectoryPicker === "function") {
-    const parent = await window.showDirectoryPicker({ mode: "readwrite" }); // 閉じたら AbortError（呼んだ側で受け止める）
-    dir = await parent.getDirectoryHandle(folder, { create: true });
-  }
-  let saved = 0, failed = 0;
+  const files = [];
+  let failed = 0;
   for (const it of list) {
     try {
       const res = await fetch(it.url, { mode: "cors" });
       if (!res.ok) throw new Error(String(res.status));
       const blob = await res.blob();
-      const name = `${it.base}.${extOf(it.url, blob.type)}`;
-      if (dir) {
-        const fh = await dir.getFileHandle(name, { create: true });
-        const w = await fh.createWritable(); await w.write(blob); await w.close();
-      } else {
-        const href = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = href; a.download = `${folder}_${name}`;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 4000);
-        await new Promise(r => setTimeout(r, 350)); // 続けて保存するときに、ブラウザが取りこぼさないよう少し間を置く
-      }
-      saved += 1;
+      files.push({ name: `${folder}/${it.base}.${extOf(it.url, blob.type)}`, data: new Uint8Array(await blob.arrayBuffer()) });
     } catch (_) { failed += 1; }
   }
-  return { saved, failed, folder: dir ? folder : "" };
+  if (!files.length) return { saved: 0, failed, file: "" };
+  const zip = makeZip(files), href = URL.createObjectURL(zip), file = `${folder}.zip`;
+  const a = document.createElement("a"); a.href = href; a.download = file;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 10000);
+  return { saved: files.length, failed, file };
 }
