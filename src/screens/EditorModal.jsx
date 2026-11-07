@@ -7,6 +7,8 @@ import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
+import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
+import { hasThumbCol } from "../constants.js";
 
 // 横の欄のアイコン（線の太さをそろえた SVG。2026-10-05 絵文字から置き換え）
 const ic=d=><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
@@ -23,7 +25,10 @@ function MoreMenu({items}){
   useEffect(()=>{
     if(!open)return;
     const h=e=>{if(box.current&&!box.current.contains(e.target))setOpen(false);};
-    document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
+    // Esc で閉じて、押したボタンへ戻る（窓より先にこのメニューを閉じる）
+    const k=e=>{if(e.key==="Escape"){e.stopPropagation();e.preventDefault();setOpen(false);box.current?.querySelector("button")?.focus();}};
+    document.addEventListener("mousedown",h);document.addEventListener("keydown",k,true);
+    return()=>{document.removeEventListener("mousedown",h);document.removeEventListener("keydown",k,true);};
   },[open]);
   return(
     <div ref={box} style={{position:"relative",flexShrink:0}}>
@@ -33,7 +38,7 @@ function MoreMenu({items}){
       {open&&(
         <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",zIndex:300,background:"#fff",border:BD2,borderRadius:12,boxShadow:"0 8px 24px rgba(0,0,0,.12)",padding:5,minWidth:200}}>
           {items.map(it=>(
-            <button key={it.label} disabled={it.disabled} onClick={()=>{it.onClick();}}
+            <button key={it.label} disabled={it.disabled} onClick={()=>{it.onClick();if(it.close)setOpen(false);}}
               style={{display:"block",width:"100%",textAlign:"left",border:"none",background:"none",borderRadius:8,padding:"8px 11px",fontSize:12.5,fontWeight:600,color:"#333",cursor:it.disabled?"default":"pointer",fontFamily:"inherit"}}
               onMouseEnter={e=>e.currentTarget.style.background="#f5f0eb"} onMouseLeave={e=>e.currentTarget.style.background="none"}>
               {it.label}
@@ -145,15 +150,45 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [lastSide,setLastSide]=useState(post.status==="idea"?"memo":"body");
   const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="meta"?lastSide:"body");
   const handleSave=()=>{dropLocal();onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});};
-  const doCopy=target=>{
-    const html=draft.body||"";
+  // コピー（2026-11-07）：X記事は画像の位置に【画像1】…の目印を置く（X記事は画像を貼っても入らないため）。
+  // ほかの種類は文と画像をまとめて運ぶ（note の本文は、貼れば画像も入る）。mode を渡せば種類によらずその形
+  const imgs=bodyImages(draft.body||"");
+  const isXArticle=draft.postType==="x_article";
+  const [copyNote2,setCopyNote2]=useState("");
+  const doCopy=(target,mode)=>{
+    const raw=draft.body||"";
+    const m=mode||(isXArticle?"mark":"rich");
+    const html=m==="mark"&&imgs.length?markImagesForX(raw):raw;
     const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
     const plain=htmlToPlain(html, isThread);
     copyRichText(html,plain,()=>{
       if(target==="x"){setCopyX(true);setTimeout(()=>setCopyX(false),3500);}
       else{setCopyNote(true);setTimeout(()=>setCopyNote(false),3500);}
+      if(imgs.length)setCopyNote2(m==="mark"?`画像 ${imgs.length} か所に【画像1】〜の目印を入れてコピーしました。画像は「…」の「画像をまとめて保存」から`:`文と画像 ${imgs.length} 枚をコピーしました`);
     });
   };
+  // 画像をまとめて保存（00_サムネ・01・02…）
+  const [imgSave,setImgSave]=useState(""); // "" | 保存中 | 結果の一言
+  const saveImages=async()=>{
+    setImgSave("保存中…");
+    try{
+      const r=await saveImageBundle({thumb:draft.thumb||"",images:imgs,title:draft.title,date:draft.datetime});
+      setImgSave(r.failed?`${r.saved} 枚保存しました。${r.failed} 枚は取れませんでした`:`${r.saved} 枚保存しました${r.folder?`（フォルダ「${r.folder}」）`:""}`);
+    }catch(e){
+      setImgSave(e?.name==="AbortError"?"":"保存できませんでした："+(e?.message||e));
+    }
+  };
+  // サムネ（2026-11-07）：1 枚。note の見出し画像・X記事の表紙は、保存したファイルを選んで付ける
+  const thumbRef=useRef(null);
+  const [thumbBusy,setThumbBusy]=useState(false),[thumbErr,setThumbErr]=useState("");
+  const pickThumb=async e=>{
+    const f=e.target.files?.[0];if(!f)return;
+    setThumbErr("");setThumbBusy(true);
+    try{const url=await uploadImage(f);setDraft(d=>({...d,thumb:url}));}
+    catch(err){setThumbErr("サムネを置けませんでした："+err.message);}
+    finally{setThumbBusy(false);if(thumbRef.current)thumbRef.current.value="";}
+  };
+  const imgCount=imgs.length+(draft.thumb?1:0);
 
   const saveLocalFile=async()=>{
     const content=postToMarkdown(draft);
@@ -309,6 +344,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
           <button className="em-btn" onClick={()=>doCopy("x")} style={copyX?{background:"#ecfdf5",borderColor:"#6ee7b7",color:"#059669"}:undefined}>{copyX?"コピーしました":"コピー"}</button>
           <MoreMenu items={[
+            ...(imgs.length?[isXArticle
+              ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
+              :{label:"X記事用にコピー（画像の位置に目印）",onClick:()=>doCopy("note","mark"),close:true}]:[]),
+            ...(imgCount?[{label:imgSave==="保存中…"?"画像を保存中…":`画像をまとめて保存（${imgCount} 枚）`,onClick:saveImages,disabled:imgSave==="保存中…",close:true}]:[]),
             ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない（Naoki の Notion へ送る口）
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
           ]}/>
@@ -327,6 +366,13 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           .em-icon:hover{background:#f5f0eb;color:#4b4540}
         `}</style>
 
+        {(copyNote2||(imgSave&&imgSave!=="保存中…"))&&(
+          <div role="status" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"7px 14px",background:"#ecfdf5",borderBottom:"1px solid #a7f3d0",fontSize:12,fontWeight:700,color:"#065f46",flexShrink:0}}>
+            <span>{imgSave&&imgSave!=="保存中…"?imgSave:copyNote2}</span>
+            <span style={{flex:1}}/>
+            <button onClick={()=>{setCopyNote2("");setImgSave("");}} aria-label="この知らせを閉じる" style={{background:"none",border:"none",color:"#065f46",cursor:"pointer",fontSize:13,minWidth:28,minHeight:28}}>✕</button>
+          </div>
+        )}
         {restore&&(
           <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"8px 14px",background:"#fffbeb",borderBottom:"1px solid #fcd34d",fontSize:12,color:"#92400e",flexShrink:0}}>
             <span style={{fontWeight:700}}>保存していない書きかけがあります（{new Date(restore.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}）</span>
@@ -393,6 +439,25 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 )}
                 {sidePanel==="meta"&&(
                   <div style={{...S.col,gap:12}}>
+                    <div>
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>サムネ</label>
+                      {!hasThumbCol()?<div style={{fontSize:12,color:"#736a62"}}>サムネは準備中です</div>:(<>
+                        <input ref={thumbRef} type="file" accept="image/*" style={{display:"none"}} onChange={pickThumb}/>
+                        {draft.thumb?(
+                          <div style={{background:"#fff",border:BD2,borderRadius:10,padding:6}}>
+                            <img src={draft.thumb} alt="サムネ" style={{width:"100%",maxHeight:150,objectFit:"cover",borderRadius:7,display:"block"}}/>
+                            <div style={{display:"flex",gap:6,marginTop:6}}>
+                              <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>{thumbBusy?"置いています…":"編集"}</button>
+                              <button onClick={()=>setDraft(d=>({...d,thumb:""}))} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#b91c1c",cursor:"pointer",fontFamily:"inherit"}}>削除</button>
+                            </div>
+                          </div>
+                        ):(
+                          <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{width:"100%",border:"2px dashed #a39a90",background:"#f8f5f1",borderRadius:9,padding:"14px 0",cursor:"pointer",color:"#6b6259",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>{thumbBusy?"置いています…":"＋ サムネの画像を選ぶ"}</button>
+                        )}
+                        {thumbErr&&<div role="alert" style={{fontSize:12,fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px",marginTop:6}}>{thumbErr}</div>}
+                        <div style={{fontSize:12,color:"#736a62",marginTop:5,lineHeight:1.5}}>note の見出し画像・X記事の表紙は、「…」の「画像をまとめて保存」で出た 00_サムネ を選んで付ける</div>
+                      </>)}
+                    </div>
                     {canSend&&(
                       <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:6}}>

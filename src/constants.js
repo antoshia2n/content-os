@@ -99,9 +99,14 @@ export function getWeekDates(base){
   mon.setDate(d.getDate()+(day===0?-6:1-day));
   return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x;});
 }
+// 2026-11-07 サムネ：表の列 thumb_url があるか（読んだ行に列が出ていれば、ある）。無いあいだは保存のときに送らない
+let THUMB_COL=false;
+export const hasThumbCol=()=>THUMB_COL;
 export function dbToPost(p){
   const rawLinks=p.memo_links||[];
+  if(p&&Object.prototype.hasOwnProperty.call(p,"thumb_url"))THUMB_COL=true;
   return{...p,
+    thumb:p.thumb_url||"",
     // 日時未定（データベース上は空）は、画面側では空文字として扱う
     datetime:p.datetime||"",
     postType:p.post_type||"x_post",
