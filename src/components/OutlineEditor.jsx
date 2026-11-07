@@ -1,6 +1,6 @@
 // 2026-11-08 Notion の形へ 便④：エディタの「構成（箇条書き）」タブ（作る前の 1 枚に Naoki OK 2026-11-07 22:40）
 // - 正本は思考整理くんのマップ。ここは行を出して直すだけで、書いたら 1 秒後に思考整理くんへ送る
-// - Enter で次の行・Tab で一段下げる・Shift+Tab で戻す・空の行で Backspace で消す・↑↓ で行を移る
+// - Enter で次の行・Tab で一段下げる・Shift+Tab で戻す・空の行で Backspace で消す・↑↓ で行を移る（変換中の Enter は変換の確定として渡す）
 // - 思考整理くんの画面でも同時に直していたら、上書きせず向こうに合わせて知らせる
 import React, { useEffect, useRef, useState } from "react";
 import { getOutline, putOutline, mapIdOf } from "../lib/mindmapLink.js";
