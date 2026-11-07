@@ -421,7 +421,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
                   style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
-                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-8px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯　⌘.（Ctrl+.）で集中モード</div>}
+                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-8px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯が出る　⌘.（Ctrl+.）で集中モード</div>}
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef} slash={!compact} bubble={!compact} onInsertOpen={openInsert}/>
               </div>
             </div>
