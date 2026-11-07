@@ -85,9 +85,12 @@ function isEmptyIdea(p){return !!p&&p.status==="idea"&&!hasContent(p);}
 // 2026-10-05 段 3：週・シート・成績の 3 つにした。月 ["month","月"] とリスト ["list","リスト"] の
 // 2026-10-23 作り直し 1便：上の帯を ネタ帳／アウトプット／カレンダー／振り返り にした。
 // シートはアウトプットの見せ方（表・流れ・シート）の 1 つへ移した。月・リストのコードは残してある
-const VIEWS=[["idea","ネタ帳"],["out","アウトプット"],["calendar","カレンダー"],["metrics","振り返り"]];
+// 2026-11-07 Notion の形へ 便 ①（Naoki OK 22:40）：上の帯は「カレンダー・コンテンツ・積み上げ」の 3 つ。
+// コンテンツ＝ネタとアウトプット（中の値は今までどおり idea / out で、左の一覧から行き来する）。最初の画面はカレンダー
+const HEAD=[["calendar","カレンダー"],["data","コンテンツ"],["metrics","積み上げ"]];
 const VIEW_KEY="contentos.view";
-function firstView(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="sheet")return "out";if(VIEWS.some(([k])=>k===v))return v;}catch{/* 覚えられなくても動く */}return "out";}
+function lastStock(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="idea"||v==="out")return v;}catch{/* 覚えられなくても動く */}return "out";}
+function firstView(){return "calendar";}
 
 // 2026-11-06 便 B2-5：シアラボの教材のメモ（住所の # に入れて来る。サーバーへは送らない）
 const LAB_ORIGINS=["https://lab.shia2n.jp"];
@@ -522,7 +525,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>{const i=VIEWS.findIndex(([k])=>k===v);return VIEWS[(i+1)%VIEWS.length][0];});break;
+        case"c":case"C": e.preventDefault();setView(v=>{const ks=["calendar",v==="idea"||v==="out"?v:lastStock(),"metrics"];const i=ks.indexOf(v);return ks[(i+1)%ks.length];});break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -654,11 +657,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         {isAdmin&&<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)}/>}
 
         <nav className="ck-hm" aria-label="機能" data-tour="nav">
-          {VIEWS.map(([v,l])=>{
-            const n=v==="idea"?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:v==="out"?posts.filter(p=>p.status==="draft").length:0;
+          {HEAD.map(([k,l])=>{
+            const isData=k==="data";const on=isData?(view==="idea"||view==="out"):view===k;
+            const n=isData?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:0;
             // 2026-11-03 上の帯の整理：予約のまま日時が過ぎた数は、直す場所（カレンダー）のタブの横に赤丸と数で出す
-            const late=v==="calendar"&&isAdmin?overdueCount:0;
-            return <button key={v} className={view===v?"on":""} onClick={()=>setView(v)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title={v==="out"?"書きかけ":"受け箱"}>{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}</button>;
+            const late=k==="calendar"&&isAdmin?overdueCount:0;
+            return <button key={k} className={on?"on":""} aria-current={on?"page":undefined} onClick={()=>setView(isData?(on?view:lastStock()):k)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:n?`${l}（受け箱 ${n} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title="受け箱">{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}</button>;
           })}
         </nav>
         {/* 共有リンクバッジ */}
@@ -727,7 +731,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           slots={slots} today={today} readOnly={isClient}
           onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={deleteWithUndo} showToast={showToast}
           keysOff={!!editing||!!toOut||quickOpen||!!bufferFor||!!preview}
-          onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn}
+          onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn} onMode={m=>setView(m)}
           renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={deleteWithUndo} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
       {quickOpen&&!panel&&<FindModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}

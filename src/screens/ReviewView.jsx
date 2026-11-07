@@ -94,7 +94,7 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
   const prevNote = days[`${lmKey}-01`]?.extra?.month_note || "";
 
   return <div className="ck"><style>{REVIEW_CSS}</style><div className="ck-rv">
-    <div><div className="ck-crumb">振り返り</div><h1 className="ck-title">書く人の記録</h1></div>
+    <div><h1 className="ck-title">積み上げ</h1></div>
     {!ready && <div className="ck-warn">記録の表がまだ使えません{err ? `（${err}）` : ""}。字数はこの画面を開いている間だけ数え、残りません。表ができると、その日から残ります。</div>}
     {showMonth && <div className="ck-box"><h2>{lm.getMonth() + 1}月のあなた<small>月のはじめに 1 回だけ</small></h2>
       <div className="ck-month">
