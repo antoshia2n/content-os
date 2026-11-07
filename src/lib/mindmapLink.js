@@ -57,3 +57,34 @@ export async function makeStructure(p, saveUrl, toast) {
     return null;
   }
 }
+
+// ── 2026-11-08 Notion の形へ 便④：エディタの「構成（箇条書き）」タブ ──
+// 正本は思考整理くんのマップ。このアプリは住所（mm_url）を持つだけで、行は思考整理くんの口 /api/ext/outline で読み書きする
+/** マップの住所（https://mindmap.shia2n.jp/m/<id>…）から id を取る。無ければ "" */
+export function mapIdOf(url) {
+  const m = String(url || "").match(/\/m\/([\w-]{1,64})/);
+  return m ? m[1] : "";
+}
+async function outlineCall(method, id, payload, fetchFn = fetch) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("ログインを確かめられませんでした。再読み込みしてください");
+  const token = await user.getIdToken();
+  let res;
+  try {
+    res = await fetchFn(`${MINDMAP_ORIGIN}/api/ext/outline${method === "GET" ? `?id=${encodeURIComponent(id)}` : ""}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(method === "PUT" ? { "Content-Type": "application/json" } : {}) },
+      ...(method === "PUT" ? { body: JSON.stringify({ id, ...payload }) } : {}),
+    });
+  } catch {
+    throw new Error("思考整理くんにつながりませんでした。通信を確かめてください");
+  }
+  const j = await res.json().catch(() => ({}));
+  if (res.status === 409 && j.conflict) return { ...j, conflict: true };
+  if (!res.ok) throw new Error(j.message || "思考整理くんのマップを読み書きできませんでした");
+  return j;
+}
+/** マップを行で読む → { id, rev, title, url, lines: [{ id, d, t }] } */
+export const getOutline = (id, fetchFn) => outlineCall("GET", id, null, fetchFn);
+/** 行で書く。版が古ければ { conflict: true, ...今の中身 } が返る */
+export const putOutline = (id, rev, lines, fetchFn) => outlineCall("PUT", id, { rev, lines }, fetchFn);

@@ -9,6 +9,8 @@ import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
 import { hasThumbCol } from "../constants.js";
+import { OutlineEditor } from "../components/OutlineEditor.jsx";
+import { createStructureMap } from "../lib/mindmapLink.js";
 
 // 横の欄のアイコン（線の太さをそろえた SVG。2026-10-05 絵文字から置き換え）
 const ic=d=><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
@@ -59,7 +61,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const draftRef=useRef(draft);draftRef.current=draft;
   // 2026-11-07 直し：予約枠などから開いた、まだ表に無い投稿（_viaPreview）は、何か書き換えるまで裏で保存しない。
   // 書き換えずに閉じたら表に作らない（前のプレビューの窓と同じ。窓では「編集して作成」を押すまで作らなかった）
-  const keyOf=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb]);
+  const keyOf=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb,d.mm_url]);
   const initKey=useRef(keyOf(draft));
   const untouched=()=>!!post._viaPreview&&keyOf(draftRef.current)===initKey.current;
   const onCloseRef=useRef(onClose);onCloseRef.current=onClose;
@@ -124,6 +126,23 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [cmt,setCmt]=useState("");
   // 2026-11-07 便③：集中モード。右の機能とヘッダーの飾りを隠し、紙だけにする（⌘. / Ctrl+. で出し入れ）
   const [focusOn,setFocusOn]=useState(false);
+  // 2026-11-08 便④：本文と「構成（箇条書き）」を切り替える（広い画面だけ）。構成の正本は思考整理くんのマップ
+  const [bodyTab,setBodyTab]=useState("body");
+  const [mapBusy,setMapBusy]=useState(false);
+  const [smallMsg,setSmallMsg]=useState("");const smallT=useRef(null);
+  const showSmall=t=>{setSmallMsg(t);clearTimeout(smallT.current);smallT.current=setTimeout(()=>setSmallMsg(""),3500);};
+  const makeMap=async()=>{
+    if(mapBusy)return;setMapBusy(true);
+    try{const url=await createStructureMap({...post,...draftRef.current});setDraft(d=>({...d,mm_url:url}));showSmall("構成のマップを作りました。保存すると、この投稿とつながったまま残ります");}
+    catch(e){showSmall(e.message||"マップを作れませんでした");}
+    finally{setMapBusy(false);}
+  };
+  const toHeadings=hs=>{
+    if(!hs.length){showSmall("一番上の段に字がありません");return;}
+    const esc=t=>t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    setDraft(d=>({...d,body:(d.body||"")+hs.map(h=>`<h1>${esc(h)}</h1><p><br></p>`).join("")}));
+    setBodyTab("body");showSmall(`見出しを ${hs.length} 本、本文の最後に入れました`);
+  };
   useEffect(()=>{
     if(compact)return;
     const k=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="."){e.preventDefault();setFocusOn(v=>!v);}};
@@ -373,6 +392,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           <button className="em-btn" onClick={close} title="閉じる（Esc）">← 戻る</button>
           <span style={{fontSize:12,color:"#736a62",fontWeight:600,marginLeft:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post._unsaved?"新しい投稿":`${ptKnown?pt.label:(draft.postType||"種類なし")}・${st?.label||""}`}</span>
           <div style={{flex:1}}/>
+          <span role="status" aria-live="polite" style={{fontSize:12,color:"#047857",fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:360}}>{smallMsg}</span>
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
           {!focusOn&&<MoreMenu items={[
@@ -426,8 +446,14 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
                   style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
-                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-8px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯が出る　⌘.（Ctrl+.）で集中モード</div>}
+                {!compact&&<div role="tablist" aria-label="本文と構成" style={{display:"flex",alignItems:"center",gap:2,borderBottom:BD2,margin:"-6px 0 14px"}}>
+                  {[["body","本文"],["outline","構成（箇条書き）"]].map(([k,l])=><button key={k} role="tab" aria-selected={bodyTab===k} onClick={()=>setBodyTab(k)} style={{border:"none",background:"none",padding:"6px 10px",fontSize:13,fontWeight:700,color:bodyTab===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${bodyTab===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
+                  {draft.mm_url&&<span style={{marginLeft:"auto",fontSize:12,color:"#736a62"}}>思考整理くんとつながっている</span>}
+                </div>}
+                {!compact&&bodyTab==="outline"?<OutlineEditor mmUrl={draft.mm_url} onMakeMap={makeMap} onHeadings={toHeadings} toast={showSmall}/>:<>
+                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-4px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯が出る　⌘.（Ctrl+.）で集中モード</div>}
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef} slash={!compact} bubble={!compact} onInsertOpen={openInsert}/>
+                </>}
               </div>
             </div>
             <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"max(12px,0.67em)",color:"#736a62",flexShrink:0}}>
