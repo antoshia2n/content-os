@@ -173,7 +173,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     setImgSave("保存中…");
     try{
       const r=await saveImageBundle({thumb:draft.thumb||"",images:imgs,title:draft.title,date:draft.datetime});
-      setImgSave(r.failed?`${r.saved} 枚保存しました。${r.failed} 枚は取れませんでした`:`${r.saved} 枚保存しました${r.folder?`（フォルダ「${r.folder}」）`:""}`);
+      setImgSave(r.saved?`${r.saved} 枚を「${r.file}」にまとめて保存しました。開くと 00_サムネ・01・02… のフォルダが出ます${r.failed?`（${r.failed} 枚は取れませんでした）`:""}`:"画像を取れませんでした。少しおいてもう一度");
     }catch(e){
       setImgSave(e?.name==="AbortError"?"":"保存できませんでした："+(e?.message||e));
     }
