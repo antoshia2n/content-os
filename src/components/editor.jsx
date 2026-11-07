@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, STORAGE_BUCKET, stripHtml } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
-import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js";
+import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js"; import { uploadImage } from "../lib/articleImages.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 
 // ════════════════════════════════════════════════════════
@@ -69,6 +69,20 @@ export function BodyEditor({value,onChange,editorRef}){
       onInput={()=>{if(!isComposing.current)emit();}}
       onPaste={e=>{
         e.preventDefault();
+        // 2026-11-07：画像だけを貼ったとき（スクショなど）は、置き場へ上げて本文に差し込む
+        const imgs=[...(e.clipboardData?.files||[])].filter(f=>/^image\//.test(f.type||""));
+        if(imgs.length&&!(e.clipboardData.getData("text/plain")||"").trim()){
+          const sel=window.getSelection();const at=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null;
+          const mark=document.createElement("span");mark.textContent="画像を置いています…";mark.style.color="#736a62";
+          if(at){at.deleteContents();at.insertNode(mark);}else editorRef.current?.appendChild(mark);
+          (async()=>{
+            let out="";
+            for(const f of imgs){try{const url=await uploadImage(f);out+=`<p><img src="${url}" alt="" style="max-width:100%;width:100%;border-radius:8px;display:block;margin-left:0;margin-right:auto;"/></p>`;}catch(err){out+=`<p>（画像を置けませんでした：${String(err.message||err).replace(/[<>&]/g,"")}）</p>`;}}
+            const tmp=document.createElement("div");tmp.innerHTML=out;
+            mark.replaceWith(...tmp.childNodes);emit();
+          })();
+          return;
+        }
         const html=buildPasteHtml(e.clipboardData);
         if(!html)return;
         document.execCommand("insertHTML",false,html);
@@ -198,27 +212,10 @@ export function InsertModal({onClose,savedRange,bodyRef}){
   // 保存先の名前はサーバーが決める。表示用の住所は返ってきた名前から作る（置き場は公開のまま）。
   const handleImage=async e=>{
     const file=e.target.files?.[0];if(!file)return;
-    setUpErr("");if(file.size>50*1024*1024){setUpErr("画像は 50MB 以下にしてください");return;}
-    setUploading(true);
+    setUpErr("");setUploading(true);
     try{
-      const user=auth.currentUser;
-      if(!user)throw new Error("ログイン状態を確認できませんでした。ページを再読み込みしてください");
-      const token=await user.getIdToken();
-      const res=await fetch(
-        `/api/storage/upload?bucket=${encodeURIComponent(STORAGE_BUCKET)}&name=${encodeURIComponent(file.name)}`,
-        {
-          method:"POST",
-          headers:{Authorization:`Bearer ${token}`,"Content-Type":file.type||"application/octet-stream"},
-          body:file,
-        },
-      );
-      const out=await res.json().catch(()=>({}));
-      if(!res.ok||!out?.path){
-        throw new Error([out?.message,out?.hint].filter(Boolean).join(" / ")||`保存できませんでした（${res.status}）`);
-      }
-      const{data:urlData}=supabase.storage.from(STORAGE_BUCKET).getPublicUrl(out.path);
-      if(!urlData?.publicUrl)throw new Error("公開URLの取得に失敗しました");
-      insertAt(`<p><img src="${urlData.publicUrl}" alt="${file.name}" style="${imgStyleStr}"/></p>`);
+      const url=await uploadImage(file); // 置き場へ上げる処理は lib/articleImages.js に 1 本（サムネ・貼り付けと共通）
+      insertAt(`<p><img src="${url}" alt="${file.name}" style="${imgStyleStr}"/></p>`);
       onClose();
     }catch(err){
       setUpErr("画像を上げられませんでした："+err.message);
