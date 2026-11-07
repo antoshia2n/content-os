@@ -7,8 +7,58 @@ import { useDialogFocus } from "../lib/useDialogFocus.js";
 // ════════════════════════════════════════════════════════
 // WYSIWYG
 // ════════════════════════════════════════════════════════
-export function BodyEditor({value,onChange,editorRef}){
+// 2026-11-07 Notion の形へ 便③：「/」で機能を呼ぶ一覧（slash が真のときだけ）と、文字を選んだときだけ出る書式の帯（bubble が真のときだけ）
+const SLASH_ITEMS=[
+  {k:"p",l:"本文",i:"Aa",g:"基本"},{k:"h1",l:"見出し",i:"H1",g:"基本"},{k:"h2",l:"小見出し",i:"H2",g:"基本"},
+  {k:"ul",l:"箇条書き",i:"•",g:"基本"},{k:"ol",l:"番号リスト",i:"1.",g:"基本"},{k:"quote",l:"引用",i:"❝",g:"基本"},{k:"hr",l:"区切り線",i:"—",g:"基本"},
+  {k:"thread",l:"スレッドの区切り",i:"𝕏",g:"コンテンツくん"},{k:"insert",l:"画像・リンク・埋め込みを挿入",i:"＋",g:"コンテンツくん"},
+];
+const runBlock=k=>{
+  const ex=(c,v)=>document.execCommand(c,false,v??null);
+  if(k==="p"||k==="h1"||k==="h2")ex("formatBlock",k);
+  else if(k==="quote")ex("formatBlock","blockquote");
+  else if(k==="ul")ex("insertUnorderedList");
+  else if(k==="ol")ex("insertOrderedList");
+  else if(k==="hr")ex("insertHorizontalRule");
+  else if(k==="thread")ex("insertHTML",'<hr class="thread-sep" data-thread="true"><p><br></p>');
+};
+export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,onInsertOpen}){
   const isComposing=useRef(false),internal=useRef(false);
+  const [sl,setSl]=useState(null); // {q, x, y, i}
+  const slRef=useRef(null);slRef.current=sl;
+  const [bb,setBb]=useState(null); // {x, y}
+  const slItems=sl?SLASH_ITEMS.filter(it=>!sl.q||it.l.includes(sl.q)):[];
+  // 「/」の後ろの言葉を、今カーソルのある文字の並びから読む（行の頭か空白のあとの「/」だけ）
+  const readSlash=()=>{
+    if(!slash)return;
+    const sel=window.getSelection();if(!sel||!sel.rangeCount||!sel.isCollapsed){setSl(null);return;}
+    const n=sel.anchorNode;if(!n||n.nodeType!==3||!editorRef.current?.contains(n)){setSl(null);return;}
+    const t=n.textContent.slice(0,sel.anchorOffset);const m=t.match(/(?:^|[\s　])[\/／]([^\s　\/／]{0,12})$/);
+    if(!m){setSl(null);return;}
+    const r=sel.getRangeAt(0).getBoundingClientRect();
+    setSl(o=>({q:m[1],x:r.left,y:r.bottom+6,i:o&&o.q===m[1]?o.i:0,node:n,end:sel.anchorOffset,start:sel.anchorOffset-m[1].length-1}));
+  };
+  const pickSlash=it=>{
+    const cur=slRef.current;if(!cur)return;
+    try{const r=document.createRange();r.setStart(cur.node,cur.start);r.setEnd(cur.node,cur.end);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);document.execCommand("delete");}catch{/* 消せなくても機能は動かす */}
+    setSl(null);
+    if(it.k==="insert"){onInsertOpen&&onInsertOpen();return;}
+    runBlock(it.k);emit();
+  };
+  useEffect(()=>{
+    if(!bubble)return;
+    const upd=()=>{
+      const sel=window.getSelection();
+      if(!sel||!sel.rangeCount||sel.isCollapsed||!editorRef.current?.contains(sel.anchorNode)){setBb(null);return;}
+      const r=sel.getRangeAt(0).getBoundingClientRect();if(!r.width){setBb(null);return;}
+      setBb({x:r.left+r.width/2,y:r.top-8});
+    };
+    // 画面の形が変わったとき（集中モード・スクロール・幅の変化）も、帯を選んだ文字の上へ置き直す
+    const later=()=>requestAnimationFrame(upd);
+    document.addEventListener("selectionchange",upd);window.addEventListener("resize",later);document.addEventListener("scroll",later,true);
+    const ro=typeof ResizeObserver!=="undefined"&&editorRef.current?new ResizeObserver(later):null;if(ro)ro.observe(editorRef.current);
+    return()=>{document.removeEventListener("selectionchange",upd);window.removeEventListener("resize",later);document.removeEventListener("scroll",later,true);if(ro)ro.disconnect();};
+  },[bubble]);
   useEffect(()=>{
     if(!editorRef.current||internal.current){internal.current=false;return;}
     if(editorRef.current.innerHTML!==(value||""))editorRef.current.innerHTML=value||"";
@@ -22,6 +72,12 @@ export function BodyEditor({value,onChange,editorRef}){
 
   const handleKeyDown=e=>{
     if(e.isComposing||isComposing.current)return;
+    // 「/」の一覧が開いている間は、↑↓ で選ぶ・Enter で入れる・Esc で閉じる
+    if(slRef.current&&slItems.length){
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();const d=e.key==="ArrowDown"?1:-1;setSl(o=>({...o,i:(o.i+d+slItems.length)%slItems.length}));return;}
+      if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();pickSlash(slItems[Math.min(slRef.current.i,slItems.length-1)]);return;}
+      if(e.key==="Escape"){e.preventDefault();e.stopPropagation();setSl(null);return;}
+    }
 
     // Tab: 箇条書きのインデント／アウトデント
     if(e.key==="Tab"){
@@ -61,12 +117,28 @@ export function BodyEditor({value,onChange,editorRef}){
     emit();
   };
 
-  return(
+  const bbBtn=(l,fn,t)=><button key={l} title={t||l} aria-label={t||l} onMouseDown={e=>{e.preventDefault();fn();emit();}} style={{border:"none",background:"none",color:"#fff",fontSize:12.5,fontWeight:700,padding:"5px 9px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",minHeight:28}}>{l}</button>;
+  const ex=(c,v)=>document.execCommand(c,false,v??null);
+  return(<>
+    {sl&&slItems.length>0&&<div role="listbox" aria-label="入れるもの" style={{position:"fixed",left:Math.min(sl.x,window.innerWidth-290),top:Math.min(sl.y,window.innerHeight-330),zIndex:400,width:270,maxHeight:320,overflowY:"auto",background:"#fff",border:"1px solid #e6dfd6",borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,.14)",padding:5}}>
+      {slItems.map((it,j)=><React.Fragment key={it.k}>
+        {(j===0||slItems[j-1].g!==it.g)&&<div style={{fontSize:12,fontWeight:700,color:"#736a62",padding:"6px 8px 2px"}}>{it.g}</div>}
+        <button role="option" aria-selected={j===sl.i} onMouseDown={e=>{e.preventDefault();pickSlash(it);}} onMouseEnter={()=>setSl(o=>({...o,i:j}))}
+          style={{display:"flex",alignItems:"center",gap:10,width:"100%",border:"none",background:j===sl.i?"#f7f3ee":"none",borderRadius:7,padding:"5px 8px",fontSize:13,textAlign:"left",cursor:"pointer",fontFamily:"inherit",color:"#1a1a1a"}}>
+          <span style={{width:26,height:26,border:"1px solid #e6dfd6",borderRadius:6,display:"grid",placeItems:"center",fontSize:12,fontWeight:700,color:"#6b6259",background:"#fff",flexShrink:0}}>{it.i}</span>{it.l}</button>
+      </React.Fragment>)}
+    </div>}
+    {bb&&<div role="toolbar" aria-label="書式" style={{position:"fixed",left:Math.max(8,bb.x-170),top:Math.max(8,bb.y-40),zIndex:400,display:"flex",gap:1,background:"#1a1a1a",borderRadius:9,padding:3,boxShadow:"0 6px 18px rgba(0,0,0,.2)"}}>
+      {bbBtn(<strong>B</strong>,()=>ex("bold"),"太字")}{bbBtn(<em>I</em>,()=>ex("italic"),"斜体")}{bbBtn(<s>S</s>,()=>ex("strikeThrough"),"取り消し線")}
+      {bbBtn("見出し",()=>ex("formatBlock","h1"))}{bbBtn("引用",()=>ex("formatBlock","blockquote"))}
+      {bbBtn("リンク",()=>{const u=prompt("URL:");if(u)ex("createLink",u);})}{bbBtn("✕ 書式",()=>ex("removeFormat"),"書式クリア")}
+    </div>}
     <div ref={editorRef} contentEditable suppressContentEditableWarning
       className="xb" data-ph="本文を入力…"
       onCompositionStart={()=>{isComposing.current=true;}}
-      onCompositionEnd={()=>{isComposing.current=false;emit();}}
-      onInput={()=>{if(!isComposing.current)emit();}}
+      onCompositionEnd={()=>{isComposing.current=false;emit();readSlash();}}
+      onInput={()=>{if(!isComposing.current){emit();readSlash();}}}
+      onBlur={()=>setTimeout(()=>setSl(null),120)}
       onPaste={e=>{
         e.preventDefault();
         // 2026-11-07：画像だけを貼ったとき（スクショなど）は、置き場へ上げて本文に差し込む
@@ -91,7 +163,7 @@ export function BodyEditor({value,onChange,editorRef}){
       onKeyDown={handleKeyDown}
       style={{minHeight:360,fontSize:17,lineHeight:1.75,color:"#0f1419",fontFamily:XFONT,wordBreak:"break-word",caretColor:"#1d9bf0",outline:"none"}}
     />
-  );
+  </>);
 }
 
 // ── ツールバー用ボタン（Toolbar外で定義することで毎レンダー再生成を防ぐ） ──

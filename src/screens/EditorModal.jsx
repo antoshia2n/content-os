@@ -117,6 +117,13 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":compact?null:"set");
   const [sideW,setSideW]=useState(340);
   const [cmt,setCmt]=useState("");
+  // 2026-11-07 便③：集中モード。右の機能とヘッダーの飾りを隠し、紙だけにする（⌘. / Ctrl+. で出し入れ）
+  const [focusOn,setFocusOn]=useState(false);
+  useEffect(()=>{
+    if(compact)return;
+    const k=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="."){e.preventDefault();setFocusOn(v=>!v);}};
+    document.addEventListener("keydown",k);return()=>document.removeEventListener("keydown",k);
+  },[compact]);
   const dragging=useRef(false);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null),titleRef=useRef(null);
 
@@ -282,7 +289,9 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     }
   };
 
-  const pt=getPostTypeStyle(draft.postType);
+  // 2026-11-07 便③：種類の名前は、このアカウントの種類の一覧から引く（足した種類が「その他」と出ていた）
+  const pt=getPostTypeStyle(draft.postType,postTypes);
+  const ptKnown=Object.prototype.hasOwnProperty.call(postTypes,draft.postType);
   const st=STATUS[draft.status];
   // 2026-11-07 便②：サムネとラベルは、広い画面では右の「設定」、細い画面（パネル）では今までどおり「メモ」に出す
   const thumbBlock=(
@@ -357,10 +366,11 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
         {/* ヘッダー（広い幅）：2026-11-07 便②。左に「戻る」、右に「型・…・保存」だけ。投稿の属性は右の「設定」へ移した */}
         {!compact&&<div style={{...S.row,padding:"6px 12px",borderBottom:BD2,background:"#fff",minHeight:52,gap:6,flexShrink:0}}>
           <button className="em-btn" onClick={close} title="閉じる（Esc）">← 戻る</button>
-          <span style={{fontSize:12,color:"#736a62",fontWeight:600,marginLeft:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post._unsaved?"新しい投稿":`${pt.label}・${st?.label||""}`}</span>
+          <span style={{fontSize:12,color:"#736a62",fontWeight:600,marginLeft:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post._unsaved?"新しい投稿":`${ptKnown?pt.label:(draft.postType||"種類なし")}・${st?.label||""}`}</span>
           <div style={{flex:1}}/>
-          <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
-          <MoreMenu items={[
+          <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
+          {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
+          {!focusOn&&<MoreMenu items={[
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
               :{label:"X記事用にコピー（画像の位置に目印）",onClick:()=>doCopy("note","mark"),close:true}]:[]),
@@ -371,7 +381,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             ...(!post._unsaved&&onDuplicate?[{label:"複製（翌日の同じ時刻）",onClick:()=>onDuplicate({...post,...draft}),close:true}]:[]),
             ...(!post._unsaved&&onRepost?[{label:"再投稿",onClick:()=>{close();onRepost({...post,...draft});},close:true}]:[]),
             ...(!post._unsaved&&onDelete?[{label:"削除（あとで元に戻せる）",onClick:()=>{close();onDelete(post);},close:true}]:[]),
-          ]}/>
+          ]}/>}
           <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
         </div>}
         <style>{`
@@ -404,13 +414,15 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
         <div style={{flex:1,display:"flex",overflow:"hidden"}}>
           {/* 記事エリア */}
           <div onFocusCapture={()=>setLastSide("body")} style={{flex:1,display:compact&&sidePanel?"none":"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
-            {compact?<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>:<Toolbar onInsertOpen={openInsert}/>}
+            {/* 2026-11-07 便③：広い画面は書式の帯を常には出さない（「/」と、文字を選んだときの帯で呼ぶ）。細い画面は今までどおり */}
+            {compact&&<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>}
             <div style={{flex:1,overflowY:"auto"}}>
-              <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px"}}>
+              <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px",...(focusOn&&!compact?{maxWidth:760,margin:"0 auto",paddingTop:56}:{})}}>
                 <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
                   style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
-                <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef}/>
+                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-8px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯が出る　⌘.（Ctrl+.）で集中モード</div>}
+                <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef} slash={!compact} bubble={!compact} onInsertOpen={openInsert}/>
               </div>
             </div>
             <div style={{padding:"4px 50px",borderTop:BD2,background:"#f5f0eb",fontSize:"max(12px,0.67em)",color:"#736a62",flexShrink:0}}>
@@ -419,7 +431,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           </div>
 
           {/* サイドパネル展開 */}
-          {sidePanel&&(
+          {sidePanel&&!(focusOn&&!compact)&&(
             <>
               {!compact&&<div onMouseDown={startResize}
                 style={{width:4,cursor:"col-resize",background:"transparent",flexShrink:0,transition:"background .15s"}}
@@ -453,6 +465,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                     <div style={{display:"grid",gridTemplateColumns:"64px minmax(0,1fr)",gap:"8px 10px",alignItems:"center"}}>
                       <span style={lab}>種類</span>
                       <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))} style={{...fld,color:pt.color,fontWeight:700}}>
+                        {!ptKnown&&<option value={draft.postType}>{draft.postType||"種類なし"}（一覧に無い種類）</option>}
                         {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                       </select>
                       <span style={lab}>状態</span>
