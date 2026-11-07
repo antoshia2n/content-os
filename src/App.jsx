@@ -68,7 +68,7 @@ function mergePostTypes(acc){
 // 2026-10-05：空のまま閉じたネタ（状態 idea で、題名・メモ・本文・メモのリンク・MM がすべて空）を見分ける。
 // 本文は入れ物のタグや空白だけでも空とみなす
 // 保存したあとは「未保存」の印を外す（保存後のプレビューが未保存の表示にならないため）
-function markSaved(p){const {_unsaved,...rest}=p;return rest;}
+function markSaved(p){const {_unsaved,_viaPreview,_untouched,...rest}=p;return rest;}
 // 題名・メモ・本文・メモのリンク・MM のどれかに中身があるか（本文はタグや空白だけなら中身なし）
 function hasContent(p){
   if(!p)return false;
@@ -318,7 +318,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
   // 2026-11-07 便②：プレビューを開こうとした所（カレンダーの投稿・保存のあとなど）は、そのままエディタを開く
-  useEffect(()=>{if(preview&&!panel){setEditing({...preview});setPreview(null);}},[preview,panel]);
+  useEffect(()=>{if(preview&&!panel){setEditing(preview._unsaved?{...preview,_viaPreview:true}:{...preview});setPreview(null);}},[preview,panel]);
   // 2026-11-03 便 C：投稿を消す。確かめの窓をやめ、画面からすぐ外して「元に戻す」を出す（7 秒後に本当に消す）
   const deleteWithUndo=React.useCallback(p=>{
     if(!p)return;removePost(p.id);setPreview(x=>x&&x.id===p.id?null:x);setEditing(x=>x&&x.id===p.id?null:x);
@@ -457,7 +457,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     if(!cur?.id)return;
     if(cur._unsaved){
       const d=latest&&latest.id===cur.id?latest:cur;
-      if(!hasContent(d)){
+      if(!hasContent(d)||d._untouched){
         // 裏の保存で一度表に入ったあと中身を消して閉じた場合は、その行も消す
         const stored=Object.values(allPosts).flat().find(x=>x.id===cur.id);
         if(stored){const {error}=await dbDeletePost(cur.id);if(!error)removePost(cur.id);}

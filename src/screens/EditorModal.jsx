@@ -57,6 +57,11 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
+  // 2026-11-07 直し：予約枠などから開いた、まだ表に無い投稿（_viaPreview）は、何か書き換えるまで裏で保存しない。
+  // 書き換えずに閉じたら表に作らない（前のプレビューの窓と同じ。窓では「編集して作成」を押すまで作らなかった）
+  const keyOf=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb]);
+  const initKey=useRef(keyOf(draft));
+  const untouched=()=>!!post._viaPreview&&keyOf(draftRef.current)===initKey.current;
   const onCloseRef=useRef(onClose);onCloseRef.current=onClose;
   // 2026-10-06：既にある投稿の書きかけを、表ではなくこの端末の中に一時保存する（パネルやタブごと閉じても失わないため）。
   // 本番の投稿は勝手に変えない。次に開いたとき「戻す／捨てる」を選んでもらう
@@ -92,20 +97,20 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",writeLocal);};
   },[]);
   // 閉じる操作で閉じたときは、保存しない選択として書きかけも捨てる（戻すか選んでいない書きかけは残す）
-  const close=()=>{if(!restoreRef.current)dropLocal();onCloseRef.current(draftRef.current);};
+  const close=()=>{if(!restoreRef.current)dropLocal();onCloseRef.current(untouched()?{...draftRef.current,_untouched:true}:draftRef.current);};
   // まだ表に無い新しいネタだけ、書いた中身を 0.8 秒ごとに裏で保存する（パネルやタブごと閉じても残すため）。
   // 画面が隠れたとき（パネルを閉じる・タブを切り替える）は待たずにすぐ保存する
   // Notion へ送ったあとは、コンテンツくんへの裏の保存を止める（送ったメモを表に残さないため）
   const sentRef=useRef(false);
   useEffect(()=>{
     if(!post._unsaved||!onAutoSave)return;
-    const t=setTimeout(()=>{if(!sentRef.current)onAutoSave(draftRef.current);},800);
+    const t=setTimeout(()=>{if(!sentRef.current&&!untouched())onAutoSave(draftRef.current);},800);
     return()=>clearTimeout(t);
   },[draft]);
   useEffect(()=>{
     if(!post._unsaved||!onAutoSave)return;
-    const flush=()=>{if(document.visibilityState==="hidden"&&!sentRef.current)onAutoSave(draftRef.current);};
-    const hide=()=>{if(!sentRef.current)onAutoSave(draftRef.current);};
+    const flush=()=>{if(document.visibilityState==="hidden"&&!sentRef.current&&!untouched())onAutoSave(draftRef.current);};
+    const hide=()=>{if(!sentRef.current&&!untouched())onAutoSave(draftRef.current);};
     document.addEventListener("visibilitychange",flush);window.addEventListener("pagehide",hide);
     return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",hide);};
   },[]);
