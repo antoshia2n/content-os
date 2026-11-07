@@ -317,7 +317,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
-  // 2026-11-07 便②：プレビューを開こうとした所（カレンダーの投稿・保存のあとなど）は、そのままエディタを開く
+  // 2026-11-07 便②：プレビューを開こうとした所（カレンダーの投稿・予約枠など）は、そのままエディタを開く。まだ表に無いものは _viaPreview を付け、書き換えるまで作らない
   useEffect(()=>{if(preview&&!panel){setEditing(preview._unsaved?{...preview,_viaPreview:true}:{...preview});setPreview(null);}},[preview,panel]);
   // 2026-11-03 便 C：投稿を消す。確かめの窓をやめ、画面からすぐ外して「元に戻す」を出す（7 秒後に本当に消す）
   const deleteWithUndo=React.useCallback(p=>{
