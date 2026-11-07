@@ -201,7 +201,7 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 export const CK_PHONE_CSS = `
 /* スマホ対応（2026-10-29 先行の 3 人がスマホだけで迷わず使う・app-design-rules 5b・X攻略くんと同じ直し方）
    読む：字は 12px 以上、書く欄は 16px（iPhone が勝手に拡大しない）／押す：44px 以上／
-   崩れない：上の帯は画面の幅に収める・ネタ帳とアウトプットと振り返りの表は 1 件 1 枚のカード（各欄の名前は App.jsx の phoneTables が付ける） */
+   崩れない：上の帯は画面の幅に収める・ネタとアウトプットと積み上げの表は 1 件 1 枚のカード（各欄の名前は App.jsx の phoneTables が付ける） */
 @media (max-width:640px){
   .ck-accpop .h,.ck-accpop button small,.ck-bft,.ck-calf .ck-chip-f,.ck-col-hint,.ck-colh .n,.ck-colh .w,.ck-hm .n,.ck-im,.ck-kbd,.ck-keys,.ck-mini,.ck-mrow>span,.ck-mv .ck-table .faint,.ck-mvh .sub,.ck-mvn,.ck-mvs,.ck-mvt,.ck-nav-foot,.ck-nh,.ck-nv .n,.ck-score,.ck-snip,.ck-src,.ck-tab .n,.ck-table th,.ck-type{font-size:12px}
   .ck [style*="font-size: 9px"],.ck [style*="font-size: 9.5px"],.ck [style*="font-size: 10px"],.ck [style*="font-size: 10.5px"],.ck [style*="font-size: 11px"],.ck [style*="font-size: 11.5px"]{font-size:12px!important}
@@ -338,7 +338,7 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
 
 // ── ネタ帳とアウトプットの画面 ────────────────────────────
 export function StockView({ mode, uid, owner = false, onClearSamples, accountId, posts, postTypes, slots, today, readOnly,
-  onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff }) {
+  onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff, onMode }) {
   const keyBase = `contentos.stock.${accountId}`;
   const [loc, setLocRaw] = useState(() => store.get(`${keyBase}.${mode}`, mode === "idea" ? "inbox" : "week"));
   const setLoc = l => { setLocRaw(l); store.set(`${keyBase}.${mode}`, l); setFSt(null); setQ(""); if (window.innerWidth <= 860) setNavOn(false); };
@@ -403,55 +403,62 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const addGenre = async name => { const n = name.trim(); setAddingGenre(false); if (!n || genreNames.includes(n)) return; try { const g = await dbAddSheetGenre(uid, n, genres.length); setGenres(x => [...x, g]); setLoc(`it:${loc.split(":")[1]}:${n}`); } catch (e) { showToast("表を足せませんでした：" + (e.message || e)); } };
 
   // ── 左のメニュー ──
+  // 2026-11-07 Notion の形へ 便 ①（Naoki OK 22:40）：ネタとアウトプットの左の一覧を 1 本にまとめた。
+  // 今いない側の行を押すと、その側の場所を覚えてから onMode で切り替える（表の中身の作り方は今までどおり mode ごと）
   const typeKeys = Object.keys(postTypes);
   let nav, rows = [], crumb = "", title = "", note = "", tabs = null;
   const [wFrom, wTo] = weekRange(today);
-  if (mode === "idea") {
-    const live = ideas.filter(p => p.genre && stageOf(p) !== "sleep");
-    const shownTypes = typeKeys.filter(t => t === "x_article" || t === "x_post" || live.some(p => (p.postType || "x_post") === t));
-    const dropTo = (genre, type) => ({ onDragOver: e => e.preventDefault(), onDrop: e => { e.preventDefault(); const p = posts.find(x => String(x.id) === e.dataTransfer.getData("text/ck")); if (p) patch(p, { genre, postType: type, labels: (p.labels || []).filter(l => l !== SLEEP) }, `「${genre}」へ入れました`); } });
+  const lcOf = m => m === mode ? loc : "";
+  const goTo = (m, l) => { if (m === mode) setLoc(l); else { store.set(`${keyBase}.${m}`, l); if (window.innerWidth <= 860) setNavOn(false); onMode && onMode(m); } };
+  // ネタ側の材料
+  const live = ideas.filter(p => p.genre && stageOf(p) !== "sleep");
+  const iTypes = typeKeys.filter(t => t === "x_article" || t === "x_post" || live.some(p => (p.postType || "x_post") === t));
+  const dropTo = (genre, type) => ({ onDragOver: e => e.preventDefault(), onDrop: e => { e.preventDefault(); const p = posts.find(x => String(x.id) === e.dataTransfer.getData("text/ck")); if (p) patch(p, { genre, postType: type, labels: (p.labels || []).filter(l => l !== SLEEP) }, `「${genre}」へ入れました`); } });
+  // アウトプット側の材料
+  const byType = t => outs.filter(p => (p.postType || "x_post") === t);
+  const oTypes = typeKeys.filter(t => byType(t).length || t === "x_article" || t === "x_post");
+  const weekRows = outs.filter(p => p.datetime && p.datetime.slice(0, 10) >= wFrom && p.datetime.slice(0, 10) <= wTo && !["reserved", "published"].includes(p.status));
+  const drafts = outs.filter(p => p.status === "draft");
+  {
+    const il = lcOf("idea"), ol = lcOf("out");
     nav = <>
-      <Nv on={loc === "inbox"} icon={I.inbox} label="受け箱" n={inbox.length} cls="warn" onClick={() => setLoc("inbox")} />
-      <div className="ck-nh">フォルダ</div>
-      {shownTypes.map(t => { const inT = live.filter(p => (p.postType || "x_post") === t); return <React.Fragment key={t}>
-        <Nv on={loc === `if:${t}`} icon={I.folder} label={postTypes[t].label} n={inT.length} onClick={() => setLoc(`if:${t}`)} />
-        {genreNames.filter(g => inT.some(p => p.genre === g) || loc === `it:${t}:${g}`).map(g => <Nv key={g} cls="d1" on={loc === `it:${t}:${g}`} icon={I.table} label={g} n={inT.filter(p => p.genre === g).length} onClick={() => setLoc(`it:${t}:${g}`)} {...dropTo(g, t)} />)}
+      <div className="ck-nh">ネタ</div>
+      <Nv on={il === "inbox"} icon={I.inbox} label="受け箱" n={inbox.length} cls="warn" onClick={() => goTo("idea", "inbox")} />
+      {iTypes.map(t => { const inT = live.filter(p => (p.postType || "x_post") === t); return <React.Fragment key={t}>
+        <Nv on={il === `if:${t}`} icon={I.folder} label={postTypes[t].label} n={inT.length} onClick={() => goTo("idea", `if:${t}`)} />
+        {genreNames.filter(g => inT.some(p => p.genre === g) || il === `it:${t}:${g}`).map(g => <Nv key={g} cls="d1" on={il === `it:${t}:${g}`} icon={I.table} label={g} n={inT.filter(p => p.genre === g).length} onClick={() => goTo("idea", `it:${t}:${g}`)} {...dropTo(g, t)} />)}
       </React.Fragment>; })}
+      <div className="ck-nh">アウトプット</div>
+      <Nv on={ol === "week"} icon={I.week} label="今週書くもの" n={weekRows.length} onClick={() => goTo("out", "week")} />
+      <Nv on={ol === "draft"} icon={I.pen} label="書きかけ" n={drafts.length} cls={drafts.length > 3 ? "warn" : ""} onClick={() => goTo("out", "draft")} />
+      {oTypes.map(t => {
+        const ps = byType(t);
+        const years = [...new Set(ps.filter(p => p.datetime).map(p => p.datetime.slice(0, 4)))].sort().reverse();
+        const nodate = ps.filter(p => !p.datetime);
+        const curYear = (ol.startsWith(`ot:${t}:`) && ol.split(":")[2]) || "";
+        return <React.Fragment key={t}>
+          <Nv on={ol === `of:${t}`} icon={I.folder} label={postTypes[t].label} n={ps.length} onClick={() => goTo("out", `of:${t}`)} />
+          {years.map(y => { const inY = ps.filter(p => p.datetime?.startsWith(y)); const months = [...new Set(inY.map(p => p.datetime.slice(5, 7)))].sort().reverse(); const open = curYear.startsWith(y) || y === today.slice(0, 4); return <React.Fragment key={y}>
+            <Nv cls="d1" on={false} icon={I.folder} label={`${y.slice(2)}年`} n={inY.length} onClick={() => goTo("out", `ot:${t}:${y}-${months[0]}`)} />
+            {open && months.map(m => <Nv key={m} cls="d2" on={ol === `ot:${t}:${y}-${m}`} icon={I.table} label={`${+m}月`} n={inY.filter(p => p.datetime.slice(5, 7) === m).length} onClick={() => goTo("out", `ot:${t}:${y}-${m}`)} />)}
+          </React.Fragment>; })}
+          {nodate.length > 0 && <Nv cls="d1" on={ol === `ot:${t}:none`} icon={I.table} label="日時なし" n={nodate.length} onClick={() => goTo("out", `ot:${t}:none`)} />}
+        </React.Fragment>;
+      })}
       <div className="ck-nh">しまったもの</div>
-      <Nv on={loc === "sleep"} icon={I.moon} label="寝かせ中" n={ideas.filter(p => stageOf(p) === "sleep").length} onClick={() => setLoc("sleep")} />
+      <Nv on={il === "sleep"} icon={I.moon} label="寝かせ中" n={ideas.filter(p => stageOf(p) === "sleep").length} onClick={() => goTo("idea", "sleep")} />
     </>;
-    if (loc === "sleep") { rows = ideas.filter(p => stageOf(p) === "sleep"); crumb = "ネタ帳"; title = "寝かせ中"; note = "今は書かないが捨てたくないもの。時期が来たら「起こす」。"; }
-    else if (loc.startsWith("if:")) { const t = loc.slice(3); rows = live.filter(p => (p.postType || "x_post") === t); crumb = "ネタ帳"; title = postTypes[t]?.label || t; }
+  }
+  if (mode === "idea") {
+    if (loc === "sleep") { rows = ideas.filter(p => stageOf(p) === "sleep"); crumb = "ネタ"; title = "寝かせ中"; note = "今は書かないが捨てたくないもの。時期が来たら「起こす」。"; }
+    else if (loc.startsWith("if:")) { const t = loc.slice(3); rows = live.filter(p => (p.postType || "x_post") === t); crumb = "ネタ"; title = postTypes[t]?.label || t; }
     else if (loc.startsWith("it:")) {
-      const [, t, g] = loc.split(":"); rows = live.filter(p => (p.postType || "x_post") === t && p.genre === g); crumb = `ネタ帳 › ${postTypes[t]?.label || t}`; title = g;
+      const [, t, g] = loc.split(":"); rows = live.filter(p => (p.postType || "x_post") === t && p.genre === g); crumb = `ネタ › ${postTypes[t]?.label || t}`; title = g;
       tabs = <div className="ck-tabs">{genreNames.map(x => <button key={x} className={`ck-tab ${x === g ? "on" : ""}`} onClick={() => setLoc(`it:${t}:${x}`)}>{x}<span className="n">{live.filter(p => (p.postType || "x_post") === t && p.genre === x).length}</span></button>)}
         {addingGenre ? <span className="ck-tabadd"><input autoFocus placeholder="表の名前（ジャンル）" onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) addGenre(e.currentTarget.value); if (e.key === "Escape") setAddingGenre(false); }} onBlur={e => addGenre(e.currentTarget.value)} /></span>
           : !readOnly && <button className="ck-tab add" onClick={() => setAddingGenre(true)}>＋ 表</button>}</div>;
     }
   } else {
-    const byType = t => outs.filter(p => (p.postType || "x_post") === t);
-    const shownTypes = typeKeys.filter(t => byType(t).length || t === "x_article" || t === "x_post");
-    const weekRows = outs.filter(p => p.datetime && p.datetime.slice(0, 10) >= wFrom && p.datetime.slice(0, 10) <= wTo && !["reserved", "published"].includes(p.status));
-    const drafts = outs.filter(p => p.status === "draft");
-    nav = <>
-      <Nv on={loc === "week"} icon={I.week} label="今週書くもの" n={weekRows.length} onClick={() => setLoc("week")} />
-      <Nv on={loc === "draft"} icon={I.pen} label="書きかけ" n={drafts.length} cls={drafts.length > 3 ? "warn" : ""} onClick={() => setLoc("draft")} />
-      <div className="ck-nh">フォルダ</div>
-      {shownTypes.map(t => {
-        const ps = byType(t);
-        const years = [...new Set(ps.filter(p => p.datetime).map(p => p.datetime.slice(0, 4)))].sort().reverse();
-        const nodate = ps.filter(p => !p.datetime);
-        const curYear = (loc.startsWith(`ot:${t}:`) && loc.split(":")[2]) || "";
-        return <React.Fragment key={t}>
-          <Nv on={loc === `of:${t}`} icon={I.folder} label={postTypes[t].label} n={ps.length} onClick={() => setLoc(`of:${t}`)} />
-          {years.map(y => { const inY = ps.filter(p => p.datetime?.startsWith(y)); const months = [...new Set(inY.map(p => p.datetime.slice(5, 7)))].sort().reverse(); const open = curYear.startsWith(y) || y === today.slice(0, 4); return <React.Fragment key={y}>
-            <Nv cls="d1" on={false} icon={I.folder} label={`${y.slice(2)}年`} n={inY.length} onClick={() => setLoc(`ot:${t}:${y}-${months[0]}`)} />
-            {open && months.map(m => <Nv key={m} cls="d2" on={loc === `ot:${t}:${y}-${m}`} icon={I.table} label={`${+m}月`} n={inY.filter(p => p.datetime.slice(5, 7) === m).length} onClick={() => setLoc(`ot:${t}:${y}-${m}`)} />)}
-          </React.Fragment>; })}
-          {nodate.length > 0 && <Nv cls="d1" on={loc === `ot:${t}:none`} icon={I.table} label="日時なし" n={nodate.length} onClick={() => setLoc(`ot:${t}:none`)} />}
-        </React.Fragment>;
-      })}
-    </>;
     if (loc === "week") { rows = weekRows; crumb = "アウトプット"; title = "今週書くもの"; note = `${wFrom.slice(5).replace("-", "/")}〜${wTo.slice(5).replace("-", "/")} に予定があり、まだ予約まで進んでいないもの。`; }
     else if (loc === "draft") { rows = drafts; crumb = "アウトプット"; title = "書きかけ"; note = drafts.length > 3 ? "書きかけが 4 本を超えている。新しく始めるより、仕上げるほうへ。" : ""; }
     else if (loc.startsWith("of:")) { const t = loc.slice(3); rows = byType(t); crumb = "アウトプット"; title = postTypes[t]?.label || t; }
@@ -501,7 +508,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   let body;
   if (mode === "idea" && loc === "inbox") {
     body = <>
-      <div className="ck-crumb">ネタ帳</div><h1 className="ck-title">受け箱</h1>
+      <div className="ck-crumb">ネタ</div><h1 className="ck-title">受け箱</h1>
       {!readOnly && onClearSamples && posts.some(isSample) && <div className="ck-cap" style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", borderStyle: "dashed" }}>
         <span style={{ fontSize: 13, lineHeight: 1.6, flex: "1 1 220px" }}><b>「例」の札が付いたものは見本です。</b>触ってみて、要らなくなったら消してください（ネタ・下書き・予約済み・型）。</span>
         <button className="ck-ghost" onClick={onClearSamples}>例をまとめて消す</button></div>}
@@ -583,7 +590,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               <td><Srcs p={p} /></td><td><Score s={p.score} /></td>
               <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td>
             </tr>)}
-          {!shown.length && <tr><td colSpan={8} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。ネタ帳の「アウトプットにする」から入る"}</td></tr>}
+          {!shown.length && <tr><td colSpan={8} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}
         </tbody></table></div></div>}
     </>;
   }
