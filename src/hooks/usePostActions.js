@@ -98,8 +98,8 @@ export function usePostActions({
   const save = useCallback(async (p) => {
     const ok = await saveToDb(p);
     if (!ok) return;
-    setEditing(null);
-    setPreview(p);
+    // 2026-11-07 便②：保存してもエディタは閉じない（プレビューの窓をなくしたため）。閉じるのは「← 戻る」
+    setEditing(x => x && x.id === p.id ? { ...p } : x);
     showToast("保存しました");
   }, [saveToDb, showToast, setEditing, setPreview]);
 

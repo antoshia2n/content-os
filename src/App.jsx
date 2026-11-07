@@ -35,7 +35,6 @@ const EditorModal        =lazyNamed(loadEditor,"EditorModal");
 const SheetView          =lazyNamed(()=>import("./screens/SheetView.jsx"),"SheetView");
 const DiagPanel          =lazyNamed(()=>import("./screens/DiagPanel.jsx"),"DiagPanel");
 const TemplatesModal     =lazyNamed(()=>import("./screens/TemplatesModal.jsx"),"TemplatesModal");
-const PreviewOverlay     =lazyNamed(()=>import("./screens/PreviewOverlay.jsx"),"PreviewOverlay");
 const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),"AccountSettings");
 const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
@@ -318,6 +317,8 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   useEffect(()=>{ if(!panel&&isAdmin&&isAllAccounts&&defaultAcc?.id)setActiveAccId(defaultAcc.id); },[panel,isAdmin,isAllAccounts,defaultAcc,setActiveAccId]);
   // 表の行から開くときは、今の編集画面をそのまま開く
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
+  // 2026-11-07 便②：プレビューを開こうとした所（カレンダーの投稿・保存のあとなど）は、そのままエディタを開く
+  useEffect(()=>{if(preview&&!panel){setEditing({...preview});setPreview(null);}},[preview,panel]);
   // 2026-11-03 便 C：投稿を消す。確かめの窓をやめ、画面からすぐ外して「元に戻す」を出す（7 秒後に本当に消す）
   const deleteWithUndo=React.useCallback(p=>{
     if(!p)return;removePost(p.id);setPreview(x=>x&&x.id===p.id?null:x);setEditing(x=>x&&x.id===p.id?null:x);
@@ -676,7 +677,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
-          <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)} title="探す・足す（⌘K）" aria-label="探す・足す（⌘K）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span className="ql">探す・足す</span><span className="ck-kbd">⌘K</span></button>
+          <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)} title="検索・追加（⌘K）" aria-label="検索・追加（⌘K）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span className="ql">検索・追加</span><span className="ck-kbd">⌘K</span></button>
           {!isClient&&<button data-tour="today" style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
             <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>{dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
           <button className="ck-new" onClick={()=>openNew()}>＋ 新規</button>
@@ -992,39 +993,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       )}
 
       {/* ── モーダル群 ── */}
-      {preview&&!panel&&<PreviewOverlay post={preview} onClose={()=>setPreview(null)}
-        onEdit={async p=>{
-          setPreview(null);
-          if(p._unsaved){
-            const {_unsaved,...postToSave}=p;
-            const title=postToSave.title||"";
-            const memo=postToSave.memo||"";
-            const clean={...postToSave,title,memo};
-            await saveToDb(clean);
-            setEditing({...clean});
-          } else {
-            setEditing({...p});
-          }
-        }}
-        onSaveNew={async p=>{
-          const {_unsaved,...postToSave}=p;
-          const clean={...postToSave,title:postToSave.title||"",memo:postToSave.memo||""};
-          await saveToDb(clean);
-          setPreview({...clean});
-          showToast("保存しました");
-        }}
-        onRepost={p=>{setPreview(null);setRepostTgt(p);}}
-        onDuplicate={handleDuplicate}
-        onDelete={deleteWithUndo}
-        onSaveComment={saveComment}
-        onChangeStatus={changeStatus}
-        onSaveMeta={saveMeta}
-        onChangePostType={changePostType}
-        allLabels={allLabels}
-        allPostTypes={allPostTypes}
-        onAddPostType={addCustomPostType}/> }
+      {/* 2026-11-07 Notion の形へ 便②：プレビューの窓はなくした。開くときは下の決まりで、いつもエディタへ直接入る */}
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);}):(p=>save(markSaved(p)))} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:deleteWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
 

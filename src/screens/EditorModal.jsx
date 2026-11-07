@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { POST_TYPE, getPostTypeStyle, STATUS, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
 import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText } from "../components/editor.jsx";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
@@ -53,7 +53,7 @@ function MoreMenu({items}){
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion,owner=false}){
+export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion,owner=false,onDuplicate,onRepost,onDelete}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 閉じるときは書きかけの中身も渡す（まだ表に無いネタを、中身があれば残すため）。Esc でも最新を渡すよう ref で持つ
   const draftRef=useRef(draft);draftRef.current=draft;
@@ -113,8 +113,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [localState,setLocalState]=useState("idle");   // idle | done | error
   const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
-  const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":null);
-  const [sideW,setSideW]=useState(248);
+  // 2026-11-07 Notion の形へ 便②：広い画面は右の機能をいつも出す（左で書く・右に機能）。最初のタブはネタならメモ、ほかは設定
+  const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":compact?null:"set");
+  const [sideW,setSideW]=useState(340);
+  const [cmt,setCmt]=useState("");
   const dragging=useRef(false);
   const bodyEditorRef=useRef(null),articleAreaRef=useRef(null),titleRef=useRef(null);
 
@@ -282,6 +284,34 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
 
   const pt=getPostTypeStyle(draft.postType);
   const st=STATUS[draft.status];
+  // 2026-11-07 便②：サムネとラベルは、広い画面では右の「設定」、細い画面（パネル）では今までどおり「メモ」に出す
+  const thumbBlock=(
+                    <div>
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>サムネ</label>
+                      {!hasThumbCol()?<div style={{fontSize:12,color:"#736a62"}}>サムネは準備中です</div>:(<>
+                        <input ref={thumbRef} type="file" accept="image/*" style={{display:"none"}} onChange={pickThumb}/>
+                        {draft.thumb?(
+                          <div style={{background:"#fff",border:BD2,borderRadius:10,padding:6}}>
+                            <img src={draft.thumb} alt="サムネ" style={{width:"100%",maxHeight:150,objectFit:"cover",borderRadius:7,display:"block"}}/>
+                            <div style={{display:"flex",gap:6,marginTop:6}}>
+                              <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>{thumbBusy?"置いています…":"編集"}</button>
+                              <button onClick={()=>setDraft(d=>({...d,thumb:""}))} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#b91c1c",cursor:"pointer",fontFamily:"inherit"}}>削除</button>
+                            </div>
+                          </div>
+                        ):(
+                          <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{width:"100%",border:"2px dashed #a39a90",background:"#f8f5f1",borderRadius:9,padding:"14px 0",cursor:"pointer",color:"#6b6259",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>{thumbBusy?"置いています…":"＋ サムネの画像を選ぶ"}</button>
+                        )}
+                        {thumbErr&&<div role="alert" style={{fontSize:12,fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px",marginTop:6}}>{thumbErr}</div>}
+                        <div style={{fontSize:12,color:"#736a62",marginTop:5,lineHeight:1.5}}>note の見出し画像・X記事の表紙は、「…」の「画像をまとめて保存」で出た 00_サムネ を選んで付ける</div>
+                      </>)}
+                    </div>
+  );
+  const labelBlock=(
+                    <div>
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>ラベル</label>
+                      <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
+                    </div>
+  );
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:compact?0:14}}>
@@ -324,37 +354,25 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           </div>
         )}
 
-        {/* ヘッダー（広い幅）：左に投稿の属性、右に「型・コピー・その他・保存・閉じる」。2026-10-05 整理 */}
-        {!compact&&<div style={{...S.row,padding:"6px 12px 6px 14px",borderBottom:BD2,background:"#fff",minHeight:54,gap:6,flexShrink:0,flexWrap:"wrap",rowGap:6}}>
-          <div style={{...S.row,gap:4,background:"#f7f3ee",border:BD2,borderRadius:12,padding:3,minWidth:0}}>
-            <select className="em-chip" value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))} style={{color:pt.color}}>
-              {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <select className="em-chip" value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))} style={{color:st?.text}}>
-              {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-            </select>
-            {accounts.length>0&&(
-              <select className="em-chip" title="登録先" value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))} style={{color:"#b45309"}}>
-                {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            )}
-            <input className="em-chip" type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))} style={{color:"#555",fontWeight:600}}/>
-          </div>
+        {/* ヘッダー（広い幅）：2026-11-07 便②。左に「戻る」、右に「型・…・保存」だけ。投稿の属性は右の「設定」へ移した */}
+        {!compact&&<div style={{...S.row,padding:"6px 12px",borderBottom:BD2,background:"#fff",minHeight:52,gap:6,flexShrink:0}}>
+          <button className="em-btn" onClick={close} title="閉じる（Esc）">← 戻る</button>
+          <span style={{fontSize:12,color:"#736a62",fontWeight:600,marginLeft:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post._unsaved?"新しい投稿":`${pt.label}・${st?.label||""}`}</span>
           <div style={{flex:1}}/>
           <TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
-          <button className="em-btn" onClick={()=>doCopy("x")} style={copyX?{background:"#ecfdf5",borderColor:"#6ee7b7",color:"#059669"}:undefined}>{copyX?"コピーしました":"コピー"}</button>
           <MoreMenu items={[
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
               :{label:"X記事用にコピー（画像の位置に目印）",onClick:()=>doCopy("note","mark"),close:true}]:[]),
             ...(imgCount?[{label:imgSave==="保存中…"?"画像を保存中…":`画像をまとめて保存（${imgCount} 枚）`,onClick:saveImages,disabled:imgSave==="保存中…",close:true}]:[]),
-            ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない（Naoki の Notion へ送る口）
+            ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
+            // 2026-11-07 便②：プレビューの窓にあった 3 つをここへ移した（窓をなくしたため）
+            ...(!post._unsaved&&onDuplicate?[{label:"複製（翌日の同じ時刻）",onClick:()=>onDuplicate({...post,...draft}),close:true}]:[]),
+            ...(!post._unsaved&&onRepost?[{label:"再投稿",onClick:()=>{close();onRepost({...post,...draft});},close:true}]:[]),
+            ...(!post._unsaved&&onDelete?[{label:"削除",onClick:()=>{close();onDelete(post);},close:true}]:[]),
           ]}/>
           <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
-          <button className="em-icon" onClick={close} title="閉じる（Esc）" aria-label="閉じる">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
-          </button>
         </div>}
         <style>{`
           .em-chip{appearance:none;-webkit-appearance:none;border:none;background-color:transparent;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;outline:none;max-width:180px}
@@ -400,14 +418,6 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             </div>
           </div>
 
-          {/* アイコン列（細い幅では上の「本文／メモ」で切り替えるため出さない） */}
-          {!compact&&<div style={{width:58,borderLeft:"1px solid #e6dfd6",background:"#fcfaf8",display:"flex",flexDirection:"column",flexShrink:0,paddingTop:6}}>
-            <SideIcon id="meta" icon={ICONS.memo} label="メモ" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="search" icon={ICONS.search} label="検索" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="history" icon={ICONS.history} label="履歴" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-            <SideIcon id="share" icon={ICONS.share} label="共有" sidePanel={sidePanel} setSidePanel={setSidePanel}/>
-          </div>}
-
           {/* サイドパネル展開 */}
           {sidePanel&&(
             <>
@@ -416,11 +426,9 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 onMouseEnter={e=>e.currentTarget.style.background="#e0d8ce"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
-              {!compact&&<div style={{padding:"11px 13px 9px",borderBottom:BD2,display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fff"}}>
-                <span style={{fontWeight:700,fontSize:"max(12px,0.84em)",color:"#0f1419"}}>
-                  {sidePanel==="meta"?"メモ":sidePanel==="search"?"過去コンテンツ":sidePanel==="history"?"編集履歴":"共有"}
-                </span>
-                <button onClick={()=>setSidePanel(null)} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer"}}>✕</button>
+              {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
+                {[["set","設定"],["meta","メモ"],["search","検索"],["history","履歴"]].map(([k,l])=>
+                  <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
                 {sidePanel==="search"&&(
@@ -437,27 +445,46 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                     }}
                   />
                 )}
+                {sidePanel==="set"&&!compact&&(()=>{
+                  const lab={fontSize:12,fontWeight:700,color:"#6b6259",display:"block",marginBottom:5};
+                  const fld={width:"100%",border:"1px solid #a39a90",borderRadius:8,padding:"6px 8px",fontSize:13,fontFamily:"inherit",background:"#fff",outline:"none",boxSizing:"border-box"};
+                  const hasNums=post.impressions!==null&&post.impressions!==undefined;
+                  return <div style={{...S.col,gap:12}}>
+                    <div style={{display:"grid",gridTemplateColumns:"64px minmax(0,1fr)",gap:"8px 10px",alignItems:"center"}}>
+                      <span style={lab}>種類</span>
+                      <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))} style={{...fld,color:pt.color,fontWeight:700}}>
+                        {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                      <span style={lab}>状態</span>
+                      <select value={draft.status} onChange={e=>setDraft(d=>({...d,status:e.target.value}))} style={{...fld,color:st?.text,fontWeight:700}}>
+                        {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                      {accounts.length>0&&<><span style={lab}>登録先</span>
+                      <select value={draft.account_id||""} onChange={e=>setDraft(d=>({...d,account_id:e.target.value}))} style={fld}>
+                        {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select></>}
+                      <span style={lab}>予定</span>
+                      <input type="datetime-local" value={draft.datetime} onChange={e=>setDraft(d=>({...d,datetime:e.target.value}))} style={fld}/>
+                      <span style={lab}>評価</span>
+                      <div role="radiogroup" aria-label="評価" style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {Object.keys(SCORE).map(k=>{const on=draft.score===k;return <button key={k} role="radio" aria-checked={on} onClick={()=>setDraft(d=>({...d,score:on?null:k}))}
+                          style={{minWidth:30,height:30,borderRadius:7,border:`1.5px solid ${on?SCORE[k].bg:"#a39a90"}`,background:on?SCORE[k].bg:"#fff",color:on?"#fff":"#333",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{on?"✓ ":""}{k}</button>;})}
+                      </div>
+                    </div>
+                    {hasNums&&<div>
+                      <span style={lab}>反応の数字（Buffer から毎日）</span>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
+                        {[["表示",post.impressions],["いいね",post.reactions],["返信",post.replies],["リポスト",post.reposts],["クリック",post.clicks],...(post.auto_score?[["自動の評価",post.auto_score]]:[])].map(([l,v])=>
+                          <div key={l} style={{background:"#fff",border:BD2,borderRadius:8,padding:"6px 8px"}}><div style={{fontSize:12,color:"#6b6259"}}>{l}</div><b style={{fontSize:14,fontVariantNumeric:"tabular-nums"}}>{(v===null||v===undefined)?"—":typeof v==="number"?v.toLocaleString("ja-JP"):v}</b></div>)}
+                      </div>
+                    </div>}
+                    {labelBlock}
+                    {thumbBlock}
+                  </div>;
+                })()}
                 {sidePanel==="meta"&&(
                   <div style={{...S.col,gap:12}}>
-                    <div>
-                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>サムネ</label>
-                      {!hasThumbCol()?<div style={{fontSize:12,color:"#736a62"}}>サムネは準備中です</div>:(<>
-                        <input ref={thumbRef} type="file" accept="image/*" style={{display:"none"}} onChange={pickThumb}/>
-                        {draft.thumb?(
-                          <div style={{background:"#fff",border:BD2,borderRadius:10,padding:6}}>
-                            <img src={draft.thumb} alt="サムネ" style={{width:"100%",maxHeight:150,objectFit:"cover",borderRadius:7,display:"block"}}/>
-                            <div style={{display:"flex",gap:6,marginTop:6}}>
-                              <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>{thumbBusy?"置いています…":"編集"}</button>
-                              <button onClick={()=>setDraft(d=>({...d,thumb:""}))} style={{flex:1,border:BD2,background:"#fff",borderRadius:8,padding:"6px 0",fontSize:12,fontWeight:700,color:"#b91c1c",cursor:"pointer",fontFamily:"inherit"}}>削除</button>
-                            </div>
-                          </div>
-                        ):(
-                          <button onClick={()=>thumbRef.current?.click()} disabled={thumbBusy} style={{width:"100%",border:"2px dashed #a39a90",background:"#f8f5f1",borderRadius:9,padding:"14px 0",cursor:"pointer",color:"#6b6259",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>{thumbBusy?"置いています…":"＋ サムネの画像を選ぶ"}</button>
-                        )}
-                        {thumbErr&&<div role="alert" style={{fontSize:12,fontWeight:700,color:"#b91c1c",background:"#fef2f2",borderRadius:8,padding:"6px 9px",marginTop:6}}>{thumbErr}</div>}
-                        <div style={{fontSize:12,color:"#736a62",marginTop:5,lineHeight:1.5}}>note の見出し画像・X記事の表紙は、「…」の「画像をまとめて保存」で出た 00_サムネ を選んで付ける</div>
-                      </>)}
-                    </div>
+                    {compact&&thumbBlock}
                     {canSend&&(
                       <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:6}}>
@@ -478,18 +505,20 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                       <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>概要メモ・リンク</label>
                       <MemoEditor textareaRef={memoRef} memo={draft.memo} memoLinks={draft.memoLinks} autoFocus={post.status==="idea"} onChange={({memo,memoLinks})=>setDraft(d=>({...d,memo,memoLinks}))}/>
                     </div>
+                    {compact&&labelBlock}
                     <div>
-                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>ラベル</label>
-                      <LabelEditor labels={draft.labels||[]} onChange={labels=>setDraft(d=>({...d,labels}))}/>
-                    </div>
-                    {(draft.comments||[]).length>0&&(
-                      <div>
-                        <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>コメント ({draft.comments.length})</label>
-                        {draft.comments.map((c,i)=>(
-                          <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",fontSize:"max(12px,0.77em)",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
-                        ))}
+                      <label style={{fontSize:"max(12px,0.7em)",fontWeight:700,color:"#6b6259",display:"block",marginBottom:5}}>コメント（{(draft.comments||[]).length}）</label>
+                      {(draft.comments||[]).map((c,i)=>(
+                        <div key={i} style={{background:"#fff",border:BD2,borderRadius:7,padding:"6px 9px",fontSize:"max(12px,0.77em)",color:"#444",lineHeight:1.6,marginBottom:4}}>{typeof c==="string"?c:c.text}</div>
+                      ))}
+                      {/* 2026-11-07 便②：プレビューの窓にあったコメントの追加をここへ。保存で残る */}
+                      <div style={{display:"flex",gap:6}}>
+                        <input value={cmt} onChange={e=>setCmt(e.target.value)} placeholder="コメントを追加" aria-label="コメントを追加"
+                          onKeyDown={e=>{if(e.key==="Enter"&&!e.nativeEvent.isComposing&&cmt.trim()){e.preventDefault();setDraft(d=>({...d,comments:[...(d.comments||[]),{text:cmt.trim(),at:nowStr()}]}));setCmt("");}}}
+                          style={{flex:1,minWidth:0,border:"1px solid #a39a90",borderRadius:8,padding:"6px 8px",fontSize:13,fontFamily:"inherit",outline:"none"}}/>
+                        <button onClick={()=>{if(!cmt.trim())return;setDraft(d=>({...d,comments:[...(d.comments||[]),{text:cmt.trim(),at:nowStr()}]}));setCmt("");}} style={{border:BD2,background:"#fff",borderRadius:8,padding:"0 10px",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>追加</button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
                 {sidePanel==="history"&&(
@@ -516,6 +545,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                   </div>
                 )}
               </div>
+              {/* 2026-11-07 便②：コピーは右の下にいつも置く（ヘッダーから移した） */}
+              {!compact&&<div style={{borderTop:BD2,background:"#fff",padding:10,display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+                <button onClick={()=>doCopy("x")} style={{height:36,borderRadius:9,border:copyX?"1px solid #047857":"1px solid #a39a90",background:copyX?"#ecfdf5":"#fff",color:copyX?"#047857":"#1a1a1a",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー（画像の位置に目印）":imgs.length?"コピー（画像つき）":"コピー"}</button>
+              </div>}
             </div>
             </>
           )}
