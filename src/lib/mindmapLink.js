@@ -65,7 +65,7 @@ export function mapIdOf(url) {
   const m = String(url || "").match(/\/m\/([\w-]{1,64})/);
   return m ? m[1] : "";
 }
-/** マップの枝から送ったネタは住所に ?n=枝の id が付く。その枝の下がネタの構成（2026-11-08 直し） */
+/** マップの枝から送ったネタは住所に ?n=枝の id が付く。その枝の下がネタの構成（2026-11-08 直し・中心から書くとネタの外の枝まで書き換えるため） */
 export function nodeIdOf(url) {
   const m = String(url || "").match(/[?&]n=([\w-]{1,64})/);
   return m ? m[1] : "";
