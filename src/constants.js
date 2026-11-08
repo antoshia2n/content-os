@@ -86,6 +86,12 @@ export function fmtTime(s){return s?s.slice(11,16):"";}
 export function slotTime(s){return s.time||(s.hour!=null?String(s.hour).padStart(2,"0")+":00":"00:00");}
 export function genId(){return Date.now()*1000+Math.floor(Math.random()*1000);}
 export function nowStr(){return new Date().toISOString();}
+// 2026-11-08 ゴミ箱とアーカイブ（Naoki OK 09:56）：投稿の labels に印を付ける形（表の作りは変えない）。
+// ゴミ箱は 30 日で本当に消す。消した日は history の「ゴミ箱へ移動」の行から読む
+export const TRASH_LABEL="ゴミ箱", ARCHIVE_LABEL="アーカイブ", TRASH_DAYS=30;
+export const isTrashed=p=>(p?.labels||[]).includes(TRASH_LABEL);
+export const isArchived=p=>(p?.labels||[]).includes(ARCHIVE_LABEL);
+export function trashedAt(p){const h=[...(p?.history||[])].reverse().find(x=>x&&x.note==="ゴミ箱へ移動");return h?.at||"";}
 export function stripHtml(h){return (h||"").replace(/<[^>]+>/g,"");}
 export function isUrl(s){try{new URL(s);return s.startsWith("http");}catch{return false;}}
 export function nextDaySameTime(dt){

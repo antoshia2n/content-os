@@ -92,6 +92,8 @@ export async function onRequestPost(context) {
   if (typeof body.account_id === 'string' && body.account_id) {
     params.set('account_id', `eq.${body.account_id}`);
   }
+  // 2026-11-08 ゴミ箱に入れたもの（labels に「ゴミ箱」）は返さない（labels は既定が {} で空の値は無い）
+  params.set('labels', 'not.cs.{ゴミ箱}');
   params.set('body', `ilike.${pattern}`);
   params.set('order', 'created_at.desc');
   params.set('limit', String(limit));

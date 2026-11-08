@@ -7,7 +7,7 @@
 //   寝かせ・育て中は、今ある「ラベル」の欄に印を付けて持つ
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { isSample } from "../lib/samples.js";
-import { POST_TYPE, getPostTypeStyle, STATUS, genId, nowStr, fmtDate, stripHtml } from "../constants.js";
+import { POST_TYPE, getPostTypeStyle, STATUS, genId, nowStr, fmtDate, stripHtml, TRASH_LABEL, ARCHIVE_LABEL, TRASH_DAYS, isArchived, trashedAt } from "../constants.js";
 import { dbFetchSheetGenres, dbAddSheetGenre } from "../lib/supabase.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
@@ -164,6 +164,19 @@ export const CK_CSS = `
 .ck-ink:hover{background:#92400e!important}
 .ck-ink[disabled]{opacity:.45;cursor:default}
 .ck-empty{color:var(--faint);text-align:center;padding:28px 12px;font-size:13px}
+/* 2026-11-08 表の「＋ 新規」の行と、行の「…」のメニュー（Naoki OK 09:56） */
+.ck-table tr.ck-newrow td{height:42px;color:var(--muted);font-size:13px;font-weight:600}
+.ck-table tr.ck-newrow:hover td{color:var(--fg)}
+.ck-newrow .p{display:inline-flex;align-items:center;gap:8px}
+.ck-more{display:inline-grid!important;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--muted);vertical-align:middle;opacity:.55}
+.ck-table tr:hover .ck-more,.ck-more:focus-visible,.ck-more[aria-expanded="true"]{opacity:1}
+.ck-more:hover,.ck-more[aria-expanded="true"]{background:var(--soft)!important;color:var(--fg)}
+@media (hover:none){.ck-more{opacity:1}}
+.ck-rmenu{position:fixed;z-index:200;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:200px;display:flex;flex-direction:column}
+.ck-rmenu button{display:flex!important;align-items:center;gap:8px;text-align:left;font-size:13px;font-weight:600;padding:0 10px!important;min-height:34px;border-radius:8px;color:var(--fg)}
+.ck-rmenu button:hover,.ck-rmenu button:focus-visible{background:var(--soft)!important}
+.ck-rmenu button.danger{color:#b91c1c}
+.ck-rmenu small{font-size:12px;color:var(--muted);font-weight:500;margin-left:auto}
 .ck-scrim{position:fixed;inset:0;z-index:700;background:rgba(20,14,8,.3);display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px}
 .ck-modal{width:min(620px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .ck-modal textarea{display:block;width:100%;border:0;outline:none;resize:none;padding:16px 18px 6px;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-size:17px;line-height:1.7;background:transparent;min-height:96px;color:var(--fg)}
@@ -241,6 +254,8 @@ export const BRAND_ICON = (
 );
 const I = {
   inbox: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5 5h14l2 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/></svg>,
+  archive: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"><rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5v10a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-10M10 12.5h4"/></svg>,
+  trash: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"><path d="M4 6.5h16M9.5 6.5V4.5h5v2M6.5 6.5l.8 12.2a1.5 1.5 0 0 0 1.5 1.3h6.4a1.5 1.5 0 0 0 1.5-1.3l.8-12.2"/></svg>,
   folder: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h3.5l2 2h7.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>,
   table: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg>,
   week: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>,
@@ -290,6 +305,37 @@ function Nv({ on, icon, label, n, cls = "", onClick, onDragOver, onDrop, fold })
   return <div className={`ck-nvf ${fold.open ? "" : "shut"} ${fold.inside ? "in" : ""}`}>{b}
     <button className="ck-fold" aria-expanded={fold.open} aria-label={`「${label}」を${fold.open ? "畳む" : "開く"}`} title={fold.open ? "畳む" : "開く"} onClick={fold.onToggle}>{I.down}</button>
   </div>;
+}
+
+// 行の「…」のメニュー。外を押す・Esc・別の「…」を開く、のどれでも閉じ、閉じたら押した「…」へ戻る
+function RowMenu({ label, items }) {
+  const [at, setAt] = useState(null);
+  const btn = useRef(null), box = useRef(null);
+  const close = (back = true) => { setAt(null); if (back) btn.current?.focus(); };
+  useEffect(() => {
+    if (!at) return;
+    box.current?.querySelector("button")?.focus();
+    const down = e => { if (!box.current?.contains(e.target) && !btn.current?.contains(e.target)) close(false); };
+    const key = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const other = e => { if (e.detail !== btn.current) close(false); };
+    document.addEventListener("mousedown", down); document.addEventListener("keydown", key, true); document.addEventListener("ck-rmenu", other);
+    window.addEventListener("scroll", () => close(false), { once: true, capture: true });
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); document.removeEventListener("ck-rmenu", other); };
+  }, [at]); // eslint-disable-line react-hooks/exhaustive-deps
+  const open = e => {
+    e.stopPropagation();
+    if (at) { close(); return; }
+    document.dispatchEvent(new CustomEvent("ck-rmenu", { detail: btn.current }));
+    const r = btn.current.getBoundingClientRect(); const h = items.length * 36 + 14;
+    setAt({ top: r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4, left: Math.max(8, r.right - 210) });
+  };
+  return <>
+    <button ref={btn} className="ck-more" aria-haspopup="menu" aria-expanded={!!at} aria-label={`「${label}」の操作`} title="操作" onClick={open}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+    {at && <div ref={box} className="ck-rmenu" role="menu" style={at} onClick={e => e.stopPropagation()}>
+      {items.map(it => <button key={it.label} role="menuitem" className={it.danger ? "danger" : ""} onClick={() => { close(); it.run(); }}>{it.label}{it.note && <small>{it.note}</small>}</button>)}
+    </div>}
+  </>;
 }
 
 // ── アカウントの切り替え（混ぜて出す画面は無い） ──────────────
@@ -350,7 +396,8 @@ export function ToOutModal({ post, postTypes, slots, posts, today, onClose, onGo
 
 // ── ネタ帳とアウトプットの画面 ────────────────────────────
 export function StockView({ mode, uid, owner = false, onClearSamples, accountId, posts, postTypes, slots, today, readOnly,
-  onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff, onMode }) {
+  onOpen, saveToDb, patchFields, changeStatus, onDelete, showToast, onToOut, renderSheet, navOn, setNavOn, keysOff, onMode,
+  trash = [], onRestore, onPurge, onNewIdea, onNewOut, onUndoBar }) {
   const keyBase = `contentos.stock.${accountId}`;
   const [loc, setLocRaw] = useState(() => store.get(`${keyBase}.${mode}`, mode === "idea" ? "inbox" : "week"));
   const setLoc = l => { setLocRaw(l); store.set(`${keyBase}.${mode}`, l); setFSt(null); setQ(""); if (window.innerWidth <= 860) setNavOn(false); };
@@ -368,7 +415,8 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const genreNames = genres.map(g => g.name);
 
   const ideas = useMemo(() => posts.filter(p => p.status === "idea"), [posts]);
-  const outs = useMemo(() => posts.filter(p => p.status !== "idea"), [posts]);
+  const outs = useMemo(() => posts.filter(p => p.status !== "idea" && !isArchived(p)), [posts]);
+  const archived = useMemo(() => posts.filter(p => p.status !== "idea" && isArchived(p)), [posts]);
   const inbox = useMemo(() => ideas.filter(p => !p.genre && stageOf(p) !== "sleep").sort((a, b) => bornOf(b).localeCompare(bornOf(a)) || b.id - a.id), [ideas]);
 
   // 状態を変える（予約済みは日時が要る。無いときは日時未定に）＋予約の一拍
@@ -466,6 +514,8 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
       })}
       <div className="ck-nh">しまったもの</div>
       <Nv on={il === "sleep"} icon={I.moon} label="寝かせ中" n={ideas.filter(p => stageOf(p) === "sleep").length} onClick={() => goTo("idea", "sleep")} />
+      <Nv on={ol === "arch"} icon={I.archive} label="アーカイブ" n={archived.length} onClick={() => goTo("out", "arch")} />
+      <Nv on={ol === "trash"} icon={I.trash} label="ゴミ箱" n={trash.length} onClick={() => goTo("out", "trash")} />
     </>;
   }
   if (mode === "idea") {
@@ -479,6 +529,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
     }
   } else {
     if (loc === "week") { rows = weekRows; crumb = "アウトプット"; title = "今週書くもの"; note = `${wFrom.slice(5).replace("-", "/")}〜${wTo.slice(5).replace("-", "/")} に予定があり、まだ予約まで進んでいないもの。`; }
+    else if (loc === "arch") { rows = archived; crumb = "アウトプット"; title = "アーカイブ"; note = "表とカレンダーには出さないが、取っておくもの。行の「…」から戻せる。"; }
     else if (loc === "draft") { rows = drafts; crumb = "アウトプット"; title = "書きかけ"; note = drafts.length > 3 ? "書きかけが 4 本を超えている。新しく始めるより、仕上げるほうへ。" : ""; }
     else if (loc.startsWith("of:")) { const t = loc.slice(3); rows = byType(t); crumb = "アウトプット"; title = postTypes[t]?.label || t; }
     else if (loc.startsWith("ot:")) {
@@ -524,8 +575,48 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const dragEnd = e => e.currentTarget.classList.remove("dragging");
 
   // ── 中身 ──
+  // 2026-11-08 行の「…」：しまう（ネタは寝かせる・アウトプットはアーカイブ）とゴミ箱。しまったら「元に戻す」の帯を出す
+  const stash = (p, label, on, msg) => toggleLabel(p, label, on).then(ok => { if (!ok) return; if (onUndoBar) onUndoBar(msg, () => toggleLabel({ ...p, labels: on ? [...(p.labels || []), label] : (p.labels || []).filter(l => l !== label) }, label, !on)); else showToast(msg); });
+  const menuOf = p => {
+    const name = headOf(p) || "タイトルなし", its = [];
+    if (p.status === "idea") its.push(stageOf(p) === "sleep" ? { label: "起こす", run: () => stash(p, SLEEP, false, "起こしました") } : { label: "寝かせる", note: "表から外す", run: () => stash(p, SLEEP, true, `「${name.slice(0, 20)}」を寝かせました`) });
+    else its.push(isArchived(p) ? { label: "アーカイブから戻す", run: () => stash(p, ARCHIVE_LABEL, false, "表に戻しました") } : { label: "アーカイブ", note: "表とカレンダーから外す", run: () => stash(p, ARCHIVE_LABEL, true, `「${name.slice(0, 20)}」をアーカイブしました`) });
+    its.push({ label: "ゴミ箱へ移動", note: `${TRASH_DAYS} 日で消える`, danger: true, run: () => onDelete(p) });
+    return <RowMenu label={name} items={its} />;
+  };
+  // 2026-11-08 表のいちばん下の「＋ 新規」：今いる表の種類・ジャンル・月を引き継いで作る
+  let newRow = null;
+  if (!readOnly) {
+    if (mode === "idea" && loc.startsWith("it:") && onNewIdea) { const [, t, g] = loc.split(":"); newRow = () => onNewIdea({ postType: t, genre: g }); }
+    else if (mode === "out" && onNewOut) {
+      const slot = t => nextFreeSlot({ slots, posts, postType: t, today }) || `${today}T07:00`;
+      if (loc === "week") newRow = () => onNewOut(slot("x_post"), {});
+      else if (loc === "draft") newRow = () => onNewOut(undefined, {});
+      else if (loc.startsWith("of:")) { const t = loc.slice(3); newRow = () => onNewOut(undefined, { postType: t }); }
+      else if (loc.startsWith("ot:")) { const [, t, ym] = loc.split(":"); newRow = () => onNewOut(ym === "none" ? null : ym === today.slice(0, 7) ? slot(t) : `${ym}-01T07:00`, { postType: t }); }
+    }
+  }
+  const newTr = newRow && <tr className="ck-newrow" onClick={newRow}><td colSpan={9}><button className="p" onClick={e => { e.stopPropagation(); newRow(); }}>＋ 新規<span style={{ fontWeight: 500, color: "var(--faint)", fontSize: 12 }}>{title ? `「${title}」に足す` : ""}</span></button></td></tr>;
+
   let body;
-  if (mode === "idea" && loc === "inbox") {
+  if (mode === "out" && loc === "trash") {
+    const left = p => { const at = trashedAt(p); if (!at) return TRASH_DAYS; return Math.max(0, TRASH_DAYS - Math.floor((Date.now() - new Date(at).getTime()) / 864e5)); };
+    const rs = [...trash].sort((a, b) => trashedAt(b).localeCompare(trashedAt(a)));
+    body = <>
+      <div className="ck-crumb">しまったもの</div><h1 className="ck-title">ゴミ箱</h1>
+      <p className="ck-note">入れてから {TRASH_DAYS} 日たつと自動で消えます。それまではここから元に戻せます。</p>
+      <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr><th>タイトル</th><th>元の場所</th><th>ゴミ箱へ移動した日</th><th>自動で消えるまで</th><th /></tr></thead><tbody>
+        {rs.map(p => <tr key={p.id} style={{ cursor: "default" }}>
+          <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{(textOf(p) || p.memo || "").slice(0, 80)}</div></td>
+          <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>{p.status === "idea" ? "ネタ" : "アウトプット"} › {postTypes[p.postType || "x_post"]?.label || p.postType}</td>
+          <td className="ck-num">{trashedAt(p) ? fmtDt(toLocal(trashedAt(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
+          <td className="ck-num">あと {left(p)} 日</td>
+          <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <><button className="ck-go" onClick={() => onRestore(p)}>元に戻す</button> <button className="ck-ghost" style={{ color: "#b91c1c" }} onClick={() => onPurge(p)}>完全に削除</button></>}</td>
+        </tr>)}
+        {!rs.length && <tr><td colSpan={5} className="ck-empty" style={{ cursor: "default" }}>ゴミ箱は空です。行の「…」から「ゴミ箱へ移動」で入ります。</td></tr>}
+      </tbody></table></div></div>
+    </>;
+  } else if (mode === "idea" && loc === "inbox") {
     body = <>
       <div className="ck-crumb">ネタ</div><h1 className="ck-title">受け箱</h1>
       {!readOnly && onClearSamples && posts.some(isSample) && <div className="ck-cap" style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", borderStyle: "dashed" }}>
@@ -589,7 +680,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         </div>; })}</div>
         : <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr>
           {mode === "idea" ? <><th>ネタ</th><th>状態</th>{!oneType && <th>種類</th>}<th>素材</th><th>入れた日</th><th /></>
-            : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th></>}
+            : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th><th /></>}
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
@@ -597,7 +688,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}{!readOnly && <> {menuOf(p)}</>}</td>
             </tr> :
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
               <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || ""}</div></td>
@@ -608,8 +699,10 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || ""}</td>
               <td><Srcs p={p} /></td><td><Score s={p.score} /></td>
               <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td>
+              <td style={{ width: 40, textAlign: "right" }}>{!readOnly && menuOf(p)}</td>
             </tr>)}
-          {!shown.length && <tr><td colSpan={8} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}
+          {newTr}
+          {!shown.length && !newTr && <tr><td colSpan={9} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}
         </tbody></table></div></div>}
     </>;
   }

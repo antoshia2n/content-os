@@ -9,6 +9,7 @@ import {
   OVERDUE_STATUS,
   fmtDate, fmtTime, slotTime, genId, nowStr,
   getWeekDates, dbToPost, getUrlParams,
+  TRASH_LABEL, TRASH_DAYS, isTrashed, isArchived, trashedAt,
 } from "./constants.js";
 import {
   dbFetchPosts, dbDeletePost, dbFetchTemplates, dbRemoveTemplate,
@@ -283,11 +284,15 @@ function App({uid,panel=false,owner=false}){
   const targetAcc    =React.useMemo(()=>accounts.find(a=>a.id===targetAccId)||null,[accounts,targetAccId]);
   // アカウント固有のカスタム投稿タイプ（POST_TYPEにマージして使う）
   const allPostTypes =React.useMemo(()=>mergePostTypes(activeAcc||targetAcc),[activeAcc,targetAcc]);
-  const posts    =React.useMemo(()=>isAllAccounts
+  // 2026-11-08 ゴミ箱に入れたものは、どの画面にも出さない（ゴミ箱の画面だけが trash を読む）
+  const postsWithTrash=React.useMemo(()=>isAllAccounts
     ?Object.values(allPosts).flat()
     :(allPosts[activeAccId]||[])
   ,[allPosts,activeAccId,isAllAccounts]);
-  const filtered =React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
+  const posts    =React.useMemo(()=>postsWithTrash.filter(p=>!isTrashed(p)),[postsWithTrash]);
+  const trash    =React.useMemo(()=>postsWithTrash.filter(isTrashed),[postsWithTrash]);
+  // アーカイブしたアウトプットはカレンダーにも出さない
+  const filtered =React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&!isArchived(p)&&(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
@@ -319,7 +324,29 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   const openPost=React.useCallback(p=>{setPreview(null);setEditing({...p});},[]);
   // 2026-11-07 便②：プレビューを開こうとした所（カレンダーの投稿・予約枠など）は、そのままエディタを開く。まだ表に無いものは _viaPreview を付け、書き換えるまで作らない
   useEffect(()=>{if(preview&&!panel){setEditing(preview._unsaved?{...preview,_viaPreview:true}:{...preview});setPreview(null);}},[preview,panel]);
+  // 2026-11-08 「削除」はゴミ箱へ移す（labels に印を付けるだけ。30 日たつと下の掃除で本当に消す）
+  const trashWithUndo=React.useCallback(async p=>{
+    if(!p)return;
+    if(p._unsaved){setEditing(x=>x&&x.id===p.id?null:x);setPreview(x=>x&&x.id===p.id?null:x);return;}
+    const labels=[...new Set([...(p.labels||[]),TRASH_LABEL])],history=[...(p.history||[]),{at:nowStr(),note:"ゴミ箱へ移動"}];
+    setPreview(x=>x&&x.id===p.id?null:x);setEditing(x=>x&&x.id===p.id?null:x);
+    if(!await patchFields(p,{labels,history}))return;
+    setUndo({msg:`「${String(p.title||"タイトルなし").slice(0,24)}」をゴミ箱へ移動しました`,run:async()=>{if(await patchFields({...p,labels,history},{labels:(p.labels||[]).filter(l=>l!==TRASH_LABEL),history:p.history||[]}))showToast("元に戻しました");}});
+  },[patchFields,setUndo,showToast]);
+  const restoreFromTrash=React.useCallback(async p=>{
+    if(await patchFields(p,{labels:(p.labels||[]).filter(l=>l!==TRASH_LABEL),history:[...(p.history||[]),{at:nowStr(),note:"ゴミ箱から戻した"}]}))showToast(`「${String(p.title||"タイトルなし").slice(0,24)}」を元に戻しました`);
+  },[patchFields,showToast]);
+  // 30 日たったゴミ箱の中身を、開いたときに 1 回だけ本当に消す
+  const purgedOnce=useRef(false);
+  useEffect(()=>{
+    if(purgedOnce.current||loading||isClient)return;
+    const all=Object.values(allPosts).flat();if(!all.length)return;
+    purgedOnce.current=true;
+    const limit=Date.now()-TRASH_DAYS*864e5;
+    all.filter(p=>isTrashed(p)&&trashedAt(p)&&new Date(trashedAt(p)).getTime()<limit).forEach(async p=>{const {error}=await dbDeletePost(p.id);if(!error)removePost(p.id);});
+  },[allPosts,loading,isClient,removePost]);
   // 2026-11-03 便 C：投稿を消す。確かめの窓をやめ、画面からすぐ外して「元に戻す」を出す（7 秒後に本当に消す）
+  // 2026-11-08 からはゴミ箱の「完全に削除」だけがこれを使う
   const deleteWithUndo=React.useCallback(p=>{
     if(!p)return;removePost(p.id);setPreview(x=>x&&x.id===p.id?null:x);setEditing(x=>x&&x.id===p.id?null:x);
     const back=()=>setAllPosts(prev=>({...prev,[p.account_id]:[...(prev[p.account_id]||[]).filter(x=>x.id!==p.id),p]}));
@@ -441,11 +468,11 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   const shownPostTypes=panel?panelPostTypes:allPostTypes;
   // 2026-10-05 直し：ネタは「保存」を押すまで表に作らない（_unsaved）。
   // 押した瞬間に作ると、サイドパネルやタブを閉じたときに空の行が残るため。保存は saveToDb の upsert が新しく作る
-  const addIdeaAndEdit=React.useCallback((accId)=>{
+  const addIdeaAndEdit=React.useCallback((accId,preset={})=>{
     const to=accId||targetAccId;
     if(!uid||!to){showToast("アイデアメモを足すアカウントが決まっていません");return;}
     setPreview(null);
-    setEditing({id:genId(),account_id:to,status:"idea",datetime:"",title:"",postType:"x_post",body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],genre:null,theme:null,mm_url:null,manabu:false,_unsaved:true});
+    setEditing({...preset,id:genId(),account_id:to,status:"idea",datetime:"",title:"",postType:preset.postType||"x_post",body:"",memo:"",memoLinks:[],comments:[],history:[],labels:[],genre:preset.genre||null,theme:null,mm_url:null,manabu:false,_unsaved:true});
   },[uid,targetAccId,showToast]);
 
   // 編集画面を閉じたとき（← 一覧・×・Esc）
@@ -643,9 +670,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       `}</style>
 
       {/* 段 4：/panel のときは細い画面だけを出す。広い画面（ヘッダー〜成績）は今のまま */}
-      {panel&&<PanelView ws={<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast} note="ここで選んだ場所のネタと予定を見る（ほかの場所のデータは混ざらない）"/>} posts={panelAcc?(allPosts[panelAcc.id]||[]):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}
+      {panel&&<PanelView ws={<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast} note="ここで選んだ場所のネタと予定を見る（ほかの場所のデータは混ざらない）"/>} posts={panelAcc?(allPosts[panelAcc.id]||[]).filter(p=>!isTrashed(p)):[]} accounts={switchableAccounts} account={panelAcc} onAccount={setPanelAccId} postTypes={panelPostTypes} onAddIdea={()=>addIdeaAndEdit(panelAcc?.id)} onOpen={p=>{setPreview(null);setEditing({...p});}}
         onQuick={v=>quickAdd({...v,accId:panelAcc?.id})}
-        renderFind={()=>{const ps=panelAcc?(allPosts[panelAcc.id]||[]):[];return <FindPanel posts={ps} postTypes={panelPostTypes} autoFocus
+        renderFind={()=>{const ps=panelAcc?(allPosts[panelAcc.id]||[]).filter(p=>!isTrashed(p)):[];return <FindPanel posts={ps} postTypes={panelPostTypes} autoFocus
           targets={ps.filter(p=>["draft","review"].includes(p.status)).sort((a,b)=>(b.updated_at||b.created_at||"").localeCompare(a.updated_at||a.created_at||""))}
           onOpenPost={p=>{setPreview(null);setEditing({...p});}} onToInbox={r=>toInboxFrom(r,panelAcc?.id)} onAddLink={addLinkTo}/>;}}/>}
       {!panel&&<>
@@ -730,10 +757,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {(view==="idea"||view==="out")&&(targetAccId||isClient)&&(
         <StockView key={`${view}-${targetAccId}`} mode={view} uid={uid} owner={owner} onClearSamples={()=>clearSamples(targetAccId)} accountId={targetAccId} posts={posts} postTypes={allPostTypes}
           slots={slots} today={today} readOnly={isClient}
-          onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={deleteWithUndo} showToast={showToast}
+          onOpen={openPost} saveToDb={saveToDb} patchFields={patchFields} changeStatus={changeStatusB} onDelete={trashWithUndo} showToast={showToast}
+          trash={trash} onRestore={restoreFromTrash} onPurge={deleteWithUndo} onUndoBar={(msg,run)=>setUndo({msg,run})}
+          onNewIdea={preset=>addIdeaAndEdit(targetAccId,preset)} onNewOut={(dt,o)=>openNew(dt,o)}
           keysOff={!!editing||!!toOut||quickOpen||!!bufferFor||!!preview}
           onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn} onMode={m=>setView(m)}
-          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={deleteWithUndo} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
+          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={trashWithUndo} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
       )}
       {quickOpen&&!panel&&<FindModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
         onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpenPost={p=>{setQuickOpen(false);openPost(p);}} onToInbox={r=>toInboxFrom(r)}/>}
@@ -995,7 +1024,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       {/* ── モーダル群 ── */}
       {/* 2026-11-07 Notion の形へ 便②：プレビューの窓はなくした。開くときは下の決まりで、いつもエディタへ直接入る */}
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:deleteWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
 

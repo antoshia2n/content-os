@@ -405,7 +405,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             // 2026-11-07 便②：プレビューの窓にあった 3 つをここへ移した（窓をなくしたため）
             ...(!post._unsaved&&onDuplicate?[{label:"複製（翌日の同じ時刻）",onClick:()=>onDuplicate({...post,...draft}),close:true}]:[]),
             ...(!post._unsaved&&onRepost?[{label:"再投稿",onClick:()=>{close();onRepost({...post,...draft});},close:true}]:[]),
-            ...(!post._unsaved&&onDelete?[{label:"削除（あとで元に戻せる）",onClick:()=>{close();onDelete(post);},close:true}]:[]),
+            ...(!post._unsaved&&onDelete?[{label:"ゴミ箱へ移動",onClick:()=>{close();onDelete(post);},close:true}]:[]),
           ]}/>}
           <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
         </div>}
