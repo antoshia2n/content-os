@@ -7,6 +7,7 @@
 //   寝かせ・育て中は、今ある「ラベル」の欄に印を付けて持つ
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { isSample } from "../lib/samples.js";
+import { GuideBand, GPin, GCap } from "../lib/guide.jsx";
 import { POST_TYPE, getPostTypeStyle, STATUS, genId, nowStr, fmtDate, stripHtml, TRASH_LABEL, ARCHIVE_LABEL, TRASH_DAYS, isArchived, trashedAt } from "../constants.js";
 import { dbFetchSheetGenres, dbAddSheetGenre } from "../lib/supabase.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
@@ -486,7 +487,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   {
     const il = lcOf("idea"), ol = lcOf("out");
     nav = <>
-      <div className="ck-nh">ネタ</div>
+      <div className="ck-nh">ネタ</div><GCap id="idea" />
       <Nv on={il === "inbox"} icon={I.inbox} label="受け箱" n={inbox.length} cls="warn" onClick={() => goTo("idea", "inbox")} />
       {iTypes.map(t => { const inT = live.filter(p => (p.postType || "x_post") === t); return <React.Fragment key={t}>
         {(() => { const f = fold(`i:${t}`, true, il.startsWith(`it:${t}:`)); return <>
@@ -494,7 +495,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         {f.open && genreNames.filter(g => inT.some(p => p.genre === g) || il === `it:${t}:${g}`).map(g => <Nv key={g} cls="d1" on={il === `it:${t}:${g}`} icon={I.table} label={g} n={inT.filter(p => p.genre === g).length} onClick={() => goTo("idea", `it:${t}:${g}`)} {...dropTo(g, t)} />)}
         </>; })()}
       </React.Fragment>; })}
-      <div className="ck-nh">アウトプット</div>
+      <div className="ck-nh">アウトプット</div><GCap id="out" />
       <Nv on={ol === "week"} icon={I.week} label="今週書くもの" n={weekRows.length} onClick={() => goTo("out", "week")} />
       <Nv on={ol === "draft"} icon={I.pen} label="書きかけ" n={drafts.length} cls={drafts.length > 3 ? "warn" : ""} onClick={() => goTo("out", "draft")} />
       {oTypes.map(t => {
@@ -512,7 +513,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
           {ft.open && nodate.length > 0 && <Nv cls="d1" on={ol === `ot:${t}:none`} icon={I.table} label="日時なし" n={nodate.length} onClick={() => goTo("out", `ot:${t}:none`)} />}
         </React.Fragment>;
       })}
-      <div className="ck-nh">しまったもの</div>
+      <div className="ck-nh">しまったもの</div><GCap id="stash" />
       <Nv on={il === "sleep"} icon={I.moon} label="寝かせ中" n={ideas.filter(p => stageOf(p) === "sleep").length} onClick={() => goTo("idea", "sleep")} />
       <Nv on={ol === "arch"} icon={I.archive} label="アーカイブ" n={archived.length} onClick={() => goTo("out", "arch")} />
       <Nv on={ol === "trash"} icon={I.trash} label="ゴミ箱" n={trash.length} onClick={() => goTo("out", "trash")} />
@@ -596,14 +597,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
       else if (loc.startsWith("ot:")) { const [, t, ym] = loc.split(":"); newRow = () => onNewOut(ym === "none" ? null : ym === today.slice(0, 7) ? slot(t) : `${ym}-01T07:00`, { postType: t }); }
     }
   }
-  const newTr = newRow && <tr className="ck-newrow" onClick={newRow}><td colSpan={9}><button className="p" onClick={e => { e.stopPropagation(); newRow(); }}>＋ 新規<span style={{ fontWeight: 500, color: "var(--faint)", fontSize: 12 }}>{title ? `「${title}」に足す` : ""}</span></button></td></tr>;
+  const newTr = newRow && <tr className="ck-newrow" onClick={newRow}><td colSpan={9}><button className="p" onClick={e => { e.stopPropagation(); newRow(); }}><GPin n={1} />＋ 新規<span style={{ fontWeight: 500, color: "var(--faint)", fontSize: 12 }}>{title ? `「${title}」に足す` : ""}</span></button></td></tr>;
 
   let body;
   if (mode === "out" && loc === "trash") {
     const left = p => { const at = trashedAt(p); if (!at) return TRASH_DAYS; return Math.max(0, TRASH_DAYS - Math.floor((Date.now() - new Date(at).getTime()) / 864e5)); };
     const rs = [...trash].sort((a, b) => trashedAt(b).localeCompare(trashedAt(a)));
     body = <>
-      <div className="ck-crumb">しまったもの</div><h1 className="ck-title">ゴミ箱</h1>
+      <div className="ck-crumb">しまったもの</div><h1 className="ck-title">ゴミ箱</h1><GuideBand id="trash" />
       <p className="ck-note">入れてから {TRASH_DAYS} 日たつと自動で消えます。それまではここから元に戻せます。</p>
       <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr><th>タイトル</th><th>元の場所</th><th>ゴミ箱へ移動した日</th><th>自動で消えるまで</th><th /></tr></thead><tbody>
         {rs.map(p => <tr key={p.id} style={{ cursor: "default" }}>
@@ -611,14 +612,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
           <td style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>{p.status === "idea" ? "ネタ" : "アウトプット"} › {postTypes[p.postType || "x_post"]?.label || p.postType}</td>
           <td className="ck-num">{trashedAt(p) ? fmtDt(toLocal(trashedAt(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
           <td className="ck-num">あと {left(p)} 日</td>
-          <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <><button className="ck-go" onClick={() => onRestore(p)}>元に戻す</button> <button className="ck-ghost" style={{ color: "#b91c1c" }} onClick={() => onPurge(p)}>完全に削除</button></>}</td>
+          <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <>{p === rs[0] && <GPin n={1} />}<button className="ck-go" onClick={() => onRestore(p)}>元に戻す</button> {p === rs[0] && <GPin n={2} style={{ marginLeft: 4 }} />}<button className="ck-ghost" style={{ color: "#b91c1c" }} onClick={() => onPurge(p)}>完全に削除</button></>}</td>
         </tr>)}
         {!rs.length && <tr><td colSpan={5} className="ck-empty" style={{ cursor: "default" }}>ゴミ箱は空です。行の「…」から「ゴミ箱へ移動」で入ります。</td></tr>}
       </tbody></table></div></div>
     </>;
   } else if (mode === "idea" && loc === "inbox") {
     body = <>
-      <div className="ck-crumb">ネタ</div><h1 className="ck-title">受け箱</h1>
+      <div className="ck-crumb">ネタ</div><h1 className="ck-title">受け箱</h1><GuideBand id="inbox" />
       {!readOnly && onClearSamples && posts.some(isSample) && <div className="ck-cap" style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", borderStyle: "dashed" }}>
         <span style={{ fontSize: 13, lineHeight: 1.6, flex: "1 1 220px" }}><b>「例」の札が付いたものは見本です。</b>触ってみて、要らなくなったら消してください（ネタ・下書き・予約済み・型）。</span>
         <button className="ck-ghost" onClick={onClearSamples}>例をまとめて消す</button></div>}
@@ -632,7 +633,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
       </div>}
       {!readOnly && inbox.some(p => anOf(p).length) && <div className="ck-vrow"><span className="ck-note" style={{ margin: 0 }}>Claude の案が {inbox.filter(p => anOf(p).length).length} 件</span>
         <button className="ck-ghost" onClick={async () => { const list = inbox.filter(p => anOf(p).length); let n = 0; for (const p of list) { if (await adoptAn(p, anOf(p)[0].g, true)) n++; } showToast(`${n} 件を案のとおり振り分けました`); }}>案をすべて採用</button></div>}
-      {!readOnly && <div className="ck-cap"><textarea value={cap} onChange={e => setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱に入る（1 行目がタイトル、2 行目からメモ）"
+      {!readOnly && <div className="ck-cap" style={{ position: "relative" }}><GPin n={1} style={{ position: "absolute", left: -10, top: -10 }} /><textarea value={cap} onChange={e => setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱に入る（1 行目がタイトル、2 行目からメモ）"
         onKeyDown={async e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); const t = cap.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); if (await addIdea({ title: first.trim(), memo: rest.join("\n").trim() })) { setCap(""); setSel(0); } } }} />
         <div className="ck-capft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ<span style={{ marginLeft: "auto" }}>どの画面からでも <span className="ck-kbd" style={{ marginLeft: 2 }}>⌘K</span></span></div></div>}
       {!readOnly && inbox.length > 0 && <div className="ck-keys"><span><span className="ck-kbd">J</span><span className="ck-kbd">K</span>選ぶ</span><span><span className="ck-kbd">1</span>アウトプットにする</span><span><span className="ck-kbd">2</span>表へ振り分け</span><span><span className="ck-kbd">H</span>寝かせる</span><span><span className="ck-kbd">Enter</span>開く</span><span><span className="ck-kbd">⌫</span>消す</span></div>}
@@ -643,10 +644,10 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
             <button className="ck-go" onClick={() => adoptAn(p, a.g)}>採用</button><button className="ck-ghost" style={{ minHeight: 26 }} onClick={() => rejectAn(p, a.l)}>却下</button></div>)}</div>
         {!readOnly && <div className="ck-ia">
           {mapBtn(p)}
-          <select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
+          {j === 0 && <GPin n={2} />}<select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
             <option value="">表へ振り分け</option>{genreNames.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
-          <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>
+          {j === 0 && <GPin n={3} style={{ marginLeft: 4 }} />}<button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>
         </div>}
       </div>) : <div className="ck-empty">受け箱は空っぽ。</div>}</div>
     </>;
@@ -657,7 +658,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
     const oneType = /^(if|it|of|ot):/.test(loc);
     const TT = props => oneType ? null : <TypeTag {...props} />;
     body = <>
-      <div className="ck-crumb">{crumb}</div><h1 className="ck-title">{title}</h1>{note && <p className="ck-note">{note}</p>}{tabs}
+      <div className="ck-crumb">{crumb}</div><h1 className="ck-title">{title}</h1>{note && <p className="ck-note">{note}</p>}{tabs}<GuideBand id={loc === "sleep" || loc === "arch" ? "stash" : mode === "idea" ? "idea" : "out"} />
       <div className="ck-vrow">
         <div className="ck-vtabs"><button className={`ck-vtab ${view === "table" ? "on" : ""}`} onClick={() => setView("table")}>{I.list}表</button><button className={`ck-vtab ${view === "board" ? "on" : ""}`} onClick={() => setView("board")}>{I.board}流れ</button>
           {mode === "out" && renderSheet && <button className={`ck-vtab ${view === "sheet" ? "on" : ""}`} onClick={() => setView("sheet")}>{I.sheet}シート</button>}</div>
@@ -684,14 +685,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
-              <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{p.title ? p.memo : ""}</div></td>
+              <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{loc === "sleep" && p === shown[0] && <GPin n={2} />}{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{p.title ? p.memo : ""}</div></td>
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>)}{!readOnly && <> {menuOf(p)}</>}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <>{p === shown[0] && <GPin n={2} style={{ marginLeft: 4 }} />}<button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button></>)}{!readOnly && <> {p === shown[0] && <GPin n={loc === "sleep" ? 1 : 3} style={{ marginLeft: 4 }} />}{menuOf(p)}</>}</td>
             </tr> :
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
-              <td><div className="ck-nm">{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || ""}</div></td>
+              <td><div className="ck-nm">{p === shown[0] && <GPin n={2} />}{headOf(p) || "（タイトルなし）"}</div><div className="ck-snip">{textOf(p).slice(0, 80) || p.memo || ""}</div></td>
               <td className={pop === p.id ? "ck-pop" : ""}>{readOnly ? <StTag s={p.status} /> : <select className="ck-stsel" value={p.status} onChange={e => setStatus(p, e.target.value)} style={{ backgroundImage: `radial-gradient(circle,${ST_COLOR[p.status]} 3.5px,transparent 4px)` }}>
                 {OUT_FLOW.map(s => <option key={s} value={s}>{STATUS[s]?.label || s}</option>)}</select>}</td>
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}
@@ -699,7 +700,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || ""}</td>
               <td><Srcs p={p} /></td><td><Score s={p.score} /></td>
               <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td>
-              <td style={{ width: 40, textAlign: "right" }}>{!readOnly && menuOf(p)}</td>
+              <td style={{ width: 40, textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <>{p === shown[0] && <GPin n={loc === "arch" ? 1 : 3} />}{menuOf(p)}</>}</td>
             </tr>)}
           {newTr}
           {!shown.length && !newTr && <tr><td colSpan={9} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}

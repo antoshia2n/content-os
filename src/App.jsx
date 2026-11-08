@@ -52,6 +52,7 @@ import { WsChip } from "./components/WsChip.jsx"; // 2026-11-04 場所の切り�
 import { getWorkspace } from "shia2n-core/lib/supabase.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
 import { MANUAL, KEYS, makeTours } from "./manual.js";
 import { DialogFocus } from "./lib/useDialogFocus.js";
+import { GuideCtx, useGuideState, GuideBand, GPin, GuideSwitch, GUIDE_CSS } from "./lib/guide.jsx";
 
 
 const {isClient:_isClient,accountId:_urlAccountId}=getUrlParams();
@@ -178,6 +179,7 @@ function App({uid,panel=false,owner=false}){
   const [toOut,setToOut]=useState(null);
   const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
   // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
+  const guide=useGuideState(); // 2026-11-08 ガイドあり・なし
   const [calMode,setCalModeRaw]=useState(()=>{const narrow=typeof window!=="undefined"&&window.innerWidth<=760;try{return localStorage.getItem("contentos.calmode")||(narrow?"list":"week");}catch{return narrow?"list":"week";}});
   const setCalMode=m=>{setCalModeRaw(m);try{localStorage.setItem("contentos.calmode",m);}catch{/* 覚えられなくても動く */}};
   // 2026-10-24 6便：週の表は、予定と枠のある時間帯だけを出す。夜中も見たいときだけ 0 時から出す
@@ -632,8 +634,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
     </div>
   );
 
-  return(
+  return(<GuideCtx.Provider value={guide}>
     <div style={{fontFamily:`'Geist','Hiragino Sans','Noto Sans JP',sans-serif`,background:"#f5f0eb",minHeight:"100vh",color:"#1a1a1a"}}>
+      <style>{GUIDE_CSS}</style>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap');
@@ -704,6 +707,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+          {!panel&&<GuideSwitch/>}
           <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)} title="検索・追加（⌘K）" aria-label="検索・追加（⌘K）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span className="ql">検索・追加</span><span className="ck-kbd">⌘K</span></button>
           {!isClient&&<button data-tour="today" style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
             <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>{dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
@@ -775,7 +779,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           {activeAcc&&<span style={{width:7,height:7,borderRadius:"50%",background:activeAcc.color,display:"inline-block"}}/>}
           <span style={{fontWeight:700,fontSize:12.5,color:"#555",whiteSpace:"nowrap"}}>{activeAcc?.name}</span>
           <div style={{...S.row,gap:4,marginLeft:4}}>
-            <button aria-label="前の週" title="前の週" onClick={()=>{const d=new Date(week);d.setDate(d.getDate()-7);setWeek(d);}}
+            <GPin n={1}/><button aria-label="前の週" title="前の週" onClick={()=>{const d=new Date(week);d.setDate(d.getDate()-7);setWeek(d);}}
               style={{border:BD2,background:"#fff",borderRadius:6,width:26,height:26,cursor:"pointer",fontSize:14,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
             <span style={{fontWeight:600,fontSize:12.5,minWidth:165,textAlign:"center",whiteSpace:"nowrap",color:"#333"}}>
               {weekDates[0].getMonth()+1}月{weekDates[0].getDate()}日 〜 {weekDates[6].getMonth()+1}月{weekDates[6].getDate()}日
@@ -786,9 +790,9 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
               style={{border:BD2,background:"#fff",borderRadius:6,padding:"4px 9px",cursor:"pointer",fontSize:12,color:"#555",fontFamily:"inherit"}}>今週</button>
           </div>
           <div className="ck" style={{display:"inline-flex",gap:2,marginLeft:6}}>
-            <button className={`ck-vtab ${calMode==="week"?"on":""}`} onClick={()=>setCalMode("week")}>週</button>
+            <GPin n={2} style={{alignSelf:"center"}}/><button className={`ck-vtab ${calMode==="week"?"on":""}`} onClick={()=>setCalMode("week")}>週</button>
             <button className={`ck-vtab ${calMode==="list"?"on":""}`} onClick={()=>setCalMode("list")}>リスト</button>
-            <button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button>
+            <GPin n={3} style={{alignSelf:"center",marginLeft:4}}/><button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button>
           </div>
           {calMode==="week"&&<button className={`ck-vtab ${calNight?"on":""}`} onClick={()=>setCalNight(!calNight)} title="0 時から 23 時まで、全部の時間を出す">夜も出す</button>}
           <div className="ck-calf">
@@ -801,6 +805,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         </div>
       )}
 
+      {view==="calendar"&&guide.on&&<div className="ck" style={{padding:"10px 16px 0"}}><GuideBand id="calendar"/></div>}
       {/* ── カレンダービュー ── */}
       {view==="calendar"&&(
         <div className="ck"><style>{PLAN_CSS}</style><div className="ck-cal"><div className="ck-cal-main">
@@ -1054,7 +1059,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
       </div>}
       <div role="status" aria-live="polite" style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a1a",color:"#fff",padding:toast?"10px 18px":0,borderRadius:10,fontSize:13,fontWeight:600,lineHeight:1.6,maxWidth:"min(560px,calc(100vw - 32px))",zIndex:9999,boxShadow:toast?"0 8px 24px rgba(0,0,0,.18)":"none",pointerEvents:"none",opacity:toast?1:0,transition:"opacity .15s"}}>{toast||""}</div>
     </div>
-  );
+  </GuideCtx.Provider>);
 }
 
 // ════════════════════════════════════════════════════════
