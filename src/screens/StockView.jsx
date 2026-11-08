@@ -69,6 +69,13 @@ export const CK_CSS = `
 .ck-nv .n{font-size:12px;color:var(--faint);font-weight:600;font-variant-numeric:tabular-nums}
 .ck-nv.warn .n{color:var(--accent-ink);background:var(--accent-bg);border-radius:99px;padding:0 7px}
 .ck-nv.d1{padding-left:26px!important}.ck-nv.d2{padding-left:42px!important}
+.ck-nvf{display:flex;align-items:center;gap:2px}.ck-nvf>.ck-nv{flex:1;min-width:0}
+.ck-nav>div>.ck-nv{padding-right:36px!important} /* 畳むボタンの無い行も数の位置をそろえる */
+.ck-fold{flex:none;display:grid!important;place-items:center;width:24px;height:28px;border-radius:6px;color:var(--muted)}
+.ck-fold:hover{background:var(--soft)!important;color:var(--fg)}
+.ck-fold svg{transition:transform .15s}.ck-nvf.shut .ck-fold svg{transform:rotate(-90deg)}
+.ck-nvf.shut.in>.ck-nv{color:var(--fg);font-weight:700}
+@media (prefers-reduced-motion:reduce){.ck-fold svg{transition:none}}
 .ck-nav-foot{margin-top:auto;padding:10px 8px 0;border-top:1px solid var(--hair);font-size:12px;color:var(--faint);line-height:1.6}
 .ck-main{flex:1;min-width:0}
 .ck-wrap{max-width:1180px;margin:0 auto;padding:20px 16px 72px;display:flex;flex-direction:column;gap:12px}
@@ -276,8 +283,13 @@ function Srcs({ p }) {
     {n > 0 && <span className="ck-src" style={{ color: "#6b6259", background: "#f3eee8" }}>{I.link}{n}</span>}
   </span>;
 }
-function Nv({ on, icon, label, n, cls = "", onClick, onDragOver, onDrop }) {
-  return <button className={`ck-nv ${cls} ${on ? "on" : ""}`} onClick={onClick} onDragOver={onDragOver} onDrop={onDrop}>{icon}<span className="l">{label}</span><span className="n">{n}</span></button>;
+function Nv({ on, icon, label, n, cls = "", onClick, onDragOver, onDrop, fold }) {
+  const b = <button className={`ck-nv ${cls} ${on ? "on" : ""}`} onClick={onClick} onDragOver={onDragOver} onDrop={onDrop}>{icon}<span className="l">{label}</span><span className="n">{n}</span></button>;
+  if (!fold) return b;
+  // 2026-11-08 フォルダを畳む（Naoki 依頼）：右端の ▸ で中の表を隠す・出す。名前を押したときは今までどおりフォルダを開く
+  return <div className={`ck-nvf ${fold.open ? "" : "shut"} ${fold.inside ? "in" : ""}`}>{b}
+    <button className="ck-fold" aria-expanded={fold.open} aria-label={`「${label}」を${fold.open ? "畳む" : "開く"}`} title={fold.open ? "畳む" : "開く"} onClick={fold.onToggle}>{I.down}</button>
+  </div>;
 }
 
 // ── アカウントの切り替え（混ぜて出す画面は無い） ──────────────
@@ -409,6 +421,10 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   let nav, rows = [], crumb = "", title = "", note = "", tabs = null;
   const [wFrom, wTo] = weekRange(today);
   const lcOf = m => m === mode ? loc : "";
+  // 畳んだフォルダはアカウントごとにブラウザへ覚える（値が無いフォルダは今までどおりの開き方）
+  const [folds, setFolds] = useState(() => store.get(`${keyBase}.fold`, {}));
+  useEffect(() => { setFolds(store.get(`${keyBase}.fold`, {})); }, [keyBase]);
+  const fold = (k, def, inside) => { const open = k in folds ? folds[k] : def; return { open, inside, onToggle: () => setFolds(f => { const nf = { ...f, [k]: !open }; store.set(`${keyBase}.fold`, nf); return nf; }) }; };
   const goTo = (m, l) => { if (m === mode) setLoc(l); else { store.set(`${keyBase}.${m}`, l); if (window.innerWidth <= 860) setNavOn(false); onMode && onMode(m); } };
   // ネタ側の材料
   const live = ideas.filter(p => p.genre && stageOf(p) !== "sleep");
@@ -425,8 +441,10 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
       <div className="ck-nh">ネタ</div>
       <Nv on={il === "inbox"} icon={I.inbox} label="受け箱" n={inbox.length} cls="warn" onClick={() => goTo("idea", "inbox")} />
       {iTypes.map(t => { const inT = live.filter(p => (p.postType || "x_post") === t); return <React.Fragment key={t}>
-        <Nv on={il === `if:${t}`} icon={I.folder} label={postTypes[t].label} n={inT.length} onClick={() => goTo("idea", `if:${t}`)} />
-        {genreNames.filter(g => inT.some(p => p.genre === g) || il === `it:${t}:${g}`).map(g => <Nv key={g} cls="d1" on={il === `it:${t}:${g}`} icon={I.table} label={g} n={inT.filter(p => p.genre === g).length} onClick={() => goTo("idea", `it:${t}:${g}`)} {...dropTo(g, t)} />)}
+        {(() => { const f = fold(`i:${t}`, true, il.startsWith(`it:${t}:`)); return <>
+        <Nv on={il === `if:${t}`} icon={I.folder} label={postTypes[t].label} n={inT.length} onClick={() => goTo("idea", `if:${t}`)} fold={f} />
+        {f.open && genreNames.filter(g => inT.some(p => p.genre === g) || il === `it:${t}:${g}`).map(g => <Nv key={g} cls="d1" on={il === `it:${t}:${g}`} icon={I.table} label={g} n={inT.filter(p => p.genre === g).length} onClick={() => goTo("idea", `it:${t}:${g}`)} {...dropTo(g, t)} />)}
+        </>; })()}
       </React.Fragment>; })}
       <div className="ck-nh">アウトプット</div>
       <Nv on={ol === "week"} icon={I.week} label="今週書くもの" n={weekRows.length} onClick={() => goTo("out", "week")} />
@@ -436,13 +454,14 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         const years = [...new Set(ps.filter(p => p.datetime).map(p => p.datetime.slice(0, 4)))].sort().reverse();
         const nodate = ps.filter(p => !p.datetime);
         const curYear = (ol.startsWith(`ot:${t}:`) && ol.split(":")[2]) || "";
+        const ft = fold(`o:${t}`, true, ol.startsWith(`ot:${t}:`));
         return <React.Fragment key={t}>
-          <Nv on={ol === `of:${t}`} icon={I.folder} label={postTypes[t].label} n={ps.length} onClick={() => goTo("out", `of:${t}`)} />
-          {years.map(y => { const inY = ps.filter(p => p.datetime?.startsWith(y)); const months = [...new Set(inY.map(p => p.datetime.slice(5, 7)))].sort().reverse(); const open = curYear.startsWith(y) || y === today.slice(0, 4); return <React.Fragment key={y}>
-            <Nv cls="d1" on={false} icon={I.folder} label={`${y.slice(2)}年`} n={inY.length} onClick={() => goTo("out", `ot:${t}:${y}-${months[0]}`)} />
-            {open && months.map(m => <Nv key={m} cls="d2" on={ol === `ot:${t}:${y}-${m}`} icon={I.table} label={`${+m}月`} n={inY.filter(p => p.datetime.slice(5, 7) === m).length} onClick={() => goTo("out", `ot:${t}:${y}-${m}`)} />)}
+          <Nv on={ol === `of:${t}`} icon={I.folder} label={postTypes[t].label} n={ps.length} onClick={() => goTo("out", `of:${t}`)} fold={ft} />
+          {ft.open && years.map(y => { const inY = ps.filter(p => p.datetime?.startsWith(y)); const months = [...new Set(inY.map(p => p.datetime.slice(5, 7)))].sort().reverse(); const fy = fold(`o:${t}:${y}`, curYear.startsWith(y) || y === today.slice(0, 4), curYear.startsWith(y)); return <React.Fragment key={y}>
+            <Nv cls="d1" on={false} icon={I.folder} label={`${y.slice(2)}年`} n={inY.length} onClick={() => goTo("out", `ot:${t}:${y}-${months[0]}`)} fold={fy} />
+            {fy.open && months.map(m => <Nv key={m} cls="d2" on={ol === `ot:${t}:${y}-${m}`} icon={I.table} label={`${+m}月`} n={inY.filter(p => p.datetime.slice(5, 7) === m).length} onClick={() => goTo("out", `ot:${t}:${y}-${m}`)} />)}
           </React.Fragment>; })}
-          {nodate.length > 0 && <Nv cls="d1" on={ol === `ot:${t}:none`} icon={I.table} label="日時なし" n={nodate.length} onClick={() => goTo("out", `ot:${t}:none`)} />}
+          {ft.open && nodate.length > 0 && <Nv cls="d1" on={ol === `ot:${t}:none`} icon={I.table} label="日時なし" n={nodate.length} onClick={() => goTo("out", `ot:${t}:none`)} />}
         </React.Fragment>;
       })}
       <div className="ck-nh">しまったもの</div>
