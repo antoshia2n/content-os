@@ -110,6 +110,8 @@ export async function onRequestPost(context) {
   params.set('user_id', `eq.${user_id}`);
   if (accountId) params.set('account_id', `eq.${accountId}`);
   if (statusFilter) params.set('status', `eq.${statusFilter}`);
+  // 2026-11-08 ゴミ箱に入れたもの（labels に「ゴミ箱」）は返さない（labels は既定が {} で空の値は無い）
+  params.set('labels', 'not.cs.{ゴミ箱}');
   params.set('order', 'created_at.desc');
   params.set('limit', String(fetchLimit));
 

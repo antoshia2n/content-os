@@ -193,7 +193,7 @@ export function usePostActions({
   }, [activeAccId, activeAcc, showToast, setAccounts]);
 
   const openNew = useCallback((datetime, { title = "", postType = "x_post" } = {}) => {
-    const newPost = { id: genId(), title, status: "draft", postType, datetime: datetime || `${today}T07:00`, body: "", memo: "", memoLinks: [], comments: [], history: [], labels: [], notion_page_id: null, account_id: activeAccId, _unsaved: true };
+    const newPost = { id: genId(), title, status: "draft", postType, datetime: datetime === null ? "" : (datetime || `${today}T07:00`), body: "", memo: "", memoLinks: [], comments: [], history: [], labels: [], notion_page_id: null, account_id: activeAccId, _unsaved: true };
     setPreview(newPost);
   }, [today, activeAccId, setPreview]);
 

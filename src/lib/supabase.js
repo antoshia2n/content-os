@@ -59,7 +59,7 @@ export async function dbUpdatePost(id, fields) {
 }
 
 // ── シート：必要な列だけ・月／展開したまとまりだけ ────────
-export const SHEET_COLUMNS = 'id,account_id,datetime,status,post_type,genre,theme,title,mm_url,manabu';
+export const SHEET_COLUMNS = 'id,account_id,datetime,status,post_type,genre,theme,title,mm_url,manabu,labels';
 const sheetLiteral = value => '"' + String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 export function sheetGroupConditions(field, values) {
   return [
@@ -97,7 +97,8 @@ export async function dbFetchSheetRows(options) {
     const {data,error} = await sheetQuery(options).range(start,start+999);
     if (error) throw error;
     rows.push(...(data||[]));
-    if (!data || data.length < 1000) return rows;
+    // 2026-11-08 ゴミ箱に入れたもの（labels に「ゴミ箱」）はシートに出さない
+    if (!data || data.length < 1000) return rows.filter(r => !(r.labels||[]).includes('ゴミ箱'));
   }
 }
 export async function dbCountSheetGroup(options) {
