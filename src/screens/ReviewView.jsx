@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, stripHtml, fmtDate } from "../constants.js";
 import { DEFAULT_GOAL } from "../hooks/useDays.js";
-import { GuideBand, GPin } from "../lib/guide.jsx";
+import { GQ } from "../lib/guide.jsx";
 
 const W = ["日", "月", "火", "水", "木", "金", "土"];
 const headOf = p => (p.title || "").trim() || (p.memo || "").trim().split("\n")[0] || stripHtml(p.body || "").trim().slice(0, 60);
@@ -96,7 +96,6 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
 
   return <div className="ck"><style>{REVIEW_CSS}</style><div className="ck-rv">
     <div><h1 className="ck-title">積み上げ</h1></div>
-    <GuideBand id="metrics" />
     {!ready && <div className="ck-warn">記録の表がまだ使えません{err ? `（${err}）` : ""}。字数はこの画面を開いている間だけ数え、残りません。表ができると、その日から残ります。</div>}
     {showMonth && <div className="ck-box"><h2>{lm.getMonth() + 1}月のあなた<small>月のはじめに 1 回だけ</small></h2>
       <div className="ck-month">
@@ -108,7 +107,7 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
           <textarea className="ck-note-ta" style={{ minHeight: 56 }} value={mNote} onChange={e => setMNote(e.target.value)} onBlur={() => saveDay(firstKey, { extra: { ...(days[firstKey]?.extra || {}), month_note: mNote.trim() } })} placeholder="ひとことで、どう書く？" /></div>
       </div></div>}
     <div className="ck-rv-grid">
-      <div className="ck-box"><h2><GPin n={1} />今日<small>{now.getMonth() + 1}/{now.getDate()}（{W[now.getDay()]}）</small></h2>
+      <div className="ck-box"><h2>今日<GQ id="metrics" n={1} /><small>{now.getMonth() + 1}/{now.getDate()}（{W[now.getDay()]}）</small></h2>
         <div className="ck-today"><TodayRing chars={todayRow.chars} goal={goal} size={72} stroke={8} />
           <div><div className="big">{(todayRow.chars || 0).toLocaleString()}<small>/ {goal.toLocaleString()} 字</small></div>
             <div className="sub">保存 {todayRow.saves || 0} 回・今日の予約と公開 {todayOut} 本</div>
@@ -125,7 +124,7 @@ export function ReviewView({ days, today, todayRow, ready, err, saveDay, posts, 
         <div className="ck-rsec" style={{ padding: 0 }}>ひとこと（夜に）</div>
         <textarea ref={noteRef} className="ck-note-ta" disabled={!ready && !err} value={note} onChange={e => setNote(e.target.value)} onBlur={() => { if (note !== (todayRow.note || "")) saveDay(today, { note }); }} placeholder="今日はどうだった？ 何が書きやすく、何が詰まった？" />
       </div>
-      <div className="ck-box"><h2><GPin n={2} />この 4 週間<small>1 日の字数</small></h2>
+      <div className="ck-box"><h2>この 4 週間<GQ id="metrics" n={2} /><small>1 日の字数</small></h2>
         <div className="ck-bars">{span.map(x => <div key={x.k} className={`ck-bar ${x.k === today ? "today" : ""} ${x.n ? "" : "zero"}`} style={{ height: `${Math.max(2, Math.round(x.n / max * 100))}%` }} title={`${x.d.getMonth() + 1}/${x.d.getDate()}（${W[x.d.getDay()]}）${x.n.toLocaleString()} 字`} />)}</div>
         <div className="ck-weeks">{weeks.map((w, i) => <div key={i} className="ck-wk">{w.from.getMonth() + 1}/{w.from.getDate()}〜<b>{kNum(w.sum)} 字</b>書いた日 {w.on} 日</div>)}</div>
       </div>
