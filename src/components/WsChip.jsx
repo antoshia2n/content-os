@@ -7,7 +7,7 @@
  * 替えるときは beforeSwitch（書きかけを送り切る）が true を返したときだけ替えて、読み込み直す。
  */
 import React from "react";
-import { getWorkspace, setWorkspace } from "shia2n-core/lib/supabase.js";
+import { getWorkspace, setWorkspace } from "shia2n-core/lib/supabase-lite.js";
 import { auth } from "../firebase.js";
 
 const CSS = `

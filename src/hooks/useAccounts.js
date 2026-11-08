@@ -19,7 +19,7 @@ import { samplePosts, SAMPLE_TEMPLATE } from "../lib/samples.js";
 
 // 選択中アカウントの保存先（ブラウザ内）
 // 2026-11-04 場所ごとに覚える（場所が違うとアカウントも別のため）
-import { getWorkspace } from "shia2n-core/lib/supabase.js";
+import { getWorkspace } from "shia2n-core/lib/supabase-lite.js";
 const ACTIVE_ACC_KEY = "contentos.activeAccountId" + (getWorkspace() ? "." + getWorkspace() : "");
 
 function readStoredAccId() {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { auth, db, googleProvider } from "./firebase.js";
 import { onAuthStateChanged, signInWithPopup } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore/lite";
 import {
   PORTAL_URL,
   POST_TYPE, getPostTypeStyle, STATUS, SCORE,
@@ -47,9 +47,9 @@ import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
 import { isSample, SAMPLE_TEMPLATE_NAME } from "./lib/samples.js";
-import { mountAppShell } from "shia2n-core/shell/app-shell.js";
+import { mountAppShell } from "shia2n-core/shell/app-shell-lite.js";
 import { WsChip } from "./components/WsChip.jsx"; // 2026-11-04 場所の切り替え
-import { getWorkspace } from "shia2n-core/lib/supabase.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
+import { getWorkspace } from "shia2n-core/lib/supabase-lite.js"; // 根から読むと lucide-react が要る部品まで入るため、外枠だけを読む
 import { MANUAL, KEYS, makeTours } from "./manual.js";
 import { DialogFocus } from "./lib/useDialogFocus.js";
 import { GQ } from "./lib/guide.jsx";
