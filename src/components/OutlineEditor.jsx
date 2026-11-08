@@ -3,7 +3,7 @@
 // - Enter で次の行・Tab で一段下げる・Shift+Tab で戻す・空の行で Backspace で消す・↑↓ で行を移る（変換中の Enter は変換の確定として渡す）
 // - 思考整理くんの画面でも同時に直していたら、上書きせず向こうに合わせて知らせる
 import React, { useEffect, useRef, useState } from "react";
-import { getOutline, putOutline, mapIdOf } from "../lib/mindmapLink.js";
+import { getOutline, putOutline, mapIdOf, nodeIdOf } from "../lib/mindmapLink.js";
 
 let seq = 0;
 const key = () => "k" + (++seq);
@@ -11,6 +11,9 @@ const withKeys = ls => (ls || []).map(l => ({ ...l, k: key() }));
 
 export function OutlineEditor({ mmUrl, onMakeMap, onHeadings, toast }) {
   const id = mapIdOf(mmUrl);
+  // マップの枝から来たネタは、その枝の下だけを読み書きする（中心から書くと、ネタの外の枝まで書き換えるため）
+  const node = nodeIdOf(mmUrl);
+  const [topTitle, setTopTitle] = useState("");
   const [st, setSt] = useState(id ? "loading" : "none"); // none / loading / ready / error
   const [err, setErr] = useState("");
   const [lines, setLines] = useState([]);
@@ -23,13 +26,15 @@ export function OutlineEditor({ mmUrl, onMakeMap, onHeadings, toast }) {
     if (!id) { setSt("none"); return; }
     setSt("loading");
     try {
-      const j = await getOutline(id);
-      rev.current = j.rev; url.current = j.url;
+      const j = await getOutline(id, undefined, node);
+      // 枝の下だけを扱えない古い口なら、書かずに止める（マップの中心から書き換えないため）
+      if (node && j.node !== node) throw new Error("思考整理くん側の直しがまだ入っていないため、このネタの構成はまだ開けません");
+      rev.current = j.rev; url.current = j.url; setTopTitle(node ? j.title : "");
       setLines(j.lines.length ? withKeys(j.lines) : [{ d: 0, t: "", k: key() }]);
       setSt("ready");
     } catch (e) { setErr(e.message); setSt("error"); }
   };
-  useEffect(() => { load(); return () => clearTimeout(timer.current); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); return () => clearTimeout(timer.current); }, [id, node]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const flush = async () => {
     if (!dirty.current || !id) return;
@@ -37,7 +42,7 @@ export function OutlineEditor({ mmUrl, onMakeMap, onHeadings, toast }) {
     setSave("保存中…");
     try {
       const out = linesRef.current.filter((l, i, a) => l.t.trim() || i < a.length - 1).map(({ id: nid, d, t }) => ({ id: nid, d, t }));
-      const j = await putOutline(id, rev.current, out);
+      const j = await putOutline(id, rev.current, out, undefined, node);
       rev.current = j.rev;
       if (j.conflict) {
         setLines(j.lines.length ? withKeys(j.lines) : [{ d: 0, t: "", k: key() }]);
@@ -104,7 +109,7 @@ export function OutlineEditor({ mmUrl, onMakeMap, onHeadings, toast }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#736a62", marginBottom: 10, flexWrap: "wrap" }}>
-        <span>Enter で次の行・Tab で一段下げる・Shift+Tab で戻す</span>
+        <span>{topTitle ? `マップの枝「${topTitle}」の下を直しています　` : ""}Enter で次の行・Tab で一段下げる・Shift+Tab で戻す</span>
         <span style={{ marginLeft: "auto" }} role="status" aria-live="polite">{save}</span>
         <a href={url.current || mmUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#b45309", fontWeight: 700, textDecoration: "none" }}>マップで開く ↗</a>
       </div>

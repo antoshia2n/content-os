@@ -65,16 +65,21 @@ export function mapIdOf(url) {
   const m = String(url || "").match(/\/m\/([\w-]{1,64})/);
   return m ? m[1] : "";
 }
-async function outlineCall(method, id, payload, fetchFn = fetch) {
+/** マップの枝から送ったネタは住所に ?n=枝の id が付く。その枝の下がネタの構成（2026-11-08 直し） */
+export function nodeIdOf(url) {
+  const m = String(url || "").match(/[?&]n=([\w-]{1,64})/);
+  return m ? m[1] : "";
+}
+async function outlineCall(method, id, payload, fetchFn = fetch, node = "") {
   const user = auth.currentUser;
   if (!user) throw new Error("ログインを確かめられませんでした。再読み込みしてください");
   const token = await user.getIdToken();
   let res;
   try {
-    res = await fetchFn(`${MINDMAP_ORIGIN}/api/ext/outline${method === "GET" ? `?id=${encodeURIComponent(id)}` : ""}`, {
+    res = await fetchFn(`${MINDMAP_ORIGIN}/api/ext/outline${method === "GET" ? `?id=${encodeURIComponent(id)}${node ? `&node=${encodeURIComponent(node)}` : ""}` : ""}`, {
       method,
       headers: { Authorization: `Bearer ${token}`, ...(method === "PUT" ? { "Content-Type": "application/json" } : {}) },
-      ...(method === "PUT" ? { body: JSON.stringify({ id, ...payload }) } : {}),
+      ...(method === "PUT" ? { body: JSON.stringify({ id, ...(node ? { node } : {}), ...payload }) } : {}),
     });
   } catch {
     throw new Error("思考整理くんにつながりませんでした。通信を確かめてください");
@@ -85,6 +90,6 @@ async function outlineCall(method, id, payload, fetchFn = fetch) {
   return j;
 }
 /** マップを行で読む → { id, rev, title, url, lines: [{ id, d, t }] } */
-export const getOutline = (id, fetchFn) => outlineCall("GET", id, null, fetchFn);
+export const getOutline = (id, fetchFn, node) => outlineCall("GET", id, null, fetchFn, node);
 /** 行で書く。版が古ければ { conflict: true, ...今の中身 } が返る */
-export const putOutline = (id, rev, lines, fetchFn) => outlineCall("PUT", id, { rev, lines }, fetchFn);
+export const putOutline = (id, rev, lines, fetchFn, node) => outlineCall("PUT", id, { rev, lines }, fetchFn, node);
