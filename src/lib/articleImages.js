@@ -5,7 +5,7 @@
 //   note の本文 … 文と画像をまとめて貼れば、画像も入る
 //   note の見出し画像・X記事の本文・X記事の表紙 … 貼り付けでは入らない（ファイルを選ぶ）
 // よって、コピーは 2 通り（画像つき／画像の位置に目印）、画像はファイルとしてまとめて保存できるようにする。
-import { supabase } from "./supabase.js";
+import { SUPABASE_URL } from "../supabase.js";
 import { auth } from "../firebase.js";
 import { STORAGE_BUCKET } from "../constants.js";
 
@@ -24,9 +24,9 @@ export async function uploadImage(file) {
   });
   const out = await res.json().catch(() => ({}));
   if (!res.ok || !out?.path) throw new Error([out?.message, out?.hint].filter(Boolean).join(" / ") || `保存できませんでした（${res.status}）`);
-  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(out.path);
-  if (!data?.publicUrl) throw new Error("公開の住所を作れませんでした");
-  return data.publicUrl;
+  // 公開の住所（supabase の getPublicUrl と同じ形を手で作る・2026-11-08 軽い版へ移したため）
+  if (!SUPABASE_URL) throw new Error("公開の住所を作れませんでした");
+  return `${SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/${STORAGE_BUCKET}/${out.path}`;
 }
 
 // 保存できる画像の住所（公開の住所か、中身つきの data:）。目印の番号と保存の番号は、この同じ数え方でそろえる

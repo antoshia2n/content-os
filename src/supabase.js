@@ -12,4 +12,6 @@
 
 // 共通パッケージの入口（index.js）ではなく接続部品を直接読む。
 // 入口を読むと画面部品（アイコン等）まで引き込まれ、このアプリには不要な依存が増えるため。
-export { supabase } from "shia2n-core/lib/supabase.js";
+// 2026-11-08 軽い版（表の読み書きだけ・@supabase/postgrest-js）。このアプリが使うのは .from() と、置き場の公開の住所だけのため
+export { supabase } from "shia2n-core/lib/supabase-lite.js";
+export { SUPABASE_URL } from "shia2n-core/lib/gateway-fetch.js";
