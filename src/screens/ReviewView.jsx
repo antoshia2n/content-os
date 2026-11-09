@@ -6,13 +6,15 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, stripHtml, fmtDate } from "../constants.js";
 import { DEFAULT_GOAL } from "../hooks/useDays.js";
 import { GQ } from "../lib/guide.jsx";
+import { TodayRing } from "../components/TodayRing.jsx";
 
 const W = ["日", "月", "火", "水", "木", "金", "土"];
 const headOf = p => (p.title || "").trim() || (p.memo || "").trim().split("\n")[0] || stripHtml(p.body || "").trim().slice(0, 60);
 const kNum = n => n == null ? "" : n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, "") + "万" : Number(n).toLocaleString();
 
 // ── 今日の字数の輪（上の帯と、この画面の両方で使う） ──
-export { TodayRing } from "../components/TodayRing.jsx";
+// 2026-11-10 便3 で別のファイルへ移した。この画面の中でも使うので、上で読み込む（re-export だけでは中で使えず、積み上げを開くと止まった）
+export { TodayRing };
 
 export const REVIEW_CSS = `
 .ck-rv{max-width:1080px;margin:0 auto;padding:20px 16px 8px;display:flex;flex-direction:column;gap:14px}
