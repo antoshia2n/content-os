@@ -1,6 +1,6 @@
 import React from 'react';
 import {STATUS,POST_TYPE,getPostTypeStyle,BD2,fmtDate} from '../constants.js';
-import {CK_CSS} from './StockView.jsx';
+import {CK_CSS} from './StockParts.jsx';
 // 2026-10-23 3便：上に「メモ／探す／今週」の 3 つ。メモは受け箱へ（⌘＋Enter）、探すは投稿・スワイプ・思考整理をまとめて。
 
 // 2026-10-05 段 4：拡張機能のサイドパネル（幅 360px 前後）で開く細い画面。住所は /panel。
