@@ -12,7 +12,7 @@ export function PanelView({ws=null,posts,accounts=[],account,onAccount,postTypes
   const [tab,setTabRaw]=React.useState(()=>{try{return localStorage.getItem('contentos.panel.tab')||'memo';}catch{return 'memo';}});
   const setTab=t=>{setTabRaw(t);try{localStorage.setItem('contentos.panel.tab',t);}catch{/* 覚えられなくても動く */}};
   const [cap,setCap]=React.useState('');
-  const inbox=React.useMemo(()=>posts.filter(p=>p.status==='idea'&&!p.genre&&!(p.labels||[]).includes('寝かせ')).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')||b.id-a.id).slice(0,8),[posts]);
+  const inbox=React.useMemo(()=>posts.filter(p=>p.status==='idea'&&!p.genre&&(p.postType||'x_post')==='x_post'&&!(p.labels||[]).includes('寝かせ')).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')||b.id-a.id).slice(0,8),[posts]);
   const capRef=React.useRef(null);
   const send=async()=>{const t=cap.trim();if(!t){capRef.current?.focus();return;}if(!onQuick)return;const [first,...rest]=t.split('\n');if(await onQuick({title:first.trim(),memo:rest.join('\n').trim()}))setCap('');};
   const days=React.useMemo(()=>{
