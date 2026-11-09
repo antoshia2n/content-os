@@ -79,8 +79,39 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     }catch{return null;}
   });
   const restoreRef=useRef(restore);restoreRef.current=restore;
+  // 2026-11-10 軽量化 便1（Naoki OK 00:11）：既にある投稿は、打つ手を止めて 3 秒で自動保存（Ghost と同じ間）。
+  // 予約済み・公開済みは Buffer に送った中身を勝手に変えないため、今までどおり「保存」ボタン
+  const AUTO_OFF=["reserved","published"];
+  const canAuto=!post._unsaved&&!!onAutoSave&&!AUTO_OFF.includes(post.status);
+  const autoOn=canAuto&&!AUTO_OFF.includes(draft.status);
+  const autoOnRef=useRef(autoOn);autoOnRef.current=autoOn;
+  const akey=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb,d.mm_url,d.comments]);
+  const savedKey=useRef(akey(draft));
+  const [autoMsg,setAutoMsg]=useState(canAuto?"保存済み":"");
+  const runAuto=async()=>{
+    if(!autoOnRef.current)return;
+    const d=draftRef.current,k=akey(d);
+    if(k===savedKey.current)return;
+    setAutoMsg("保存中…");
+    let ok=false;try{ok=await onAutoSave(d);}catch{ok=false;}
+    if(ok!==false){savedKey.current=k;dropLocal();const t=new Date();setAutoMsg(`保存しました ${t.getHours()}:${String(t.getMinutes()).padStart(2,"0")}`);}
+    else setAutoMsg("保存できませんでした。書き足すともう一度保存します");
+  };
+  useEffect(()=>{
+    if(!autoOn)return;
+    if(akey(draft)===savedKey.current)return;
+    setAutoMsg("書いています…");
+    const t=setTimeout(runAuto,3000);
+    return()=>clearTimeout(t);
+  },[draft,autoOn]);
+  useEffect(()=>{
+    if(!canAuto)return;
+    const flush=()=>{if(document.visibilityState==="hidden")runAuto();};
+    document.addEventListener("visibilitychange",flush);window.addEventListener("pagehide",runAuto);
+    return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",runAuto);};
+  },[]);
   const writeLocal=()=>{
-    if(!draftKey||restoreRef.current)return; // 戻すか捨てるかを選ぶまでは上書きしない
+    if(!draftKey||restoreRef.current||autoOnRef.current)return; // 自動保存の投稿は表へ直に残すので、端末の一時保存は使わない // 戻すか捨てるかを選ぶまでは上書きしない
     try{
       if(sameAsPost(draftRef.current))localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey,JSON.stringify({at:Date.now(),base:post.updated_at||null,fields:pickDraft(draftRef.current)}));
@@ -99,7 +130,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",writeLocal);};
   },[]);
   // 閉じる操作で閉じたときは、保存しない選択として書きかけも捨てる（戻すか選んでいない書きかけは残す）
-  const close=()=>{if(!restoreRef.current)dropLocal();onCloseRef.current(untouched()?{...draftRef.current,_untouched:true}:draftRef.current);};
+  const close=()=>{if(autoOnRef.current)runAuto();if(!restoreRef.current)dropLocal();onCloseRef.current(untouched()?{...draftRef.current,_untouched:true}:draftRef.current);};
   // まだ表に無い新しいネタだけ、書いた中身を 0.8 秒ごとに裏で保存する（パネルやタブごと閉じても残すため）。
   // 画面が隠れたとき（パネルを閉じる・タブを切り替える）は待たずにすぐ保存する
   // Notion へ送ったあとは、コンテンツくんへの裏の保存を止める（送ったメモを表に残さないため）
@@ -121,7 +152,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [localState,setLocalState]=useState("idle");   // idle | done | error
   const [insertOpen,setInsertOpen]=useState(false),[insertTab,setInsertTab]=useState("image"),[savedRange,setSavedRange]=useState(null);
   // 2026-11-07 Notion の形へ 便②：広い画面は右の機能をいつも出す（左で書く・右に機能）。最初のタブはネタならメモ、ほかは設定
-  const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":compact?null:"set");
+  // 2026-11-10 軽量化 便1：広い画面の右は「詳細・検索」の 2 つ。詳細は 設定 → メモとリンク → コメント → ラベルとサムネ の 1 本（履歴は画面から外した。記録は表に残る）
+  const [sidePanel,setSidePanel]=useState(compact?(post.status==="idea"?"meta":null):"set");
   const [sideW,setSideW]=useState(340);
   const [cmt,setCmt]=useState("");
   // 2026-11-07 便③：集中モード。右の機能とヘッダーの飾りを隠し、紙だけにする（⌘. / Ctrl+. で出し入れ）
@@ -145,7 +177,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   };
   useEffect(()=>{
     if(compact)return;
-    const k=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="."){e.preventDefault();setFocusOn(v=>!v);}};
+    const k=e=>{if((e.metaKey||e.ctrlKey)&&e.key==="."){e.preventDefault();setFocusOn(v=>!v);}
+      if((e.metaKey||e.ctrlKey)&&(e.key==="s"||e.key==="S")){e.preventDefault();if(autoOnRef.current)runAuto();else saveRef.current();}};
     document.addEventListener("keydown",k);return()=>document.removeEventListener("keydown",k);
   },[compact]);
   const dragging=useRef(false);
@@ -182,8 +215,9 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   // 段 5：型の差し込み先。細い幅は「本文／メモ」の切り替え、広い幅は最後に触った側
   const memoRef=useRef(null);
   const [lastSide,setLastSide]=useState(post.status==="idea"?"memo":"body");
-  const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="meta"?lastSide:"body");
-  const handleSave=()=>{dropLocal();onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});};
+  const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="set"?lastSide:"body");
+  const handleSave=()=>{dropLocal();savedKey.current=akey(draft);onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});};
+  const saveRef=useRef(handleSave);saveRef.current=handleSave;
   // コピー（2026-11-07）：X記事は画像の位置に【画像1】…の目印を置く（X記事は画像を貼っても入らないため）。
   // ほかの種類は文と画像をまとめて運ぶ（note の本文は、貼れば画像も入る）。mode を渡せば種類によらずその形
   const imgs=bodyImages(draft.body||"");
@@ -360,7 +394,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
               <div style={{flex:1}}/>
               <TemplatePicker compact templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
               <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
-              <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>
+{canAuto&&<span role="status" aria-live="polite" style={{fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",fontWeight:700,whiteSpace:"nowrap",color:autoOn&&/^保存(しました|済み)/.test(autoMsg)?"#047857":autoOn&&/できません/.test(autoMsg)?"#b91c1c":"#6b6259"}}>{autoOn?autoMsg:(akey(draft)!==savedKey.current?"保存していない変更があります":"")}</span>}
+              {!autoOn&&<button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>}
             </div>
             <div style={{...S.row,gap:5,flexWrap:"wrap"}}>
               <select value={draft.postType} onChange={e=>setDraft(d=>({...d,postType:e.target.value}))}
@@ -394,6 +429,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
           <span style={{fontSize:12,color:"#736a62",fontWeight:600,marginLeft:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{post._unsaved?"新しい投稿":`${ptKnown?pt.label:(draft.postType||"種類なし")}・${st?.label||""}`}</span>
           <div style={{flex:1}}/>
           <span role="status" aria-live="polite" style={{fontSize:12,color:"#047857",fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:360}}>{smallMsg}</span>
+          {canAuto&&<span role="status" aria-live="polite" style={{fontSize:12,fontWeight:700,whiteSpace:"nowrap",color:autoOn&&/^保存(しました|済み)/.test(autoMsg)?"#047857":autoOn&&/できません/.test(autoMsg)?"#b91c1c":"#6b6259"}}>{autoOn?autoMsg:(akey(draft)!==savedKey.current?"保存していない変更があります":"")}</span>}
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
           {!focusOn&&<MoreMenu items={[
@@ -408,7 +444,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             ...(!post._unsaved&&onRepost?[{label:"再投稿",onClick:()=>{close();onRepost({...post,...draft});},close:true}]:[]),
             ...(!post._unsaved&&onDelete?[{label:"ゴミ箱へ移動",onClick:()=>{close();onDelete(post);},close:true}]:[]),
           ]}/>}
-          <button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>
+          {!autoOn&&<button onClick={handleSave} title="⌘S（Ctrl+S）" style={{background:"#b45309",border:"none",borderRadius:10,padding:"8px 18px",fontSize:12.5,fontWeight:800,color:"#fff",cursor:"pointer",whiteSpace:"nowrap",marginLeft:4,boxShadow:"0 1px 2px rgba(180,83,9,.25)"}}>保存</button>}
         </div>}
         <style>{`
           .em-chip{appearance:none;-webkit-appearance:none;border:none;background-color:transparent;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;outline:none;max-width:180px}
@@ -471,7 +507,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
-                {[["set","設定"],["meta","メモ"],["search","検索"],["history","履歴"]].map(([k,l])=>
+                {[["set","詳細"],["search","検索"]].map(([k,l])=>
                   <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
@@ -523,12 +559,10 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                           <div key={l} style={{background:"#fff",border:BD2,borderRadius:8,padding:"6px 8px"}}><div style={{fontSize:12,color:"#6b6259"}}>{l}</div><b style={{fontSize:14,fontVariantNumeric:"tabular-nums"}}>{(v===null||v===undefined)?"—":typeof v==="number"?v.toLocaleString("ja-JP"):v}</b></div>)}
                       </div>
                     </div>}
-                    {labelBlock}
-                    {thumbBlock}
                   </div>;
                 })()}
-                {sidePanel==="meta"&&(
-                  <div style={{...S.col,gap:12}}>
+                {(sidePanel==="meta"||(sidePanel==="set"&&!compact))&&(
+                  <div style={{...S.col,gap:12,...(compact?{}:{borderTop:BD2,marginTop:14,paddingTop:12})}}>
                     {compact&&thumbBlock}
                     {canSend&&(
                       <div style={{background:"#fff",border:BD2,borderRadius:10,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
@@ -564,29 +598,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                         <button onClick={()=>{if(!cmt.trim())return;setDraft(d=>({...d,comments:[...(d.comments||[]),{text:cmt.trim(),at:nowStr()}]}));setCmt("");}} style={{border:BD2,background:"#fff",borderRadius:8,padding:"0 10px",fontSize:12,fontWeight:700,color:"#333",cursor:"pointer",fontFamily:"inherit"}}>追加</button>
                       </div>
                     </div>
-                  </div>
-                )}
-                {sidePanel==="history"&&(
-                  <div>
-                    <div style={{fontSize:"max(12px,0.71em)",color:"#736a62",marginBottom:11,lineHeight:1.5}}>保存のたびに自動記録</div>
-                    {[...(draft.history||[])].reverse().map((h,i,arr)=>(
-                      <div key={i} style={{display:"flex",gap:9,marginBottom:11}}>
-                        <div style={{...S.col,alignItems:"center",flexShrink:0,paddingTop:3}}>
-                          <div style={{width:8,height:8,borderRadius:"50%",background:i===0?"#f59e0b":"#d1d5db"}}/>
-                          {i<arr.length-1&&<div style={{width:1,height:20,background:"#e6dfd6",margin:"3px 0"}}/>}
-                        </div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:"max(12px,0.77em)",fontWeight:i===0?700:400,color:i===0?"#0f1419":"#536471"}}>{h.note}</div>
-                          <div style={{fontSize:"max(12px,0.69em)",color:"#736a62",marginTop:1}}>{new Date(h.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {(draft.history||[]).length===0&&<div style={{fontSize:"max(12px,0.8em)",color:"#736a62",textAlign:"center",paddingTop:16}}>履歴なし</div>}
-                  </div>
-                )}
-                {sidePanel==="share"&&(
-                  <div style={{fontSize:"max(12px,0.8em)",color:"#736a62",textAlign:"center",paddingTop:24,lineHeight:1.7}}>
-                    共有機能は<br/>準備中です
+                    {!compact&&<div style={{borderTop:BD2,paddingTop:12,display:"flex",flexDirection:"column",gap:12}}><div style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>ラベルとサムネ</div>{labelBlock}{thumbBlock}</div>}
                   </div>
                 )}
               </div>
