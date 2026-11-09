@@ -12,14 +12,7 @@ const headOf = p => (p.title || "").trim() || (p.memo || "").trim().split("\n")[
 const kNum = n => n == null ? "" : n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, "") + "万" : Number(n).toLocaleString();
 
 // ── 今日の字数の輪（上の帯と、この画面の両方で使う） ──
-export function TodayRing({ chars = 0, goal = DEFAULT_GOAL, size = 20, stroke = 3 }) {
-  const r = (size - stroke) / 2 - 0.5, c = 2 * Math.PI * r, f = Math.min(1, chars / Math.max(1, goal));
-  return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-    <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line,#e6dfd6)" strokeWidth={stroke} />
-    <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--accent,#f59e0b)" strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${(c * f).toFixed(1)} ${c.toFixed(1)}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-    {f >= 1 && <circle cx={size / 2} cy={size / 2} r={size * 0.16} fill="var(--accent,#f59e0b)" />}
-  </svg>;
-}
+export { TodayRing } from "../components/TodayRing.jsx";
 
 export const REVIEW_CSS = `
 .ck-rv{max-width:1080px;margin:0 auto;padding:20px 16px 8px;display:flex;flex-direction:column;gap:14px}

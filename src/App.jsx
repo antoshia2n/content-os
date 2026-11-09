@@ -15,10 +15,8 @@ import {
   dbFetchPosts, dbDeletePost, dbFetchTemplates, dbRemoveTemplate,
   supabase,
 } from "./lib/supabase.js";
-import { PanelView } from "./screens/PanelView.jsx";
-import { StockView, CK_CSS, CK_PHONE_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockView.jsx";
+import { CK_CSS, CK_PHONE_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockParts.jsx";
 import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
-import { FindModal, FindPanel, ideaFrom, linkFrom } from "./screens/FindView.jsx";
 import {
   SlotAddForm, slotLabel, slotMatchesDate,
 } from "./screens/CalendarView.jsx";
@@ -39,11 +37,18 @@ const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),
 const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
+// 2026-11-10 軽量化 便3（作る前の 1 枚に Naoki OK 2026-11-09 20:45）：最初の画面（カレンダー）で使わないものは開いたときに読む
+const loadFind=()=>import("./screens/FindView.jsx");
+const PanelView          =lazyNamed(()=>import("./screens/PanelView.jsx"),"PanelView");
+const FindModal          =lazyNamed(loadFind,"FindModal");
+const FindPanel          =lazyNamed(loadFind,"FindPanel");
+const StockView          =lazyNamed(()=>import("./screens/StockView.jsx"),"StockView");
+const ReviewView         =lazyNamed(()=>import("./screens/ReviewView.jsx"),"ReviewView");
 import { Btn } from "./components/shared.jsx";
 import { CalFilter } from "./components/CalFilter.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
 import { useDays } from "./hooks/useDays.js";
-import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
+import { TodayRing } from "./components/TodayRing.jsx";
 import { useSlots } from "./hooks/useSlots.js";
 import { useAccounts } from "./hooks/useAccounts.js";
 import { isSample, SAMPLE_TEMPLATE_NAME } from "./lib/samples.js";
@@ -385,9 +390,9 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
     return ok;
   },[targetAccId,targetAcc,accounts,saveToDb,showToast]);
   // 3便：探した結果（スワイプ・思考整理）を受け箱へ／書きかけの投稿の素材に足す
-  const toInboxFrom=(r,accId)=>{const f=ideaFrom(r);if(f)quickAdd({...f,accId,count:false,note:r.k==="swipe"?"スワイプから受け箱に入れた":"思考整理から受け箱に入れた"});};
+  const toInboxFrom=async(r,accId)=>{const {ideaFrom}=await loadFind();const f=ideaFrom(r);if(f)quickAdd({...f,accId,count:false,note:r.k==="swipe"?"スワイプから受け箱に入れた":"思考整理から受け箱に入れた"});};
   const addLinkTo=async(target,r)=>{
-    const l=linkFrom(r);if(!l)return;
+    const {linkFrom}=await loadFind();const l=linkFrom(r);if(!l)return;
     if((target.memoLinks||[]).some(x=>x.url===l.url)){showToast("もう素材に入っています");return;}
     const ok=await saveToDb({...target,memoLinks:[...(target.memoLinks||[]),l],mm_url:target.mm_url||(r.k==="map"?r.url:null),history:[...(target.history||[]),{at:nowStr(),note:`素材を足した（${l.label}）`}]});
     if(ok)showToast(`「${(target.title||"（タイトルなし）").slice(0,20)}」の素材に足しました`);
