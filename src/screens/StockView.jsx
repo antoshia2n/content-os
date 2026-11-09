@@ -284,6 +284,8 @@ const headOf = p => (p.title || "").trim() || (p.memo || "").trim().split("\n")[
 // 入れた日時（保存直後で表の日時がまだ無いときは、番号に入っている作った時刻を使う）
 const bornOf = p => p.created_at || (p.id > 1e15 ? new Date(Math.floor(p.id / 1000)).toISOString() : "");
 const stageOf = p => (p.labels || []).includes(SLEEP) ? "sleep" : (p.labels || []).includes(GROW) ? "grow" : "seed";
+// 種類を決めたネタか（Xポストは入れたときの既定なので「決めていない」として受け箱に置く）
+const typed = p => (p.postType || "x_post") !== "x_post";
 const STAGE = { seed: { l: "種", c: "var(--s-idea)" }, grow: { l: "育て中", c: "var(--s-review)" }, sleep: { l: "寝かせ", c: "var(--s-wait)" } };
 function weekRange(today) { const d = new Date(today + "T00:00"); const day = d.getDay(); const mon = new Date(d); mon.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return [fmtDate(mon), fmtDate(sun)]; }
 
@@ -412,13 +414,15 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const [pop, setPop] = useState(null);
   const [sel, setSel] = useState(0);
   const [cap, setCap] = useState("");
+  const [capType, setCapType] = useState(""); // 受け箱の入力欄の種類（"" は決めない＝受け箱へ）
   useEffect(() => { if (!uid) return; dbFetchSheetGenres(uid).then(setGenres).catch(e => console.warn("[ContentOS genres]", e?.message || e)); }, [uid]);
   const genreNames = genres.map(g => g.name);
 
   const ideas = useMemo(() => posts.filter(p => p.status === "idea"), [posts]);
   const outs = useMemo(() => posts.filter(p => p.status !== "idea" && !isArchived(p)), [posts]);
   const archived = useMemo(() => posts.filter(p => p.status !== "idea" && isArchived(p)), [posts]);
-  const inbox = useMemo(() => ideas.filter(p => !p.genre && stageOf(p) !== "sleep").sort((a, b) => bornOf(b).localeCompare(bornOf(a)) || b.id - a.id), [ideas]);
+  // 2026-11-09 Naoki OK 20:38：種類を決めたネタ（Xポスト以外）は、ジャンルが無くても受け箱を出てその種類のフォルダに並ぶ。受け箱は「種類もジャンルも決めていないもの」だけ
+  const inbox = useMemo(() => ideas.filter(p => !p.genre && !typed(p) && stageOf(p) !== "sleep").sort((a, b) => bornOf(b).localeCompare(bornOf(a)) || b.id - a.id), [ideas]);
 
   // 状態を変える（予約済みは日時が要る。無いときは日時未定に）＋予約の一拍
   const setStatus = useCallback(async (p, s) => {
@@ -437,11 +441,11 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const patch = useCallback(async (p, fields, msg) => { const ok = patchFields ? await patchFields(p, fields) : await saveToDb({ ...p, ...fields }); if (ok && msg) showToast(msg); return ok; }, [patchFields, saveToDb, showToast]);
   const toggleLabel = useCallback((p, label, on) => { const ls = new Set(p.labels || []); if (on) ls.add(label); else ls.delete(label); if (label === SLEEP && on) ls.delete(GROW); if (label === GROW && on) ls.delete(SLEEP); return patch(p, { labels: [...ls] }); }, [patch]);
   const addIdea = useCallback(async ({ title, memo, genre = null, postType = "x_post", count = true }) => {
-    const p = { id: genId(), account_id: accountId, status: "idea", datetime: "", title, memo, postType, body: "", memoLinks: [], comments: [], history: [{ at: nowStr(), note: "受け箱に入れた" }], labels: [], genre, theme: null, mm_url: null, manabu: false };
+    const p = { id: genId(), account_id: accountId, status: "idea", datetime: "", title, memo, postType, body: "", memoLinks: [], comments: [], history: [{ at: nowStr(), note: genre || postType !== "x_post" ? "ネタに入れた" : "受け箱に入れた" }], labels: [], genre, theme: null, mm_url: null, manabu: false };
     const ok = await saveToDb(p, { count });
-    if (ok) showToast(genre ? `「${genre}」に入れました` : "受け箱に入れました");
+    if (ok) showToast(genre ? `「${genre}」に入れました` : postType !== "x_post" ? `「${postTypes[postType]?.label || postType}」のフォルダに入れました` : "受け箱に入れました");
     return ok;
-  }, [accountId, saveToDb, showToast]);
+  }, [accountId, saveToDb, showToast, postTypes]);
   // 3便：Claude が付けた「案：ジャンル」を採用・却下する（採用するとジャンルに入り、受け箱から出る）
   const addedG = useRef(new Set());
   const anOf = p => (p.labels || []).filter(l => /^案[:：]/.test(l)).map(l => ({ l, g: l.replace(/^案[:：]\s*/, "").trim() })).filter(x => x.g);
@@ -476,7 +480,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   const fold = (k, def, inside) => { const open = k in folds ? folds[k] : def; return { open, inside, onToggle: () => setFolds(f => { const nf = { ...f, [k]: !open }; store.set(`${keyBase}.fold`, nf); return nf; }) }; };
   const goTo = (m, l) => { if (m === mode) setLoc(l); else { store.set(`${keyBase}.${m}`, l); if (window.innerWidth <= 860) setNavOn(false); onMode && onMode(m); } };
   // ネタ側の材料
-  const live = ideas.filter(p => p.genre && stageOf(p) !== "sleep");
+  const live = ideas.filter(p => (p.genre || typed(p)) && stageOf(p) !== "sleep");
   const iTypes = typeKeys.filter(t => t === "x_article" || t === "x_post" || live.some(p => (p.postType || "x_post") === t));
   const dropTo = (genre, type) => ({ onDragOver: e => e.preventDefault(), onDrop: e => { e.preventDefault(); const p = posts.find(x => String(x.id) === e.dataTransfer.getData("text/ck")); if (p) patch(p, { genre, postType: type, labels: (p.labels || []).filter(l => l !== SLEEP) }, `「${genre}」へ入れました`); } });
   // アウトプット側の材料
@@ -591,6 +595,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   let newRow = null;
   if (!readOnly) {
     if (mode === "idea" && loc.startsWith("it:") && onNewIdea) { const [, t, g] = loc.split(":"); newRow = () => onNewIdea({ postType: t, genre: g }); }
+    else if (mode === "idea" && loc.startsWith("if:") && onNewIdea) { const t = loc.slice(3); newRow = () => onNewIdea({ postType: t, genre: null }); }
     else if (mode === "out" && onNewOut) {
       const slot = t => nextFreeSlot({ slots, posts, postType: t, today }) || `${today}T07:00`;
       if (loc === "week") newRow = () => onNewOut(slot("x_post"), {});
@@ -636,7 +641,9 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
       {!readOnly && inbox.some(p => anOf(p).length) && <div className="ck-vrow"><span className="ck-note" style={{ margin: 0 }}>Claude の案が {inbox.filter(p => anOf(p).length).length} 件</span>
         <button className="ck-ghost" onClick={async () => { const list = inbox.filter(p => anOf(p).length); let n = 0; for (const p of list) { if (await adoptAn(p, anOf(p)[0].g, true)) n++; } showToast(`${n} 件を案のとおり振り分けました`); }}>案をすべて採用</button></div>}
       {!readOnly && <div className="ck-cap" style={{ position: "relative" }}><GQ id={gs} n={1} style={{ position: "absolute", left: -9, top: -9, margin: 0 }} /><textarea value={cap} onChange={e => setCap(e.target.value)} placeholder="思いついたことを書く。Enter は改行、⌘＋Enter で受け箱に入る（1 行目がタイトル、2 行目からメモ）"
-        onKeyDown={async e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); const t = cap.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); if (await addIdea({ title: first.trim(), memo: rest.join("\n").trim() })) { setCap(""); setSel(0); } } }} />
+        onKeyDown={async e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); const t = cap.trim(); if (!t) return; const [first, ...rest] = t.split("\n"); if (await addIdea({ title: first.trim(), memo: rest.join("\n").trim(), postType: capType || "x_post" })) { setCap(""); setSel(0); } } }} />
+        <div className="ck-capft" role="radiogroup" aria-label="入れる先" style={{ flexWrap: "wrap", gap: 6 }}><span>入れる先</span>
+          {[["", "受け箱（決めない）"], ...typeKeys.filter(t => t !== "x_post").map(t => [t, `${postTypes[t].label}のフォルダ`])].map(([k, l]) => <button key={k || "none"} role="radio" aria-checked={capType === k} className={`ck-chip-f ${capType === k ? "on" : ""}`} onClick={() => setCapType(k)}>{capType === k ? "✓ " : ""}{l}</button>)}</div>
         <div className="ck-capft"><span className="ck-kbd">⌘</span><span className="ck-kbd">Enter</span>受け箱へ<span style={{ marginLeft: "auto" }}>どの画面からでも <span className="ck-kbd" style={{ marginLeft: 2 }}>⌘K</span></span></div></div>}
       {!readOnly && inbox.length > 0 && <div className="ck-keys"><span><span className="ck-kbd">J</span><span className="ck-kbd">K</span>選ぶ</span><span><span className="ck-kbd">1</span>アウトプットにする</span><span><span className="ck-kbd">2</span>表へ振り分け</span><span><span className="ck-kbd">H</span>寝かせる</span><span><span className="ck-kbd">Enter</span>開く</span><span><span className="ck-kbd">⌫</span>消す</span></div>}
       <div className="ck-card">{inbox.length ? inbox.map((p, j) => <div key={p.id} className={`ck-irow ${j === sel ? "sel" : ""}`} onClick={e => { if (!e.target.closest("select,button,a")) setSel(j); }} draggable={!readOnly} onDragStart={dragStart(p)} onDragEnd={dragEnd}>
@@ -646,8 +653,9 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
             <button className="ck-go" onClick={() => adoptAn(p, a.g)}>採用</button><button className="ck-ghost" style={{ minHeight: 26 }} onClick={() => rejectAn(p, a.l)}>却下</button></div>)}</div>
         {!readOnly && <div className="ck-ia">
           {mapBtn(p)}
-          {j === 0 && <GQ id={gs} n={2} />}<select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
-            <option value="">表へ振り分け</option>{genreNames.map(g => <option key={g} value={g}>{g}</option>)}
+          {j === 0 && <GQ id={gs} n={2} />}<select className="ck-sel" data-gsel={p.id} value="" onChange={e => { const v = e.target.value; if (!v) return; if (v.startsWith("t:")) { const t = v.slice(2); patch(p, { postType: t }, `「${postTypes[t]?.label || t}」のフォルダへ入れました`); return; } if (v === "__new__") { const n = window.prompt?.("新しい表（ジャンル）の名前"); if (n) addGenre(n).then(() => patch(p, { genre: n.trim() }, `「${n.trim()}」へ入れました`)); return; } patch(p, { genre: v }, `「${v}」へ入れました`); }}>
+            <option value="">表へ振り分け</option><optgroup label="ジャンルの表">{genreNames.map(g => <option key={g} value={g}>{g}</option>)}</optgroup>
+            <optgroup label="種類のフォルダ">{typeKeys.filter(t => t !== "x_post").map(t => <option key={t} value={`t:${t}`}>{postTypes[t].label}</option>)}</optgroup>
           </select>
           {j === 0 && <GQ id={gs} n={3} style={{ marginLeft: 4 }} />}<button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button>
         </div>}
@@ -658,6 +666,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
     const stColor = s => mode === "idea" ? STAGE[s].c : ST_COLOR[s];
     // 種類のフォルダの中では、全行が同じ種類なので種類の列と札を出さない
     const oneType = /^(if|it|of|ot):/.test(loc);
+    const inFolder = mode === "idea" && loc.startsWith("if:");
     const TT = props => oneType ? null : <TypeTag {...props} />;
     body = <>
       <div className="ck-crumb">{crumb}</div><h1 className="ck-title">{title}</h1>{note && <p className="ck-note">{note}</p>}{tabs}
@@ -682,14 +691,16 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
           </div>)}
         </div>; })}</div>
         : <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr>
-          {mode === "idea" ? <><th>ネタ</th><th>状態</th>{!oneType && <th>種類</th>}<th>素材</th><th>入れた日</th><th /></>
+          {mode === "idea" ? <><th>ネタ</th><th>状態</th>{!oneType && <th>種類</th>}{inFolder && <th>ジャンル</th>}<th>素材</th><th>入れた日</th><th /></>
             : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th><th /></>}
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
               <td><div className={`ck-nm ${headOf(p) ? "" : "empty"}`}>{loc === "sleep" && p === shown[0] && <GQ id={gs} n={2} />}{headOf(p) || "（空のネタ）"}</div><div className="ck-snip">{p.title ? p.memo : ""}</div></td>
               <td><span className="ck-st" style={{ "--c": STAGE[stageOf(p)].c }}><i />{STAGE[stageOf(p)].l}</span></td>
-              {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}<td><Srcs p={p} /></td>
+              {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}
+              {inFolder && <td>{readOnly ? <span style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || ""}</span> : <select className="ck-sel" aria-label={`「${headOf(p) || "空のネタ"}」のジャンル`} value={p.genre || ""} onChange={e => patch(p, { genre: e.target.value || null }, e.target.value ? `「${e.target.value}」へ入れました` : "ジャンルを外しました")}><option value="">なし</option>{genreNames.map(g => <option key={g} value={g}>{g}</option>)}</select>}</td>}
+              <td><Srcs p={p} /></td>
               <td className="ck-num">{bornOf(p) ? fmtDt(toLocal(bornOf(p))).replace(/ \d\d:\d\d$/, "") : ""}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{mapBtn(p)}{owner && !readOnly && " "}{!readOnly && (stageOf(p) === "sleep" ? <button className="ck-go" onClick={() => toggleLabel(p, SLEEP, false).then(ok => ok && showToast("起こしました"))}>起こす</button> : <>{p === shown[0] && <GQ id={gs} n={2} style={{ marginLeft: 4 }} />}<button className="ck-go" onClick={() => onToOut(p)}>アウトプットにする →</button></>)}{!readOnly && <> {p === shown[0] && <GQ id={gs} n={loc === "sleep" ? 1 : 3} style={{ marginLeft: 4 }} />}{menuOf(p)}</>}</td>
             </tr> :
@@ -705,7 +716,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               <td style={{ width: 40, textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <>{p === shown[0] && <GQ id={gs} n={loc === "arch" ? 1 : 3} />}{menuOf(p)}</>}</td>
             </tr>)}
           {newTr}
-          {!shown.length && !newTr && <tr><td colSpan={9} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? "ここにはまだない。受け箱から「表へ振り分け」で入れる" : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}
+          {!shown.length && !newTr && <tr><td colSpan={9} className="ck-empty" style={{ cursor: "default" }}>{mode === "idea" ? (inFolder ? "ここにはまだない。下の「＋ 新規」か、受け箱の「入れる先」で入れる" : "ここにはまだない。受け箱から「表へ振り分け」で入れる") : "ここにはまだない。受け箱の「アウトプットにする」から入る"}</td></tr>}
         </tbody></table></div></div>}
     </>;
   }

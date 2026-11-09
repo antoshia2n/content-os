@@ -688,7 +688,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
         <nav className="ck-hm" aria-label="機能" data-tour="nav">
           {HEAD.map(([k,l])=>{
             const isData=k==="data";const on=isData?(view==="idea"||view==="out"):view===k;
-            const n=isData?posts.filter(p=>p.status==="idea"&&!p.genre&&!(p.labels||[]).includes("寝かせ")).length:0;
+            const n=isData?posts.filter(p=>p.status==="idea"&&!p.genre&&(p.postType||"x_post")==="x_post"&&!(p.labels||[]).includes("寝かせ")).length:0;
             // 2026-11-03 上の帯の整理：予約のまま日時が過ぎた数は、直す場所（カレンダー）のタブの横に赤丸と数で出す
             const late=k==="calendar"&&isAdmin?overdueCount:0;
             return <button key={k} className={on?"on":""} aria-current={on?"page":undefined} onClick={()=>setView(isData?(on?view:lastStock()):k)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:n?`${l}（受け箱 ${n} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title="受け箱">{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}</button>;
