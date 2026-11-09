@@ -3,6 +3,7 @@ import { POST_TYPE, getPostTypeStyle, BD, BD2, S, XFONT, TOOLBAR_BLOCK_LABELS, I
 import { supabase } from "../lib/supabase.js";
 import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js"; import { uploadImage } from "../lib/articleImages.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
+import { searchMaps } from "../lib/mindmapLink.js";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -11,7 +12,7 @@ import { useDialogFocus } from "../lib/useDialogFocus.js";
 const SLASH_ITEMS=[
   {k:"p",l:"本文",i:"Aa",g:"基本"},{k:"h1",l:"見出し",i:"H1",g:"基本"},{k:"h2",l:"小見出し",i:"H2",g:"基本"},
   {k:"ul",l:"箇条書き",i:"•",g:"基本"},{k:"ol",l:"番号リスト",i:"1.",g:"基本"},{k:"quote",l:"引用",i:"❝",g:"基本"},{k:"hr",l:"区切り線",i:"—",g:"基本"},
-  {k:"thread",l:"スレッドの区切り",i:"𝕏",g:"コンテンツくん"},{k:"insert",l:"画像・リンク・埋め込みを挿入",i:"＋",g:"コンテンツくん"},
+  {k:"image",l:"画像",i:"▣",g:"コンテンツくん"},{k:"insert",l:"リンク・埋め込み",i:"↗",g:"コンテンツくん"},{k:"thread",l:"スレッドの区切り",i:"𝕏",g:"コンテンツくん"},
 ];
 const runBlock=k=>{
   const ex=(c,v)=>document.execCommand(c,false,v??null);
@@ -27,6 +28,7 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
   const [sl,setSl]=useState(null); // {q, x, y, i}
   const slRef=useRef(null);slRef.current=sl;
   const [bb,setBb]=useState(null); // {x, y}
+  const bbRef=useRef(null);
   const slItems=sl?SLASH_ITEMS.filter(it=>!sl.q||it.l.includes(sl.q)):[];
   // 「/」の後ろの言葉を、今カーソルのある文字の並びから読む（行の頭か空白のあとの「/」だけ）
   const readSlash=()=>{
@@ -42,7 +44,8 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
     const cur=slRef.current;if(!cur)return;
     try{const r=document.createRange();r.setStart(cur.node,cur.start);r.setEnd(cur.node,cur.end);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);document.execCommand("delete");}catch{/* 消せなくても機能は動かす */}
     setSl(null);
-    if(it.k==="insert"){onInsertOpen&&onInsertOpen();return;}
+    if(it.k==="image"){onInsertOpen&&onInsertOpen("image");return;}
+    if(it.k==="insert"){onInsertOpen&&onInsertOpen("post");return;}
     runBlock(it.k);emit();
   };
   useEffect(()=>{
@@ -128,11 +131,17 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
           <span style={{width:26,height:26,border:"1px solid #e6dfd6",borderRadius:6,display:"grid",placeItems:"center",fontSize:12,fontWeight:700,color:"#6b6259",background:"#fff",flexShrink:0}}>{it.i}</span>{it.l}</button>
       </React.Fragment>)}
     </div>}
-    {bb&&<div role="toolbar" aria-label="書式" style={{position:"fixed",left:Math.max(8,bb.x-170),top:Math.max(8,bb.y-40),zIndex:400,display:"flex",gap:1,background:"#1a1a1a",borderRadius:9,padding:3,boxShadow:"0 6px 18px rgba(0,0,0,.2)"}}>
+    {/* 2026-11-09 Naoki「書式変更メニューに箇条書きや画像挿入がない」→ 箇条書き・番号リスト・画像を足した。帯は選んだ文字の真ん中に置き、画面の端からはみ出さない */}
+    {bb&&(()=>{const w=bbRef.current?.offsetWidth||520;const left=Math.min(Math.max(8,bb.x-w/2),window.innerWidth-w-8);
+      const sep=k=><span key={k} aria-hidden="true" style={{width:1,alignSelf:"stretch",margin:"4px 2px",background:"rgba(255,255,255,.22)"}}/>;
+      return <div ref={bbRef} role="toolbar" aria-label="書式" style={{position:"fixed",left,top:Math.max(8,bb.y-40),zIndex:400,display:"flex",alignItems:"center",gap:1,background:"#1a1a1a",borderRadius:9,padding:3,boxShadow:"0 6px 18px rgba(0,0,0,.2)",whiteSpace:"nowrap"}}>
       {bbBtn(<strong>B</strong>,()=>ex("bold"),"太字")}{bbBtn(<em>I</em>,()=>ex("italic"),"斜体")}{bbBtn(<s>S</s>,()=>ex("strikeThrough"),"取り消し線")}
-      {bbBtn("見出し",()=>ex("formatBlock","h1"))}{bbBtn("引用",()=>ex("formatBlock","blockquote"))}
-      {bbBtn("リンク",()=>{const u=prompt("URL:");if(u)ex("createLink",u);})}{bbBtn("✕ 書式",()=>ex("removeFormat"),"書式クリア")}
-    </div>}
+      {sep("a")}{bbBtn("見出し",()=>ex("formatBlock","h1"))}{bbBtn("小見出し",()=>ex("formatBlock","h2"))}{bbBtn("引用",()=>ex("formatBlock","blockquote"))}
+      {sep("b")}{bbBtn("• 箇条書き",()=>ex("insertUnorderedList"),"箇条書き")}{bbBtn("1. 番号",()=>ex("insertOrderedList"),"番号リスト")}
+      {sep("c")}{bbBtn("リンク",()=>{const u=prompt("URL:");if(u)ex("createLink",u);})}
+      <button key="img" title="画像（選んだ文字のあとに入れる）" aria-label="画像を挿入" onMouseDown={e=>{e.preventDefault();const sel=window.getSelection();if(sel&&sel.rangeCount)sel.collapseToEnd();setBb(null);onInsertOpen&&onInsertOpen("image");}} style={{border:"none",background:"none",color:"#fff",fontSize:12.5,fontWeight:700,padding:"5px 9px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",minHeight:28}}>画像</button>
+      {sep("d")}{bbBtn("✕ 書式",()=>ex("removeFormat"),"書式クリア")}
+    </div>;})()}
     <div ref={editorRef} contentEditable suppressContentEditableWarning
       className="xb" data-ph="本文を入力…"
       onCompositionStart={()=>{isComposing.current=true;}}
@@ -258,8 +267,8 @@ export function Toolbar({onInsertOpen}){
   );
 }
 
-export function InsertModal({onClose,savedRange,bodyRef}){
-  const [tab,setTab]=useState("image"),[url,setUrl]=useState("");
+export function InsertModal({onClose,savedRange,bodyRef,initialTab="image"}){
+  const [tab,setTab]=useState(initialTab),[url,setUrl]=useState("");
   const [imgSize,setImgSize]=useState("full");
   const [imgAlign,setImgAlign]=useState("left");
   const fileRef=useRef(null);
@@ -449,9 +458,22 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
         stripHtml(p.body).toLowerCase().includes(qq)||
         (p.memo||"").toLowerCase().includes(qq)
       )
-      .slice(0,30)
-      .sort((a,b)=>b.datetime.localeCompare(a.datetime));
+      .sort((a,b)=>(b.datetime||"").localeCompare(a.datetime||""))
+      .slice(0,30);
   },[posts,q]);
+  // 2026-11-09 思考整理くんのマップも探す（打ち終えて 0.35 秒後に 1 回。使えない人は欄ごと出さない）
+  const [maps,setMaps]=useState([]),[mapState,setMapState]=useState("idle"); // idle | busy | off | 言葉（失敗）
+  useEffect(()=>{
+    const t=q.trim();
+    if(!t){setMaps([]);setMapState("idle");return;}
+    const ac=new AbortController();
+    const h=setTimeout(async()=>{
+      setMapState("busy");
+      try{const r=await searchMaps(t,fetch,ac.signal);if(r===null){setMaps([]);setMapState("off");}else{setMaps(r);setMapState("idle");}}
+      catch(e){if(e?.name!=="AbortError"){setMaps([]);setMapState(e.message||"思考整理くんを探せませんでした");}}
+    },350);
+    return()=>{clearTimeout(h);ac.abort();};
+  },[q]);
 
   // URLをプレーンテキストでカーソル位置に挿入
   const insertUrl=(url)=>{
@@ -478,7 +500,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
             onChange={e=>setQ(e.target.value)}
             onCompositionStart={()=>{composing.current=true;}}
             onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
-            placeholder="タイトル・本文・メモで検索…"
+            placeholder="コンテンツくんと思考整理くんを検索…" aria-label="コンテンツくんと思考整理くんを検索"
             style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:12,color:"#333",minWidth:0}}/>
           {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
         </div>
@@ -494,9 +516,36 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
             キーワードを入力してください
           </div>
         )}
+        {q.trim()&&mapState!=="off"&&(
+          <div style={{borderBottom:BD2}}>
+            <div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
+              <span style={{width:8,height:8,borderRadius:2,background:"#7c3aed",flexShrink:0}}/>
+              <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>思考整理くん</span>
+              <span style={{fontSize:12,color:"#736a62"}}>{mapState==="busy"?"探しています…":`${maps.length} 枚`}</span>
+            </div>
+            {mapState!=="busy"&&mapState!=="idle"&&<div role="alert" style={{fontSize:12,color:"#b91c1c",padding:"0 12px 8px"}}>{mapState}</div>}
+            {mapState==="idle"&&maps.length===0&&<div style={{fontSize:12,color:"#736a62",padding:"0 12px 8px"}}>当たるマップはありません</div>}
+            {maps.map(m=>(
+              <div key={m.id} style={{padding:"6px 12px 9px"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",lineHeight:1.4,wordBreak:"break-all"}}>{m.title}</div>
+                <div style={{fontSize:12,color:"#736a62",marginTop:1}}>{[m.folder,m.updated?String(m.updated).slice(0,10):""].filter(Boolean).join("・")}</div>
+                {(m.hits||[]).map((h,i)=><div key={i} style={{fontSize:12,color:"#4b4540",background:"#f5f3ff",borderRadius:6,padding:"3px 7px",marginTop:4,lineHeight:1.5,wordBreak:"break-all"}}>{h}</div>)}
+                <div style={{display:"flex",gap:6,marginTop:6}}>
+                  <a href={m.url} target="_blank" rel="noopener noreferrer" aria-label={`「${m.title}」を別タブで開く`} style={{flex:1,textAlign:"center",border:"1px solid #a39a90",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#1a1a1a",textDecoration:"none"}}>別タブで開く ↗</a>
+                  <button onClick={()=>{onSaveRange();insertUrl(m.url);}} aria-label={`「${m.title}」の住所を本文に挿入`} style={{flex:1,border:"none",background:"#b45309",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>← リンクを挿入</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {q.trim()&&<div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
+          <span style={{width:8,height:8,borderRadius:2,background:"#ea580c",flexShrink:0}}/>
+          <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>コンテンツくん</span>
+          <span style={{fontSize:12,color:"#736a62"}}>{results.length} 件</span>
+        </div>}
         {q.trim()&&results.length===0&&(
-          <div style={{padding:"24px 12px",textAlign:"center",color:"#736a62",fontSize:12}}>
-            該当なし
+          <div style={{padding:"0 12px 12px",color:"#736a62",fontSize:12}}>
+            当たる投稿はありません
           </div>
         )}
         {results.map(p=>{

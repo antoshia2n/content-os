@@ -93,3 +93,22 @@ async function outlineCall(method, id, payload, fetchFn = fetch, node = "") {
 export const getOutline = (id, fetchFn, node) => outlineCall("GET", id, null, fetchFn, node);
 /** 行で書く。版が古ければ { conflict: true, ...今の中身 } が返る */
 export const putOutline = (id, rev, lines, fetchFn, node) => outlineCall("PUT", id, { rev, lines }, fetchFn, node);
+
+// ── 2026-11-09 エディタの右の「検索」で思考整理くんも探す（Naoki 依頼）──
+// 思考整理くんの口 GET /api/ext/search?q= を読むだけ。使えない人（403）は null を返し、画面は思考整理くんの欄を出さない
+export async function searchMaps(q, fetchFn = fetch, signal) {
+  const user = auth.currentUser;
+  if (!user || !String(q || "").trim()) return [];
+  const token = await user.getIdToken();
+  let res;
+  try {
+    res = await fetchFn(`${MINDMAP_ORIGIN}/api/ext/search?q=${encodeURIComponent(q.trim())}`, { headers: { Authorization: `Bearer ${token}` }, signal });
+  } catch (e) {
+    if (e?.name === "AbortError") throw e;
+    throw new Error("思考整理くんにつながりませんでした");
+  }
+  if (res.status === 403) return null;
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.message || "思考整理くんを探せませんでした");
+  return Array.isArray(j.maps) ? j.maps : [];
+}
