@@ -33,7 +33,6 @@ function lazyNamed(loader,name){
 }
 const loadEditor=()=>import("./screens/EditorModal.jsx");
 const EditorModal        =lazyNamed(loadEditor,"EditorModal");
-const SheetView          =lazyNamed(()=>import("./screens/SheetView.jsx"),"SheetView");
 const DiagPanel          =lazyNamed(()=>import("./screens/DiagPanel.jsx"),"DiagPanel");
 const TemplatesModal     =lazyNamed(()=>import("./screens/TemplatesModal.jsx"),"TemplatesModal");
 const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),"AccountSettings");
@@ -41,6 +40,7 @@ const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"Met
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
 import { Btn } from "./components/shared.jsx";
+import { CalFilter } from "./components/CalFilter.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
 import { useDays } from "./hooks/useDays.js";
 import { ReviewView, TodayRing } from "./screens/ReviewView.jsx";
@@ -182,15 +182,14 @@ function App({uid,panel=false,owner=false}){
   const [calMode,setCalModeRaw]=useState(()=>{const narrow=typeof window!=="undefined"&&window.innerWidth<=760;try{return localStorage.getItem("contentos.calmode")||(narrow?"list":"week");}catch{return narrow?"list":"week";}});
   const setCalMode=m=>{setCalModeRaw(m);try{localStorage.setItem("contentos.calmode",m);}catch{/* 覚えられなくても動く */}};
   // 2026-10-24 6便：週の表は、予定と枠のある時間帯だけを出す。夜中も見たいときだけ 0 時から出す
-  const [calNight,setCalNightRaw]=useState(()=>{try{return localStorage.getItem("contentos.cal.night")==="1";}catch{return false;}});
-  const setCalNight=v=>{setCalNightRaw(v);try{localStorage.setItem("contentos.cal.night",v?"1":"0");}catch{/* 覚えられなくても動く */}};
   const [trayOn,setTrayOn]=useState(()=>typeof window==="undefined"||window.innerWidth>900);
   const [bufferFor,setBufferFor]=useState(null);
   const [week,               setWeek]               = useState(new Date());
   const [preview,            setPreview]            = useState(null);
   const [editing,            setEditing]            = useState(null);
-  const [filterStatus,       setFilter]             = useState("all");
-  const [filterPlatform,     setFilterPlatform]     = useState("all");
+  // 2026-11-10 便2：状態・種類とも複数選べる（空 = すべて）
+  const [filterStatus,       setFilter]             = useState([]);
+  const [filterPlatform,     setFilterPlatform]     = useState([]);
   const [showShare,          setShowShare]          = useState(false);
   const [showAccountSettings,setShowAccountSettings]= useState(false);
   const [repostTgt,          setRepostTgt]          = useState(null);
@@ -293,7 +292,7 @@ function App({uid,panel=false,owner=false}){
   const posts    =React.useMemo(()=>postsWithTrash.filter(p=>!isTrashed(p)),[postsWithTrash]);
   const trash    =React.useMemo(()=>postsWithTrash.filter(isTrashed),[postsWithTrash]);
   // アーカイブしたアウトプットはカレンダーにも出さない
-  const filtered =React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&!isArchived(p)&&(filterStatus==="all"||p.status===filterStatus)&&(filterPlatform==="all"||p.postType===filterPlatform)),[posts,filterStatus,filterPlatform]);
+  const filtered =React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&!isArchived(p)&&(!filterStatus.length||filterStatus.includes(p.status))&&(!filterPlatform.length||filterPlatform.includes(p.postType||"x_post"))),[posts,filterStatus,filterPlatform]);
   const allLabels=React.useMemo(()=>{const s=new Set();posts.forEach(p=>(p.labels||[]).forEach(l=>s.add(l)));return[...s].sort();},[posts]);
   // ⑨ 未投稿アラート：予約済みのまま期限が過ぎた投稿数
   const overdueCount=React.useMemo(()=>
@@ -302,7 +301,7 @@ function App({uid,panel=false,owner=false}){
 
   const { slots, saveSlots } = useSlots({ activeAccId: targetAccId, uid, showToast });
 // 種別で絞っているときは予約枠も同じ種別だけ出す（設定画面の一覧は絞らない）
-const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s=>(s.postType||"x_post")===filterPlatform),[slots,filterPlatform]);
+const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s=>filterPlatform.includes(s.postType||"x_post")),[slots,filterPlatform]);
   // 2026-10-23 4便：1 日 1 行の記録（書いた字数・計画・ひとこと）
   const dayApi = useDays(isClient?null:uid);
   // 2026-11-04 場所を替える前：書きかけの投稿の窓が開いていたら替えない。消す途中（元に戻すの帯）を確定し、今日の字数を書き切る
@@ -601,13 +600,12 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
 
   // 出す時間帯：ふだんは 7〜22 時。予定や枠がその外にあれば、その 1 時間前・後まで広げる
   const calHours=React.useMemo(()=>{
-    if(calNight)return HOURS;
     const hs=[];
     filtered.forEach(p=>{if(weekDateStrs.includes(p.datetime.slice(0,10)))hs.push(+p.datetime.slice(11,13));});
     weekDates.forEach(d=>visibleSlots.filter(s=>slotMatchesDate(s,d)).forEach(s=>hs.push(+slotTime(s).slice(0,2))));
     const lo=Math.max(0,Math.min(7,...hs.map(h=>h-1))),hi=Math.min(23,Math.max(22,...hs.map(h=>h+1)));
     return HOURS.filter(h=>h>=lo&&h<=hi);
-  },[calNight,filtered,weekDateStrs,weekDates,visibleSlots]);
+  },[filtered,weekDateStrs,weekDates,visibleSlots]);
   // 上の段の絞り込み：今週ある状態・種類だけを丸ボタンで出す
   const weekAll=React.useMemo(()=>posts.filter(p=>p.status!=="idea"&&weekDateStrs.includes((p.datetime||"").slice(0,10))),[posts,weekDateStrs]);
 
@@ -765,8 +763,7 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
           trash={trash} onRestore={restoreFromTrash} onPurge={deleteWithUndo} onUndoBar={(msg,run)=>setUndo({msg,run})}
           onNewIdea={preset=>addIdeaAndEdit(targetAccId,preset)} onNewOut={(dt,o)=>openNew(dt,o)}
           keysOff={!!editing||!!toOut||quickOpen||!!bufferFor||!!preview}
-          onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn} onMode={m=>setView(m)}
-          renderSheet={isClient?null:()=><SheetView uid={uid} accountIds={[activeAccId]} targetAccId={targetAccId} postTypes={allPostTypes} revision={allPosts} onDelete={trashWithUndo} onEdit={id=>{const p=posts.find(x=>x.id===id);if(p)setEditing({...p});else showToast("投稿が読み込まれていません。再読み込みしてください。");}} onChanged={p=>setAllPosts(prev=>{const cur=prev[p.account_id]||[];const exists=cur.some(x=>x.id===p.id);return {...prev,[p.account_id]:exists?cur.map(x=>x.id===p.id?{...x,...p,postType:p.post_type||x.postType}:x):[...cur,dbToPost(p)]};})}/>}/>
+          onToOut={p=>setToOut(p)} navOn={navOn} setNavOn={setNavOn} onMode={m=>setView(m)}/>
       )}
       {quickOpen&&!panel&&<FindModal posts={posts} accountName={(activeAcc||targetAcc)?.name||""} postTypes={allPostTypes} onClose={()=>setQuickOpen(false)}
         onAdd={async v=>{if(await quickAdd(v))setQuickOpen(false);}} onOpenPost={p=>{setQuickOpen(false);openPost(p);}} onToInbox={r=>toInboxFrom(r)}/>}
@@ -794,14 +791,10 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
             <button className={`ck-vtab ${calMode==="list"?"on":""}`} onClick={()=>setCalMode("list")}>リスト</button><GQ id="calendar" n={2} style={{alignSelf:"center"}}/>
             <button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button><GQ id="calendar" n={3} style={{alignSelf:"center"}}/>
           </div>
-          {calMode==="week"&&<button className={`ck-vtab ${calNight?"on":""}`} onClick={()=>setCalNight(!calNight)} title="0 時から 23 時まで、全部の時間を出す">夜も出す</button>}
-          <div className="ck-calf">
-            {Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=>{const n=weekAll.filter(p=>p.status===k&&(filterPlatform==="all"||p.postType===filterPlatform)).length;
-              return (n>0||filterStatus===k)&&<button key={k} className={`ck-chip-f ${filterStatus===k?"on":""}`} onClick={()=>setFilter(filterStatus===k?"all":k)}>{v.label} {n}</button>;})}
-            <span className="sep"/>
-            {Object.entries(allPostTypes).map(([k,v])=>{const n=weekAll.filter(p=>(p.postType||"x_post")===k&&(filterStatus==="all"||p.status===filterStatus)).length;
-              return (n>0||filterPlatform===k)&&<button key={k} className={`ck-chip-f ${filterPlatform===k?"on":""}`} onClick={()=>setFilterPlatform(filterPlatform===k?"all":k)}>{v.label} {n}</button>;})}
-          </div>
+          <div className="ck-calf"><CalFilter groups={[
+            {key:"st",label:"状態",sel:filterStatus,set:setFilter,items:Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=>({k,label:v.label,n:weekAll.filter(p=>p.status===k&&(!filterPlatform.length||filterPlatform.includes(p.postType||"x_post"))).length})).filter(x=>x.n>0||filterStatus.includes(x.k))},
+            {key:"pt",label:"種類",sel:filterPlatform,set:setFilterPlatform,items:Object.entries(allPostTypes).map(([k,v])=>({k,label:v.label,n:weekAll.filter(p=>(p.postType||"x_post")===k&&(!filterStatus.length||filterStatus.includes(p.status))).length})).filter(x=>x.n>0||filterPlatform.includes(x.k))},
+          ]}/></div>
         </div>
       )}
 
