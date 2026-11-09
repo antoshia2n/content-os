@@ -119,7 +119,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const [copyX,setCopyX]=useState(false),[copyNote,setCopyNote]=useState(false);
   const [notionState,setNotionState]=useState("idle"); // idle | saving | done | error
   const [localState,setLocalState]=useState("idle");   // idle | done | error
-  const [insertOpen,setInsertOpen]=useState(false),[savedRange,setSavedRange]=useState(null);
+  const [insertOpen,setInsertOpen]=useState(false),[insertTab,setInsertTab]=useState("image"),[savedRange,setSavedRange]=useState(null);
   // 2026-11-07 Notion の形へ 便②：広い画面は右の機能をいつも出す（左で書く・右に機能）。最初のタブはネタならメモ、ほかは設定
   const [sidePanel,setSidePanel]=useState(post.status==="idea"?"meta":compact?null:"set");
   const [sideW,setSideW]=useState(340);
@@ -172,7 +172,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
     return ed;
   }});
 
-  const openInsert=()=>{
+  const openInsert=(tab)=>{
+    setInsertTab(tab==="post"?"post":"image");
     const sel=window.getSelection();
     if(sel?.rangeCount>0){const r=sel.getRangeAt(0);setSavedRange(bodyEditorRef.current?.contains(r.commonAncestorContainer)?r.cloneRange():null);}
     else setSavedRange(null);
@@ -348,7 +349,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:compact?0:14}}>
-      {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef}/>}
+      {insertOpen&&<InsertModal onClose={()=>setInsertOpen(false)} savedRange={savedRange} bodyRef={bodyEditorRef} initialTab={insertTab}/>}
       <div ref={boxRef} role="dialog" aria-modal="true" aria-label={post._unsaved?"新しい投稿を書く":"投稿を編集"} style={{background:"#fff",borderRadius:compact?0:18,width:"100%",maxWidth:1100,height:compact?"100vh":"calc(100vh - 28px)",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px #00000030"}}>
 
         {/* ヘッダー（細い幅）：戻る・コピー・保存の 3 つと、種類・状態・登録先・日時だけ */}
@@ -451,7 +452,7 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                   {draft.mm_url&&<span style={{marginLeft:"auto",fontSize:12,color:"#736a62"}}>思考整理くんとつながっている</span>}
                 </div>}
                 {!compact&&bodyTab==="outline"?<OutlineEditor mmUrl={draft.mm_url} onMakeMap={makeMap} onHeadings={toHeadings} toast={showSmall}/>:<>
-                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-4px 0 14px"}}>「/」で見出し・箇条書き・スレッドの区切り・画像などを入れる　文字を選ぶと書式の帯が出る　⌘.（Ctrl+.）で集中モード</div>}
+                {!compact&&!focusOn&&<div style={{fontSize:12,color:"#736a62",margin:"-4px 0 14px"}}>「/」で見出し・箇条書き・画像・スレッドの区切りなどを入れる　文字を選ぶと書式の帯（箇条書き・画像も）が出る　⌘.（Ctrl+.）で集中モード</div>}
                 <BodyEditor value={draft.body} onChange={body=>setDraft(d=>({...d,body}))} editorRef={bodyEditorRef} slash={!compact} bubble={!compact} onInsertOpen={openInsert}/>
                 </>}
               </div>
