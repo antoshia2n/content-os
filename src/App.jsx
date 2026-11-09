@@ -505,13 +505,16 @@ const visibleSlots=React.useMemo(()=>filterPlatform==="all"?slots:slots.filter(s
   // 新しいネタの裏の保存。中身があるときだけ表へ書く（空のネタは作らない）。前回と同じ中身なら書かない
   const lastAuto=useRef("");
   const pendingAuto=useRef(Promise.resolve()); // 走っている裏の保存（Notion へ送ったあと、終わるのを待ってから消すため）
+  // 2026-11-10 軽量化 便1：既にある投稿の自動保存もここを通る。保存できたかを返す（エディタが「保存しました」を出すため）
   const autoSaveIdea=React.useCallback(p=>{
-    if(!hasContent(p))return;
+    if(!hasContent(p))return Promise.resolve(true);
     const clean=markSaved(p);
-    const key=JSON.stringify([clean.id,clean.title,clean.memo,clean.body,clean.memoLinks,clean.mm_url,clean.status,clean.datetime,clean.postType,clean.account_id]);
-    if(key===lastAuto.current)return;
+    const key=JSON.stringify([clean.id,clean.title,clean.memo,clean.body,clean.memoLinks,clean.mm_url,clean.status,clean.datetime,clean.postType,clean.account_id,clean.labels,clean.score,clean.thumb,clean.comments]);
+    if(key===lastAuto.current)return pendingAuto.current;
     lastAuto.current=key;
-    pendingAuto.current=Promise.resolve(saveToDb(clean)).catch(()=>{});
+    pendingAuto.current=Promise.resolve(saveToDb(clean)).then(ok=>ok!==false).catch(()=>false);
+    pendingAuto.current.then(ok=>{if(!ok)lastAuto.current="";});
+    return pendingAuto.current;
   },[saveToDb]);
 
   // 2026-10-06：アイデアメモを Notion へ送ったとき。裏の保存で表に入っていたら消し、コンテンツくんには残さない。
