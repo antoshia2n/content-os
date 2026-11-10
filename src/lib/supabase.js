@@ -160,11 +160,13 @@ export async function dbRemoveTemplate(uid,id) {
 }
 
 // ── 依頼（content_requests・2026-11-10）：チェックで作る初稿の依頼。GPT の予定タスクが読み、初稿を書き戻す ──
-const REQUEST_COLUMNS='id,post_id,account_id,kind,media,template_id,instruction,status,result_text,result_urls,note,version,created_at,updated_at';
+// 2026-11-10 予約：quote_post_id・texts・buffer_post_id を足した（作業 71）。列がまだ無いあいだは、無しで読み直す
+let REQUEST_COLUMNS='id,post_id,account_id,kind,media,template_id,instruction,status,result_text,result_urls,note,version,created_at,updated_at,quote_post_id,texts,buffer_post_id';
+const REQUEST_BASE='id,post_id,account_id,kind,media,template_id,instruction,status,result_text,result_urls,note,version,created_at,updated_at';
 export async function dbFetchRequests(uid,{postId=null,limit=200}={}) {
-  let q = supabase.from('content_requests').select(REQUEST_COLUMNS).eq('user_id',uid);
-  if (postId!=null) q = q.eq('post_id',postId);
-  const {data,error} = await q.order('created_at',{ascending:false}).limit(limit);
+  const run = cols => { let q = supabase.from('content_requests').select(cols).eq('user_id',uid); if (postId!=null) q = q.eq('post_id',postId); return q.order('created_at',{ascending:false}).limit(limit); };
+  let {data,error} = await run(REQUEST_COLUMNS);
+  if (error&&/quote_post_id|texts|buffer_post_id/.test(error.message||'')&&REQUEST_COLUMNS!==REQUEST_BASE) { REQUEST_COLUMNS=REQUEST_BASE; ({data,error} = await run(REQUEST_COLUMNS)); }
   if (error) throw error;
   return data||[];
 }

@@ -22,6 +22,7 @@
 
 import { verifyIdToken } from "shia2n-core/server/db-gateway.js";
 import { getSupabase } from "./internal/_shared.js";
+import { runScheduleRequest, cancelScheduleRequest } from "./internal/_buffer.js";
 
 // 持ち主のメールの SHA-256（notion-memo と同じ値。公開リポジトリなのでメールそのものは書かない）
 const OWNER_EMAIL_SHA256 = "756149e97cb41bd690c46aee9ddaa59efa4c92953f8807c939a5a56157036c26";
@@ -79,6 +80,20 @@ async function handle({ request, env }) {
   // 2. 送られた中身
   let body;
   try { body = await request.json(); } catch { return out({ ok: false, error: "送られた形が正しくありません" }); }
+
+  // 2026-11-10 依頼の「予約」チェックから来たとき：依頼の行を読み、中身（_buffer.js）に任せる。引用元がまだなら引用元待ちで返す
+  if (body?.request_id) {
+    const rq = await fetch(`${sb.url}/rest/v1/content_requests?id=eq.${encodeURIComponent(body.request_id)}&user_id=eq.${encodeURIComponent(uid)}&kind=eq.schedule&select=*`, { headers: sb.headers });
+    const req = rq.ok ? (await rq.json())[0] : null;
+    if (!req) return out({ ok: false, error: "予約の依頼が見つかりません" });
+    if (body.cancel) {
+      const c = await cancelScheduleRequest(env, sb, uid, req);
+      return out(c.ok ? { ok: true, state: "cancelled" } : { ok: false, error: c.message });
+    }
+    const res = await runScheduleRequest(env, sb, uid, req);
+    if (res.state === "error") return out({ ok: false, error: res.message });
+    return out({ ok: true, state: res.state, buffer_post_id: res.buffer_post_id || null });
+  }
   const postId = Number(body?.post_id);
   const texts = Array.isArray(body?.texts) ? body.texts.map(t => String(t || "").replace(/\r\n?/g, "\n").trim()) : [];
   if (!postId) return out({ ok: false, error: "どの投稿かがわかりません" });

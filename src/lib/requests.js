@@ -11,6 +11,7 @@ export const REQUEST_STATUS={
   queued:   {label:'未着手',  color:'#6b6259',bg:'#f3f0ec'},
   drafting: {label:'作成中',  color:'#1d4ed8',bg:'#dbeafe'},
   review:   {label:'確認待ち',color:'#b45309',bg:'#fef3c7'},
+  waiting:  {label:'引用元待ち',color:'#0369a1',bg:'#e0f2fe'},
   done:     {label:'格納済み',color:'#047857',bg:'#d1fae5'},
   cancelled:{label:'取り消し',color:'#8a8076',bg:'#f3f0ec'},
 };
@@ -35,4 +36,25 @@ export function requestPromptText({make,media,instruction,template,title,bodyTex
 }
 export function chatgptUrl(text){
   return 'https://chatgpt.com/?q='+encodeURIComponent(String(text).slice(0,6000));
+}
+
+// 2026-11-10 予約（kind=schedule）：Buffer に入れる依頼。GPT ではなく、こちらの 30 分ごとの見回りが入れる
+export const BUFFER_ACCOUNTS=['acc_1'];
+export const statusLabel=(r)=>r.kind==='schedule'&&r.status==='done'?'予約済み':(REQUEST_STATUS[r.status]||REQUEST_STATUS.queued).label;
+// 予約できない理由（空なら予約できる）。parts は threadParts の返り値（{text, images}）
+export function scheduleBlock(post,parts,{xLen,now=new Date()}={}){
+  if(!BUFFER_ACCOUNTS.includes(post.account_id))return 'このアカウントには Buffer の窓口がありません';
+  const t=post.postType||'x_post';
+  if(t!=='x_post'&&t!=='x_quote')return '予約できるのは Xポストと X引用だけです';
+  if(!post.datetime)return '日時を入れると予約できます（詳細タブ）';
+  if(new Date(post.datetime+':00+09:00').getTime()<now.getTime()+2*60*1000)return '日時が過ぎています';
+  const ps=(parts||[]).map(p=>typeof p==='string'?{text:p,images:[]}:p);
+  if(!ps.length)return '本文が空です';
+  if(ps.length>25)return 'スレッドが長すぎます（25 本まで）';
+  if(ps.some(p=>p.localImg))return '置き場に上がっていない画像があります（貼り直してください）';
+  if(ps.some(p=>p.extra))return '画像は 1 本に 4 枚までです';
+  if(t==='x_quote'&&ps.length>1)return '引用はスレッドにできません（1 本にしてください）';
+  if(t==='x_quote'&&ps[0].images.length)return '引用に画像は付けられません';
+  if(xLen&&ps.some(p=>xLen(p.text)>280))return '280 を超えているポストがあります（日本語は 1 字 2）';
+  return '';
 }

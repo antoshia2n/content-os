@@ -27,7 +27,7 @@ export async function onRequestPost({ request, env }) {
   q.set('select', '*');
   q.set('user_id', `eq.${user_id}`);
   if (id) q.set('id', `eq.${id}`);
-  else q.set('status', `in.(${status.join(',')})`);
+  else { q.set('status', `in.(${status.join(',')})`); q.set('kind', 'neq.schedule'); } // 予約の依頼は GPT に見せない（Buffer はこちらの見回りが入れる）
   q.set('order', 'created_at.asc');
   q.set('limit', String(limit));
   const r = await fetch(`${sb.url}/rest/v1/content_requests?${q}`, { headers: sb.headers });
