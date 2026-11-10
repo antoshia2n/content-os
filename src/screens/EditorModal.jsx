@@ -218,6 +218,8 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
   const side=compact?(sidePanel==="meta"?"memo":"body"):(sidePanel==="set"?lastSide:"body");
   const handleSave=()=>{dropLocal();savedKey.current=akey(draft);onSave({...draft,history:[...(draft.history||[]),{at:nowStr(),note:"編集・保存"}]});};
   const saveRef=useRef(handleSave);saveRef.current=handleSave;
+  const [titleCopied,setTitleCopied]=useState(false);
+  const copyTitle=()=>{const t=(draft.title||"").trim();if(!t)return;navigator.clipboard?.writeText(t).then(()=>{setTitleCopied(true);setTimeout(()=>setTitleCopied(false),1500);},()=>{});};
   // コピー（2026-11-07）：X記事は画像の位置に【画像1】…の目印を置く（X記事は画像を貼っても入らないため）。
   // ほかの種類は文と画像をまとめて運ぶ（note の本文は、貼れば画像も入る）。mode を渡せば種類によらずその形
   const imgs=bodyImages(draft.body||"");
@@ -480,9 +482,14 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
             {compact&&<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px",...(focusOn&&!compact?{maxWidth:760,margin:"0 auto",paddingTop:56}:{})}}>
+                {/* 2026-11-10 Naoki「タイトルもコピー可能にする」：タイトルの横に「コピー」 */}
+                <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2}}>
                 <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
-                  style={{width:"100%",border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2,background:"transparent",display:"block",boxSizing:"border-box"}}/>
+                  style={{flex:1,minWidth:0,border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,background:"transparent",display:"block",boxSizing:"border-box"}}/>
+                <button type="button" onClick={copyTitle} disabled={!draft.title} aria-label="タイトルをコピー" title={draft.title?"タイトルをコピー":"タイトルが空です"}
+                  style={{flexShrink:0,marginTop:compact?0:4,height:30,padding:"0 10px",borderRadius:8,border:titleCopied?"1px solid #047857":"1px solid #a39a90",background:titleCopied?"#ecfdf5":"#fff",color:titleCopied?"#047857":"#1a1a1a",fontSize:12,fontWeight:800,cursor:draft.title?"pointer":"default",fontFamily:"inherit",whiteSpace:"nowrap",opacity:draft.title?1:.5}}>{titleCopied?"✓ コピーしました":"コピー"}</button>
+                </div>
                 {!compact&&<div role="tablist" aria-label="本文と構成" style={{display:"flex",alignItems:"center",gap:2,borderBottom:BD2,margin:"-6px 0 14px"}}>
                   {[["body","本文"],["outline","構成（箇条書き）"]].map(([k,l])=><button key={k} role="tab" aria-selected={bodyTab===k} onClick={()=>setBodyTab(k)} style={{border:"none",background:"none",padding:"6px 10px",fontSize:13,fontWeight:700,color:bodyTab===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${bodyTab===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
                   {draft.mm_url&&<span style={{marginLeft:"auto",fontSize:12,color:"#736a62"}}>思考整理くんとつながっている</span>}

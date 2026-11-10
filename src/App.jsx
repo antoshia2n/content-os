@@ -36,6 +36,7 @@ const TemplatesModal     =lazyNamed(()=>import("./screens/TemplatesModal.jsx"),"
 const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),"AccountSettings");
 const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
+import { CtxMenuHost, openCtx } from "./components/CtxMenu.jsx";
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
 // 2026-11-10 軽量化 便3（作る前の 1 枚に Naoki OK 2026-11-09 20:45）：最初の画面（カレンダー）で使わないものは開いたときに読む
 const loadFind=()=>import("./screens/FindView.jsx");
@@ -862,6 +863,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                             onDragOver={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();setDragOver("p"+p.id);}:undefined}
                             onDrop={dragId&&dragId!==p.id?e=>{e.preventDefault();e.stopPropagation();const id=dragId;setDragId(null);setDragOver(null);swapAt(id,p.id);}:undefined}
                             onClick={e=>{e.stopPropagation();setPreview(p);}}
+                            onContextMenu={e=>openCtx(e,[{label:"開く",run:()=>setPreview(p)},{label:"タイトルをコピー",run:()=>{navigator.clipboard?.writeText(p.title||"").then(()=>showToast("タイトルをコピーしました"),()=>showToast("コピーできませんでした"));}},{label:"複製",run:()=>handleDuplicate(p)},{label:"ゴミ箱へ移動",danger:true,run:()=>trashWithUndo(p)}])}
                             style={{background:"#fff",border:`1.5px solid ${pt2.border}`,borderLeft:`3px solid ${pt2.dot}`,borderRadius:6,padding:"3px 5px",marginBottom:2,cursor:"grab",transition:"all .1s",opacity:dragId===p.id?0.5:1,outline:dragOver==="p"+p.id?"2px solid #f59e0b":"none"}}
                             onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px #0000001a";e.currentTarget.style.borderColor=pt2.color;}}
                             onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.borderColor=pt2.border;}}>
@@ -1030,6 +1032,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
 
 
+      <CtxMenuHost/>
       {repostTgt&&<RepostModal post={repostTgt} onClose={()=>setRepostTgt(null)}
         onRepost={(dt,r)=>handleRepost(repostTgt,dt,r)}/>}
 
