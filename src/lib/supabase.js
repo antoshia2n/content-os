@@ -134,9 +134,14 @@ export async function dbAddSheetIdea(uid,accountId,id) {
 
 // ── 段 5：本文・メモ・締めの型（content_templates）。sheet_genres と同じく利用者ごとに持つ ──
 // 2026-11-10 依頼の型：make（作るもの）の列を足した（作業 70）。列がまだ無いあいだは、無しで読み直す
-let TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order,make,refs';
+// 2026-11-10 型の持ち帰り 便1：AI が書いた候補の印（status）・なぜ効いたか（why）・元の投稿・書いた AI の列を足した
+let TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order,make,refs,status,why,source_post_id,made_by';
 export async function dbFetchTemplates(uid) {
   let {data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order');
+  if (error&&/status|why|source_post_id|made_by/.test(error.message||'')) {
+    TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order,make,refs';
+    ({data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order'));
+  }
   if (error&&/refs/.test(error.message||'')) {
     TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order,make';
     ({data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order'));

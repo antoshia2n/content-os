@@ -34,11 +34,15 @@ function Field({value,onSave,multiline,placeholder,style,inputRef,label}){
     style:{width:'100%',boxSizing:'border-box',border:'1px solid #a39a90',borderRadius:8,padding:'8px 10px',fontSize:13,fontFamily:'inherit',color:'#1a1a1a',background:'#fff',outline:'none',...style},
     onFocus:e=>e.target.style.borderColor='#f59e0b'};
   return multiline
-    ?<textarea ref={inputRef} {...common} onBlur={e=>{e.target.style.borderColor='';commit();}} style={{...common.style,resize:'vertical',lineHeight:1.7,minHeight:260}}/>
+    ?<textarea ref={inputRef} {...common} onBlur={e=>{e.target.style.borderColor='';commit();}} style={{...common.style,resize:'vertical',lineHeight:1.7,minHeight:style?.minHeight??260}}/>
     :<input ref={inputRef} {...common} onBlur={e=>{e.target.style.borderColor='';commit();}} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}/>;
 }
 
-export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,onClose,initialKind='body',initialId=null}){
+// 2026-11-10 型の持ち帰り 便1：AI（Claude・GPT）がチャットから書き込んだ型は「候補」の印つきで入る
+const MADE_BY_LABEL={claude:'Claude',gpt:'GPT'};
+const badge={display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:800,color:'#b45309',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:99,padding:'1px 8px',whiteSpace:'nowrap'};
+
+export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,onClose,initialKind='body',initialId=null,posts=[],onOpenPost}){
   const first=initialId&&templates.find(t=>t.id===initialId);
   const [kind,setKind]=useState(first?first.kind:initialKind);
   const [selId,setSelId]=useState(first?first.id:null);
@@ -99,7 +103,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
             {TEMPLATE_KINDS.map(([k,l])=>(
               <button key={k} role="tab" aria-selected={kind===k} onClick={()=>{setKind(k);setSelId(null);setQ('');}}
                 style={{display:'flex',alignItems:'center',width:'100%',textAlign:'left',border:'none',padding:'9px 14px',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit',background:kind===k?'#fef3c7':'transparent',color:kind===k?'#b45309':'#6b6259'}}>
-                {l}<span style={{marginLeft:'auto',fontWeight:600,color:'#736a62',fontSize:12}}>{templates.filter(t=>t.kind===k).length}</span>
+                {l}{templates.some(t=>t.kind===k&&t.status==='candidate')&&<span style={{...badge,marginLeft:6}} title="AI が書いた候補の数">候補 {templates.filter(t=>t.kind===k&&t.status==='candidate').length}</span>}<span style={{marginLeft:'auto',fontWeight:600,color:'#736a62',fontSize:12}}>{templates.filter(t=>t.kind===k).length}</span>
               </button>
             ))}
             <div style={{fontSize:12,color:'#736a62',lineHeight:1.7,padding:'14px'}}>{HINT[kind]}</div>
@@ -113,7 +117,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
               {items.map(t=>(
                 <button key={t.id} onClick={()=>setSelId(t.id)} aria-current={cur&&cur.id===t.id?'true':undefined}
                   style={{display:'flex',flexDirection:'column',gap:3,width:'100%',textAlign:'left',border:'none',borderBottom:'1px solid #f1ebe4',padding:'10px 12px',cursor:'pointer',fontFamily:'inherit',background:cur&&cur.id===t.id?'#fffaf0':'#fff',boxShadow:cur&&cur.id===t.id?'inset 3px 0 0 #f59e0b':'none'}}>
-                  <span style={{fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{t.name||'（名前なし）'}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{t.status==='candidate'&&<span style={badge}>候補</span>}<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name||'（名前なし）'}</span></span>
                   <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.kind==='request'?`${REQUEST_KIND_LABEL[t.make]||'作るもの未設定'} × `:''}{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
                 </button>
               ))}
@@ -123,6 +127,20 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
           </div>
           <div style={{padding:16,display:'flex',flexDirection:'column',gap:10,overflowY:'auto',minWidth:0}}>
             {cur?<>
+              {(cur.status==='candidate'||cur.why||cur.source_post_id)&&(()=>{
+                const src=cur.source_post_id!=null?posts.find(p=>String(p.id)===String(cur.source_post_id)):null;
+                return <div style={{border:'1px solid #fcd34d',background:'#fffbeb',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    {cur.status==='candidate'&&<span style={badge}>候補</span>}
+                    <span style={{fontSize:12,color:'#6b6259'}}>{cur.made_by?`${MADE_BY_LABEL[cur.made_by]||cur.made_by} がチャットから書き込んだ型`:'チャットから書き込んだ型'}</span>
+                    {cur.source_post_id!=null&&(src&&onOpenPost
+                      ?<button onClick={()=>onOpenPost(src)} style={{...sb,marginLeft:'auto',color:'#b45309'}}>元の投稿：{(src.title||'（題なし）').slice(0,24)} を開く</button>
+                      :<span style={{marginLeft:'auto',fontSize:12,color:'#736a62'}}>元の投稿 #{cur.source_post_id}（いまの表示には無い投稿）</span>)}
+                  </div>
+                  <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>なぜ効いたか</label>
+                  <Field key={cur.id+'w'} multiline value={cur.why||''} label="なぜ効いたか" placeholder="成果が出た理由（主観と数字）" onSave={v=>update(cur,{why:v})} style={{minHeight:70,background:'#fff'}}/>
+                </div>;
+              })()}
               <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>名前</label>
               <Field key={cur.id+'n'} value={cur.name} label="型の名前" placeholder="型の名前" onSave={v=>update(cur,{name:v})} style={{fontWeight:700}}/>
               {kind==='request'&&<>
