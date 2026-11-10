@@ -38,6 +38,7 @@ const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"Met
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
 import { CtxMenuHost, openCtx } from "./components/CtxMenu.jsx";
 const DeliveryPlan       =lazyNamed(()=>import("./screens/DeliveryPlan.jsx"),"DeliveryPlan");
+const RequestsModal      =lazyNamed(()=>import("./screens/RequestsModal.jsx"),"RequestsModal");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
 // 2026-11-10 軽量化 便3（作る前の 1 枚に Naoki OK 2026-11-09 20:45）：最初の画面（カレンダー）で使わないものは開いたときに読む
 const loadFind=()=>import("./screens/FindView.jsx");
@@ -244,6 +245,7 @@ function App({uid,panel=false,owner=false}){
   useEffect(()=>{const t=setTimeout(()=>{loadEditor().catch(()=>{});},1500);return()=>clearTimeout(t);},[]);
   const [templates,          setTemplates]          = useState([]);
   const [showTemplates,      setShowTemplates]      = useState(false);
+  const [showRequests,       setShowRequests]       = useState(false);
   useEffect(()=>{
     if(!uid)return;
     if(loading)return; // はじめての人は、アカウントと見本の型を入れ終えてから読む（2026-10-28）
@@ -729,6 +731,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                     {[
                       ["配信計画",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
+                      ["依頼の一覧",()=>{setShowRequests(true);setShowShare(false);}],
                       ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
@@ -982,8 +985,9 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* ── モーダル群 ── */}
       {/* 2026-11-07 Notion の形へ 便②：プレビューの窓はなくした。開くときは下の決まりで、いつもエディタへ直接入る */}
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={id=>setShowTemplates(typeof id==="string"?{id}:true)}/>}
-      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} initialId={showTemplates?.id||null} onClose={()=>setShowTemplates(false)}/>}
+      {editing&&<EditorModal uid={isAdmin?uid:null} post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={id=>setShowTemplates(typeof id==="string"?{id}:(id&&id.kind)?{kind:id.kind}:true)}/>}
+      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} initialId={showTemplates?.id||null} initialKind={showTemplates?.kind||"body"} onClose={()=>setShowTemplates(false)}/>}
+      {showRequests&&isAdmin&&<RequestsModal uid={uid} posts={allPosts} templates={templates} onOpen={p=>{setShowRequests(false);openPost(p);}} onClose={()=>setShowRequests(false)} showToast={showToast}/>}
 
 
       <CtxMenuHost/>

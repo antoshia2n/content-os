@@ -17,7 +17,7 @@ export function TemplateTab({ templates, postType, postTypes, bodyRef, memoRef, 
     document.addEventListener("selectionchange", h);
     return () => document.removeEventListener("selectionchange", h);
   }, [bodyRef]);
-  const list = (templates || []).filter(t => !t.post_type || t.post_type === postType).sort((a, b) => (a.kind === b.kind ? a.sort_order - b.sort_order : TEMPLATE_KINDS.findIndex(k => k[0] === a.kind) - TEMPLATE_KINDS.findIndex(k => k[0] === b.kind)));
+  const list = (templates || []).filter(t => t.kind !== "request" && (!t.post_type || t.post_type === postType)).sort((a, b) => (a.kind === b.kind ? a.sort_order - b.sort_order : TEMPLATE_KINDS.findIndex(k => k[0] === a.kind) - TEMPLATE_KINDS.findIndex(k => k[0] === b.kind)));
   const shown = kind === "all" ? list : list.filter(t => t.kind === kind);
   const flash = (id, msg) => { setDone(id); setTimeout(() => setDone(d => (d === id ? null : d)), 1500); toast && toast(msg); };
   const use = t => {

@@ -133,9 +133,14 @@ export async function dbAddSheetIdea(uid,accountId,id) {
 }
 
 // ── 段 5：本文・メモ・締めの型（content_templates）。sheet_genres と同じく利用者ごとに持つ ──
-const TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order';
+// 2026-11-10 依頼の型：make（作るもの）の列を足した（作業 70）。列がまだ無いあいだは、無しで読み直す
+let TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order,make';
 export async function dbFetchTemplates(uid) {
-  const {data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order');
+  let {data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order');
+  if (error&&/make/.test(error.message||'')) {
+    TEMPLATE_COLUMNS='id,name,kind,post_type,content,sort_order';
+    ({data,error} = await supabase.from('content_templates').select(TEMPLATE_COLUMNS).eq('user_id',uid).order('kind').order('sort_order'));
+  }
   if (error) throw error;
   return data||[];
 }
@@ -152,6 +157,26 @@ export async function dbUpdateTemplate(uid,id,fields) {
 export async function dbRemoveTemplate(uid,id) {
   const {error} = await supabase.from('content_templates').delete().eq('user_id',uid).eq('id',id);
   if (error) throw error;
+}
+
+// ── 依頼（content_requests・2026-11-10）：チェックで作る初稿の依頼。GPT の予定タスクが読み、初稿を書き戻す ──
+const REQUEST_COLUMNS='id,post_id,account_id,kind,media,template_id,instruction,status,result_text,result_urls,note,version,created_at,updated_at';
+export async function dbFetchRequests(uid,{postId=null,limit=200}={}) {
+  let q = supabase.from('content_requests').select(REQUEST_COLUMNS).eq('user_id',uid);
+  if (postId!=null) q = q.eq('post_id',postId);
+  const {data,error} = await q.order('created_at',{ascending:false}).limit(limit);
+  if (error) throw error;
+  return data||[];
+}
+export async function dbAddRequest(uid,fields) {
+  const {data,error} = await supabase.from('content_requests').insert({...fields,user_id:uid,status:'queued'}).select(REQUEST_COLUMNS).single();
+  if (error) throw error;
+  return data;
+}
+export async function dbUpdateRequest(uid,id,fields) {
+  const {data,error} = await supabase.from('content_requests').update({...fields,updated_at:new Date().toISOString()}).eq('user_id',uid).eq('id',id).select(REQUEST_COLUMNS).single();
+  if (error) throw error;
+  return data;
 }
 
 // ── cos_days（2026-10-23 4便：1 日 1 行。書いた字数・計画・チェック・ひとこと） ──
