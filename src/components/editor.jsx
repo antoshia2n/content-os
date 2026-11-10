@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase.js";
 import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js"; import { uploadImage } from "../lib/articleImages.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { searchMaps } from "../lib/mindmapLink.js";
+import { loadOthers, SWIPE_URL } from "../screens/FindView.jsx";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -509,8 +510,27 @@ export function SideIcon({id,icon,label,sidePanel,setSidePanel}){
 // ════════════════════════════════════════════════════════
 // 過去コンテンツ検索パネル（エディタサイドバー内）
 // ════════════════════════════════════════════════════════
-export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
+export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange,refWhere=null,onToggleRef=null}){
   const [q,setQ]=useState("");
+  // 2026-11-10 スワイプくんも探す（読むだけ）。参考に付けられる（依頼の参考）
+  const [swipes,setSwipes]=useState(null);
+  useEffect(()=>{let live=true;loadOthers().then(d=>{if(live)setSwipes(d?.swipes||[]);});return()=>{live=false;};},[]);
+  const swHits=React.useMemo(()=>{
+    const terms=q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if(!terms.length||!swipes)return [];
+    return swipes.filter(s=>{const t=[s.title,s.excerpt,s.body,s.author,s.reason,s.an_hypo,s.an_idea].join(" ").toLowerCase();return terms.every(x=>t.includes(x));}).slice(0,20);
+  },[q,swipes]);
+  // 参考に付ける：どの依頼に付けるかを選ぶ（全部・作るものごと）。付いている先は ✓ で出し、もう一度選ぶと外れる
+  const REF_TARGETS=[["all","全部の依頼"],["quote_figure","引用の図解"],["article_figure","記事内の図解"],["thumbnail","サムネ"],["text","本文"]];
+  const RefBtn=({r})=>{
+    if(!onToggleRef)return null;
+    const at=refWhere?refWhere(r):[];
+    return <select value="" onChange={e=>{if(e.target.value)onToggleRef(r,e.target.value);}} aria-label={`「${r.title}」を依頼の参考に付ける（付ける先を選ぶ）`}
+      style={{flex:1,border:`1px solid ${at.length?"#7c3aed":"#a39a90"}`,background:at.length?"#7c3aed":"#fff",borderRadius:6,padding:"4px 6px",minHeight:30,fontSize:12,fontWeight:700,color:at.length?"#fff":"#1a1a1a",cursor:"pointer",fontFamily:"inherit"}}>
+      <option value="">{at.length?`参考に付けた ✓（${at.length}）`:"参考に付ける ▾"}</option>
+      {REF_TARGETS.map(([k,l])=><option key={k} value={k} style={{color:"#1a1a1a",background:"#fff"}}>{at.includes(k)?`✓ ${l}（押すと外す）`:l}</option>)}
+    </select>;
+  };
   const inputRef=useRef(null);
   const composing=useRef(false);
 
@@ -565,7 +585,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
             onChange={e=>setQ(e.target.value)}
             onCompositionStart={()=>{composing.current=true;}}
             onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
-            placeholder="コンテンツくんと思考整理くんを検索…" aria-label="コンテンツくんと思考整理くんを検索"
+            placeholder="投稿・スワイプくん・思考整理くんを検索…" aria-label="投稿・スワイプくん・思考整理くんを検索"
             style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:12,color:"#333",minWidth:0}}/>
           {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
         </div>
@@ -597,12 +617,31 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
                 {(m.hits||[]).map((h,i)=><div key={i} style={{fontSize:12,color:"#4b4540",background:"#f5f3ff",borderRadius:6,padding:"3px 7px",marginTop:4,lineHeight:1.5,wordBreak:"break-all"}}>{h}</div>)}
                 <div style={{display:"flex",gap:6,marginTop:6}}>
                   <a href={m.url} target="_blank" rel="noopener noreferrer" aria-label={`「${m.title}」を別タブで開く`} style={{flex:1,textAlign:"center",border:"1px solid #a39a90",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#1a1a1a",textDecoration:"none"}}>別タブで開く ↗</a>
+                  <RefBtn r={{k:"map",id:String(m.id),title:m.title||"無題のマップ"}}/>
                   <button onClick={()=>{onSaveRange();insertUrl(m.url);}} aria-label={`「${m.title}」の住所を本文に挿入`} style={{flex:1,border:"none",background:"#b45309",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>← リンクを挿入</button>
                 </div>
               </div>
             ))}
           </div>
         )}
+        {q.trim()&&<div style={{borderBottom:BD2}}>
+          <div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
+            <span style={{width:8,height:8,borderRadius:2,background:"#9a3412",flexShrink:0}}/>
+            <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>スワイプくん</span>
+            <span style={{fontSize:12,color:"#736a62"}}>{swipes===null?"読み込み中…":`${swHits.length} 件`}</span>
+          </div>
+          {swipes!==null&&swHits.length===0&&<div style={{fontSize:12,color:"#736a62",padding:"0 12px 8px"}}>当たるスワイプはありません</div>}
+          {swHits.map(s=>{const title=(s.title||s.excerpt||s.body||"（見出しなし）").trim().split("\n")[0].slice(0,80);return(
+            <div key={s.id} style={{padding:"6px 12px 9px"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",lineHeight:1.4,wordBreak:"break-all"}}>{title}</div>
+              <div style={{fontSize:12,color:"#736a62",marginTop:1}}>{[s.shu,s.author].filter(Boolean).join("・")}</div>
+              {s.reason&&<div style={{fontSize:12,color:"#4b4540",background:"#fff7ed",borderRadius:6,padding:"3px 7px",marginTop:4,lineHeight:1.5,wordBreak:"break-all"}}>選んだ理由：{s.reason}</div>}
+              <div style={{display:"flex",gap:6,marginTop:6}}>
+                <a href={SWIPE_URL(s.id)} target="_blank" rel="noopener noreferrer" aria-label={`「${title}」をスワイプくんで開く`} style={{flex:1,textAlign:"center",border:"1px solid #a39a90",borderRadius:6,padding:"4px 0",minHeight:30,boxSizing:"border-box",fontSize:12,fontWeight:700,color:"#1a1a1a",textDecoration:"none"}}>開く ↗</a>
+                <RefBtn r={{k:"swipe",id:String(s.id),title}}/>
+              </div>
+            </div>);})}
+        </div>}
         {q.trim()&&<div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
           <span style={{width:8,height:8,borderRadius:2,background:"#ea580c",flexShrink:0}}/>
           <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>コンテンツくん</span>

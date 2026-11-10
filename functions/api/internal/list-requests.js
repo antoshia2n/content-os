@@ -44,9 +44,28 @@ export async function onRequestPost({ request, env }) {
     if (pr.ok) for (const p of await pr.json()) posts[p.id] = { id: p.id, title: p.title, body_text: stripHtml(p.body).slice(0, 20000), post_type: p.post_type, status: p.status, datetime: p.datetime };
   }
   if (tplIds.length) {
-    const tr = await fetch(`${sb.url}/rest/v1/content_templates?select=id,name,kind,content&user_id=eq.${encodeURIComponent(user_id)}&id=in.(${tplIds.join(',')})`, { headers: sb.headers });
+    const tr = await fetch(`${sb.url}/rest/v1/content_templates?select=*&user_id=eq.${encodeURIComponent(user_id)}&id=in.(${tplIds.join(',')})`, { headers: sb.headers });
     if (tr.ok) for (const t of await tr.json()) tpls[t.id] = t;
   }
-  const requests = rows.map((x) => ({ ...x, post: posts[x.post_id] || null, template: tpls[x.template_id] || null }));
+  // 2026-11-10 参考：依頼に保存された参考（5 件まで）、スワイプくん・思考整理くんの中身を付けて返す
+  const mergeRefs = (...ls) => { const seen = new Set(), out = []; for (const l of ls) for (const r of Array.isArray(l) ? l : []) { if (!r?.k || !r?.id) continue; const k = `${r.k}:${r.id}`; if (seen.has(k)) continue; seen.add(k); out.push(r); } return out.slice(0, 5); };
+  // 依頼を出した時点で「型の分 − 外した分 ＋ 全部 ＋ その作るもの」を画面が確定して保存している。ここでは足し直さない（今回だけ外した参考を戻さないため）
+  const refsOf = x => mergeRefs(x.refs);
+  const allRefs = rows.flatMap(refsOf);
+  const uuid = v => /^[0-9a-f-]{36}$/i.test(String(v));
+  const swIds = [...new Set(allRefs.filter(r => r.k === 'swipe' && uuid(r.id)).map(r => r.id))];
+  const mmIds = [...new Set(allRefs.filter(r => r.k === 'map' && uuid(r.id)).map(r => r.id))];
+  const cut = (t, n = 2000) => { const s = String(t || '').trim(); return s.length > n ? s.slice(0, n) + '…（以下略）' : s; };
+  const sw = {}, mm = {};
+  if (swIds.length) {
+    const r2 = await fetch(`${sb.url}/rest/v1/sw_swipes?select=id,title,excerpt,body,author,source_url,shu,reason,an_hypo,an_idea&user_id=eq.${encodeURIComponent(user_id)}&id=in.(${swIds.join(',')})`, { headers: sb.headers });
+    if (r2.ok) for (const s of await r2.json()) sw[s.id] = { title: s.title || '', author: s.author || '', source_url: s.source_url || '', kind: s.shu || '', text: cut(s.body || s.excerpt), why_saved: s.reason || '', analysis: [s.an_hypo, s.an_idea].filter(Boolean).join('\n') };
+  }
+  if (mmIds.length) {
+    const r3 = await fetch(`${sb.url}/rest/v1/mm_maps?select=id,title,body_text&user_id=eq.${encodeURIComponent(user_id)}&id=in.(${mmIds.join(',')})`, { headers: sb.headers });
+    if (r3.ok) for (const m of await r3.json()) mm[m.id] = { title: m.title || '', text: cut(m.body_text) };
+  }
+  const refContent = r => (r.k === 'swipe' ? (sw[r.id] ? { type: 'スワイプくん（お手本）', ...sw[r.id] } : null) : (mm[r.id] ? { type: '思考整理くん（考えの地図）', ...mm[r.id] } : null));
+  const requests = rows.map((x) => ({ ...x, post: posts[x.post_id] || null, template: tpls[x.template_id] || null, references: refsOf(x).map(refContent).filter(Boolean) }));
   return json({ ok: true, count: requests.length, requests });
 }
