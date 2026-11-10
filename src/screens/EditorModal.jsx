@@ -520,7 +520,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                   <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
-                {sidePanel==="req"&&!compact&&<RequestTab uid={uid} draft={draft} setDraft={setDraft} saved={allPosts.some(p=>p.id===draft.id)} templates={templates} postTypes={postTypes} toast={showSmall} onManageTemplates={onManageTemplates?()=>onManageTemplates({kind:"request"}):null}/>}
+                {sidePanel==="req"&&!compact&&<RequestTab uid={uid} allPosts={allPosts} draft={draft} setDraft={setDraft} saved={allPosts.some(p=>p.id===draft.id)} templates={templates} postTypes={postTypes} toast={showSmall} onManageTemplates={onManageTemplates?()=>onManageTemplates({kind:"request"}):null}/>}
                 {sidePanel==="tpl"&&!compact&&<TemplateTab templates={templates} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates?()=>onManageTemplates():null} onEdit={onManageTemplates?(t=>onManageTemplates(t.id)):null} toast={showSmall}/>}
                 {sidePanel==="search"&&(
                   <PostSearchPanel

@@ -11,6 +11,7 @@ export const REQUEST_STATUS={
   queued:   {label:'未着手',  color:'#6b6259',bg:'#f3f0ec'},
   drafting: {label:'作成中',  color:'#1d4ed8',bg:'#dbeafe'},
   review:   {label:'確認待ち',color:'#b45309',bg:'#fef3c7'},
+  waiting:  {label:'引用元待ち',color:'#0369a1',bg:'#e0f2fe'},
   done:     {label:'格納済み',color:'#047857',bg:'#d1fae5'},
   cancelled:{label:'取り消し',color:'#8a8076',bg:'#f3f0ec'},
 };
@@ -35,4 +36,21 @@ export function requestPromptText({make,media,instruction,template,title,bodyTex
 }
 export function chatgptUrl(text){
   return 'https://chatgpt.com/?q='+encodeURIComponent(String(text).slice(0,6000));
+}
+
+// 2026-11-10 予約（kind=schedule）：Buffer に入れる依頼。GPT ではなく、こちらの 30 分ごとの見回りが入れる
+export const BUFFER_ACCOUNTS=['acc_1'];
+export const statusLabel=(r)=>r.kind==='schedule'&&r.status==='done'?'予約済み':(REQUEST_STATUS[r.status]||REQUEST_STATUS.queued).label;
+// 予約できない理由（空なら予約できる）。texts は送る文の並び
+export function scheduleBlock(post,texts,{xLen,now=new Date()}={}){
+  if(!BUFFER_ACCOUNTS.includes(post.account_id))return 'このアカウントには Buffer の窓口がありません';
+  const t=post.postType||'x_post';
+  if(t!=='x_post'&&t!=='x_quote')return '予約できるのは Xポストと X引用だけです';
+  if(!post.datetime)return '日時を入れると予約できます（詳細タブ）';
+  if(new Date(post.datetime+':00+09:00').getTime()<now.getTime()+2*60*1000)return '日時が過ぎています';
+  if(!texts.length)return '本文が空です';
+  if(/<img\b/i.test(post.body||''))return '画像入りのポストは、まだ Buffer の画面で入れてください';
+  if(t==='x_quote'&&texts.length>1)return '引用はスレッドにできません（1 本にしてください）';
+  if(xLen&&texts.some(x=>xLen(x)>280))return '280 を超えているポストがあります';
+  return '';
 }
