@@ -1,4 +1,4 @@
--- 2026-11-10 開発部：AI が型・依頼パターンを「候補」として書き込む（型の持ち帰り 便1）。本番へは適用済み
+-- 2026-11-10 開発部：AI が型・依頼パターンを「候補」として書き込む（型の持ち帰り 便1）。本番へは適用済み（migration content_templates_ai_candidates）
 alter table public.content_templates
   add column if not exists status text,
   add column if not exists source_post_id bigint,
