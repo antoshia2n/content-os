@@ -321,6 +321,17 @@ export function RowMenu({ label, items }) {
     window.addEventListener("scroll", () => close(false), { once: true, capture: true });
     return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); document.removeEventListener("ck-rmenu", other); };
   }, [at]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 2026-11-10 行の上で右クリック → この「…」のメニューをカーソルの位置に開く（components/CtxMenu.jsx）
+  useEffect(() => {
+    const ctx = e => {
+      if (e.detail.btn !== btn.current) return;
+      document.dispatchEvent(new CustomEvent("ck-rmenu", { detail: btn.current }));
+      const h = items.length * 36 + 14;
+      setAt({ top: Math.max(8, Math.min(e.detail.y, window.innerHeight - h - 8)), left: Math.max(8, Math.min(e.detail.x, window.innerWidth - 218)) });
+    };
+    document.addEventListener("ck-rowctx", ctx);
+    return () => document.removeEventListener("ck-rowctx", ctx);
+  }, [items.length]);
   const open = e => {
     e.stopPropagation();
     if (at) { close(); return; }
