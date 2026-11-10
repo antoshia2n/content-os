@@ -23,9 +23,34 @@ import {
 
 // 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
 // それぞれ自分の Suspense を持つので、読み込み中もほかの画面は消えない
+// 2026-11-10 開発部：開いたままのタブで新しい版が出ると、古い部品の住所が無くなり読み込みに失敗する（画面全体が消えて固まって見える）。
+// 読み込みに失敗したら 1 回だけ自動で読み直す。それでも失敗したら、その窓だけに知らせを出し、ほかの画面は消さない
+const RELOAD_KEY="ck-chunk-reload";
+const isChunkError=e=>/dynamically imported module|Importing a module script failed|error loading dynamically|MIME type|Failed to fetch/i.test(String(e?.message||e));
+function loadOrReload(loader){
+  return loader().catch(e=>{
+    let tried=false;try{tried=sessionStorage.getItem(RELOAD_KEY)==="1";}catch{/* 覚えられなくても動く */}
+    if(isChunkError(e)&&!tried){try{sessionStorage.setItem(RELOAD_KEY,"1");}catch{/* 同上 */}location.reload();return new Promise(()=>{});}
+    throw e;
+  });
+}
+if(typeof window!=="undefined")setTimeout(()=>{try{sessionStorage.removeItem(RELOAD_KEY);}catch{/* 同上 */}},15000);
+class LazyBoundary extends React.Component{
+  constructor(p){super(p);this.state={err:null};}
+  static getDerivedStateFromError(err){return{err};}
+  componentDidCatch(err){console.error("[ContentOS] 画面の読み込みに失敗",err);}
+  render(){
+    if(!this.state.err)return this.props.children;
+    return <div role="alert" style={{position:"fixed",left:"50%",bottom:24,transform:"translateX(-50%)",zIndex:1000,background:"#1a1a1a",color:"#fff",borderRadius:10,padding:"10px 14px",fontSize:13,display:"flex",alignItems:"center",gap:12,boxShadow:"0 8px 24px rgba(0,0,0,.25)"}}>
+      この画面を開けませんでした（新しい版が出た直後かもしれません）
+      <button onClick={()=>location.reload()} style={{border:"none",borderRadius:7,padding:"6px 10px",fontSize:12.5,fontWeight:800,background:"#f59e0b",color:"#fff",cursor:"pointer"}}>読み直す</button>
+      <button onClick={()=>{this.setState({err:null});this.props.onClose?.();}} style={{border:"1px solid #555",borderRadius:7,padding:"6px 10px",fontSize:12.5,background:"none",color:"#ddd",cursor:"pointer"}}>閉じる</button>
+    </div>;
+  }
+}
 function lazyNamed(loader,name){
-  const C=React.lazy(()=>loader().then(m=>({default:m[name]})));
-  const W=props=><React.Suspense fallback={null}><C {...props}/></React.Suspense>;
+  const C=React.lazy(()=>loadOrReload(loader).then(m=>({default:m[name]})));
+  const W=props=><LazyBoundary onClose={props.onClose}><React.Suspense fallback={null}><C {...props}/></React.Suspense></LazyBoundary>;
   W.displayName=name;
   return W;
 }
@@ -1062,8 +1087,9 @@ function PortalAuthWrapper({children}){
         if(isAdmin||isMember){setAdmin(isAdmin);setUid(user.uid);setState("allowed");}
         else setState("denied");
       }catch(e){
+        // 2026-11-10 開発部：通信の失敗などで確かめられなかったときは、締め出さずに「もう一度」を出す（ポータルへ飛ばすのは本当に権利が無いときだけ）
         console.error(e);
-        setState("denied");
+        setState("error");
       }
     });
     return()=>unsub();
@@ -1099,6 +1125,17 @@ function PortalAuthWrapper({children}){
           onMouseLeave={e=>e.currentTarget.style.color="#736a62"}>
           ポータルサイトへ戻る →
         </a>
+      </div>
+    </div>
+  );
+
+  if(state==="error") return(
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"'Geist','Hiragino Sans','Noto Sans JP',sans-serif"}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"36px 40px",textAlign:"center",maxWidth:380,width:"100%",border:BD2}}>
+        <div style={{fontSize:15,fontWeight:800,marginBottom:8}}>ログインの確認ができませんでした</div>
+        <div style={{fontSize:12.5,color:"#736a62",lineHeight:1.7,marginBottom:20}}>通信が不安定だった可能性があります。少し待ってから読み直してください。</div>
+        <button onClick={()=>location.reload()} style={{border:"none",borderRadius:10,padding:"10px 20px",fontSize:13.5,fontWeight:800,background:"#f59e0b",color:"#fff",cursor:"pointer"}}>読み直す</button>
+        <a href={PORTAL_URL} style={{display:"block",marginTop:18,fontSize:12,color:"#736a62",textDecoration:"none"}}>ポータルサイトへ →</a>
       </div>
     </div>
   );
