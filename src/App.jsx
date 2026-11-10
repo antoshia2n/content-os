@@ -998,7 +998,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* 2026-11-07 Notion の形へ 便②：プレビューの窓はなくした。開くときは下の決まりで、いつもエディタへ直接入る */}
 
       {editing&&<EditorModal uid={isAdmin?uid:null} post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={id=>setShowTemplates(typeof id==="string"?{id}:(id&&id.kind)?{kind:id.kind}:true)}/>}
-      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} initialId={showTemplates?.id||null} initialKind={showTemplates?.kind||"body"} onClose={()=>setShowTemplates(false)}/>}
+      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} initialId={showTemplates?.id||null} initialKind={showTemplates?.kind||"body"} posts={posts} onOpenPost={p=>{setShowTemplates(false);openPost(p);}} onClose={()=>setShowTemplates(false)}/>}
       {showRequests&&isAdmin&&<RequestsModal uid={uid} posts={allPosts} templates={templates} onOpen={p=>{setShowRequests(false);openPost(p);}} onClose={()=>setShowRequests(false)} showToast={showToast}/>}
 
 
