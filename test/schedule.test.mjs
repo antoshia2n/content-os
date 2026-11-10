@@ -43,3 +43,13 @@ test("引用元が出ていれば retweet つきで Buffer へ", async () => {
   assert.equal(b.variables.input.metadata.twitter.retweet.id, "123456789");
   assert.equal(b.variables.input.text, "ひとこと");
 });
+test("画像つきスレッドは 1 本ごとに assets", async () => {
+  const calls = mock({ src: null });
+  globalThis.fetch = (orig => async (u, o = {}) => { if (String(u).includes("/posts?") && (o.method || "GET") === "GET" && !String(u).includes("id=eq.9")) return new Response(JSON.stringify([{ id: 5, account_id: "acc_1", post_type: "x_post", status: "reserved", datetime: dt, buffer_post_id: null, history: [] }])); return orig(u, o); })(globalThis.fetch);
+  const r = await runScheduleRequest(env, sb, "u", { id: "r", post_id: 5, texts: [{ text: "1本目", images: ["https://a/1.png", "http://bad"] }, { text: "2本目", images: [] }], status: "queued" });
+  assert.equal(r.state, "done");
+  const b = JSON.parse(calls.find(c => c[1].includes("buffer.com"))[2]).variables.input;
+  assert.equal(b.assets.length, 1);
+  assert.equal(b.metadata.twitter.thread.length, 2);
+  assert.equal(b.metadata.twitter.thread[0].assets[0].image.url, "https://a/1.png");
+});

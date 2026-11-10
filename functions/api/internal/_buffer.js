@@ -35,8 +35,11 @@ export async function runScheduleRequest(env, sb, uid, req) {
     await patchRequest(sb, uid, req.id, { status: "done", buffer_post_id: String(post.buffer_post_id) });
     return { state: "done", buffer_post_id: post.buffer_post_id };
   }
-  const texts = Array.isArray(req.texts) ? req.texts.map(t => String(t || "").trim()).filter(Boolean) : [];
-  if (!texts.length) return fail("予約の文が空です（チェックし直してください）");
+  // texts は文だけの並び（古い形）か、{ text, images } の並び（2026-11-10 画像つき）
+  const parts = (Array.isArray(req.texts) ? req.texts : []).map(t => typeof t === "string" ? { text: t, images: [] } : { text: String(t?.text || ""), images: (Array.isArray(t?.images) ? t.images : []).filter(u => /^https:\/\//.test(String(u))).slice(0, 4) })
+    .map(p => ({ text: p.text.trim(), images: p.images })).filter(p => p.text || p.images.length);
+  if (!parts.length) return fail("予約の文が空です（チェックし直してください）");
+  const assetsOf = p => p.images.map(url => ({ image: { url, metadata: { altText: "" } } }));
   const dt = String(post.datetime || "").slice(0, 16);
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(dt)) return fail("日時が入っていません");
   const dueAt = `${dt}:00+09:00`;
@@ -67,9 +70,9 @@ export async function runScheduleRequest(env, sb, uid, req) {
     method: "PATCH", headers: { ...sb.headers, Prefer: "return=minimal" }, body: JSON.stringify({ buffer_post_id: null }),
   }).catch(() => {});
 
-  const input = { channelId, schedulingType: "automatic", mode: "customScheduled", dueAt, assets: [], needsApproval: false, text: texts[0], source: "content-os" };
+  const input = { channelId, schedulingType: "automatic", mode: "customScheduled", dueAt, assets: retweetId ? [] : assetsOf(parts[0]), needsApproval: false, text: parts[0].text, source: "content-os" };
   if (retweetId) input.metadata = { twitter: { retweet: { id: retweetId } } };
-  else if (texts.length > 1) input.metadata = { twitter: { thread: texts.map(text => ({ text, assets: [] })) } };
+  else if (parts.length > 1) input.metadata = { twitter: { thread: parts.map(p => ({ text: p.text, assets: assetsOf(p) })) } };
   const mutation = `mutation Schedule($input: CreatePostInput!) { createPost(input: $input) { __typename ... on PostActionSuccess { post { id dueAt } } ... on MutationError { message } } }`;
   let br;
   try {
@@ -116,4 +119,26 @@ export async function refreshXUrls(env, sb, uid) {
     if (u.ok) n++;
   }
   return { count: n, seen: nodes.length };
+}
+
+/** 予約を取り消す：Buffer から外し、投稿の Buffer の番号を空にし、依頼を取り消しにする。返り値 { ok, message? } */
+export async function cancelScheduleRequest(env, sb, uid, req) {
+  const id = req.buffer_post_id;
+  if (id && !/^pending:/.test(id)) {
+    const mutation = `mutation Del($input: DeletePostInput!) { deletePost(input: $input) { __typename ... on MutationError { message } } }`;
+    let ok = false, msg = "";
+    try {
+      const br = await fetch(BUFFER_API_URL, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.BUFFER_API_KEY}` }, body: JSON.stringify({ query: mutation, variables: { input: { id } } }), signal: AbortSignal.timeout(20000) });
+      const payload = await br.json().catch(() => ({}));
+      const t = payload?.data?.deletePost?.__typename || "";
+      ok = br.ok && !payload?.errors?.length && !/Error$/.test(t);
+      msg = payload?.errors?.[0]?.message || payload?.data?.deletePost?.message || (ok ? "" : String(br.status));
+    } catch (e) { msg = String(e); }
+    if (!ok) return { ok: false, message: `Buffer から外せませんでした。Buffer の画面で取り消してください（${String(msg).slice(0, 160)}）` };
+    await fetch(`${sb.url}/rest/v1/posts?id=eq.${enc(req.post_id)}&user_id=eq.${enc(uid)}&buffer_post_id=eq.${enc(id)}`, {
+      method: "PATCH", headers: { ...sb.headers, Prefer: "return=minimal" }, body: JSON.stringify({ buffer_post_id: null }),
+    }).catch(() => {});
+  }
+  await patchRequest(sb, uid, req.id, { status: "cancelled", note: "予約を取り消した" });
+  return { ok: true };
 }

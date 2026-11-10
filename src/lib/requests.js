@@ -41,16 +41,20 @@ export function chatgptUrl(text){
 // 2026-11-10 予約（kind=schedule）：Buffer に入れる依頼。GPT ではなく、こちらの 30 分ごとの見回りが入れる
 export const BUFFER_ACCOUNTS=['acc_1'];
 export const statusLabel=(r)=>r.kind==='schedule'&&r.status==='done'?'予約済み':(REQUEST_STATUS[r.status]||REQUEST_STATUS.queued).label;
-// 予約できない理由（空なら予約できる）。texts は送る文の並び
-export function scheduleBlock(post,texts,{xLen,now=new Date()}={}){
+// 予約できない理由（空なら予約できる）。parts は threadParts の返り値（{text, images}）
+export function scheduleBlock(post,parts,{xLen,now=new Date()}={}){
   if(!BUFFER_ACCOUNTS.includes(post.account_id))return 'このアカウントには Buffer の窓口がありません';
   const t=post.postType||'x_post';
   if(t!=='x_post'&&t!=='x_quote')return '予約できるのは Xポストと X引用だけです';
   if(!post.datetime)return '日時を入れると予約できます（詳細タブ）';
   if(new Date(post.datetime+':00+09:00').getTime()<now.getTime()+2*60*1000)return '日時が過ぎています';
-  if(!texts.length)return '本文が空です';
-  if(/<img\b/i.test(post.body||''))return '画像入りのポストは、まだ Buffer の画面で入れてください';
-  if(t==='x_quote'&&texts.length>1)return '引用はスレッドにできません（1 本にしてください）';
-  if(xLen&&texts.some(x=>xLen(x)>280))return '280 を超えているポストがあります';
+  const ps=(parts||[]).map(p=>typeof p==='string'?{text:p,images:[]}:p);
+  if(!ps.length)return '本文が空です';
+  if(ps.length>25)return 'スレッドが長すぎます（25 本まで）';
+  if(ps.some(p=>p.localImg))return '置き場に上がっていない画像があります（貼り直してください）';
+  if(ps.some(p=>p.extra))return '画像は 1 本に 4 枚までです';
+  if(t==='x_quote'&&ps.length>1)return '引用はスレッドにできません（1 本にしてください）';
+  if(t==='x_quote'&&ps[0].images.length)return '引用に画像は付けられません';
+  if(xLen&&ps.some(p=>xLen(p.text)>280))return '280 を超えているポストがあります（日本語は 1 字 2）';
   return '';
 }

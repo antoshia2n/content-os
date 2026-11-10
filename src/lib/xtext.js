@@ -33,3 +33,22 @@ export function xLen(s) {
   }
   return n;
 }
+
+// 2026-11-10 予約の画像つき：スレッドの 1 本ごとに、文と画像の住所（https のものだけ・4 枚まで）を返す
+export function threadParts(html) {
+  if (typeof document === "undefined") return [];
+  const root = document.createElement("div");
+  root.innerHTML = html || "";
+  const groups = [[]];
+  root.childNodes.forEach(n => {
+    const sep = n.nodeType === 1 && (n.classList?.contains("thread-sep") || n.getAttribute?.("data-thread") === "true");
+    if (sep) groups.push([]); else groups[groups.length - 1].push(n);
+  });
+  return groups.map(ns => {
+    const box = document.createElement("div");
+    ns.forEach(n => box.appendChild(n.cloneNode(true)));
+    const images = [...box.querySelectorAll("img")].map(i => i.getAttribute("src") || "").filter(u => /^https:\/\//.test(u));
+    const text = threadTexts(box.innerHTML)[0] || "";
+    return { text, images: images.slice(0, 4), extra: Math.max(0, images.length - 4), localImg: box.querySelectorAll("img").length - images.length };
+  }).filter(p => p.text || p.images.length);
+}

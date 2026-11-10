@@ -3,15 +3,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dbFetchRequests, dbAddRequest, dbUpdateRequest } from "../lib/supabase.js";
 import { REQUEST_KINDS, REQUEST_KIND_LABEL, REQUEST_STATUS, MEDIA_LABEL, mediaOf, pickRequestTemplate, requestPromptText, chatgptUrl, statusLabel, scheduleBlock } from "../lib/requests.js";
-import { threadTexts, xLen } from "../lib/xtext.js";
+import { threadParts, xLen } from "../lib/xtext.js";
+import { XPreview } from "./XPreview.jsx";
 import { auth } from "../firebase.js";
 
 // 予約（Buffer）を今すぐ試す。引用元がまだなら「引用元待ち」で返る
-export async function callSchedule(requestId) {
+export async function callSchedule(requestId, extra = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("ログインを確認できませんでした。開き直してください");
   const token = await user.getIdToken();
-  const res = await fetch("/api/buffer-schedule", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ request_id: requestId }) });
+  const res = await fetch("/api/buffer-schedule", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ request_id: requestId, ...extra }) });
   const data = await res.json().catch(() => ({}));
   if (!data.ok) throw new Error(data.error || `予約できませんでした（${res.status}）`);
   return data;
@@ -61,9 +62,9 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
             {r.kind === "thumbnail" && onThumb && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(u.url) && <button onClick={() => onThumb(u.url)} style={{ ...sb, padding: "2px 7px", fontSize: 11 }}>サムネにする</button>}
           </div>)}
         </div>}
-        {isSch && Array.isArray(r.texts) && <div style={{ fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#1a1a1a", border: "1px solid #eee7df", borderRadius: 6, padding: "7px 9px", maxHeight: 160, overflowY: "auto" }}>{r.texts.join("\n―――\n")}</div>}
+        {isSch && Array.isArray(r.texts) && <XPreview parts={r.texts} quote={src} />}
         {isSch && r.status === "waiting" && <div style={{ fontSize: 12, color: "#736a62" }}>引用元が X に出たら、30 分ごとの見回りが Buffer に入れます。</div>}
-        {isSch && r.status === "done" && <div style={{ fontSize: 12, color: "#736a62" }}>Buffer に入りました。日時になると X に出ます。取り消しは Buffer の画面で。</div>}
+        {isSch && r.status === "done" && <div style={{ fontSize: 12, color: "#736a62" }}>Buffer に入りました。日時になると X に出ます。直したいときは「予約を取り消す」→ 直して → もう一度チェック。</div>}
         {isSch && r.status === "queued" && <div style={{ fontSize: 12, color: "#736a62" }}>30 分ごとの見回りで Buffer に入れます。</div>}
         {!isSch && r.status === "queued" && <div style={{ fontSize: 12, color: "#736a62" }}>次の毎時 0 分に ChatGPT が初稿を作ります。急ぐときは下の「今すぐ GPT で作る」。</div>}
         {r.status === "review" && <div style={{ fontSize: 12, color: "#736a62" }}>仕上げは、通知の届いた ChatGPT のチャットで。「OK」と言うと、GPT が仕上げた版をここへ入れて格納済みにします。</div>}
@@ -72,8 +73,12 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
           {!isSch && r.status !== "done" && r.status !== "cancelled" && <button onClick={gpt} style={{ ...sb, color: "#047857", borderColor: "#6ee7b7" }}>今すぐ GPT で作る ↗</button>}
           {r.status === "review" && <button onClick={() => upd({ status: "done" })} style={sb}>格納済みにする</button>}
           {isSch && ["queued", "waiting"].includes(r.status) && <button onClick={async () => { try { const d = await callSchedule(r.id); toast && toast(d.state === "done" ? "Buffer に入れました" : "引用元がまだ X に出ていません。出たら自動で入れます"); upd({}); } catch (e) { toast && toast(e.message); } }} style={sb}>今すぐ試す</button>}
-          {ACTIVE.includes(r.status) && <button onClick={() => { if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return; } upd({ status: "cancelled" }); }} style={{ ...sb, color: "#b91c1c" }}>{armed ? "もう一度押すと取り消す" : "取り消す"}</button>}
-          {r.status === "cancelled" && <button onClick={() => upd({ status: "queued" })} style={sb}>依頼し直す</button>}
+          {(ACTIVE.includes(r.status) || (isSch && r.status === "done")) && <button onClick={async () => {
+            if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return; }
+            if (!isSch) return upd({ status: "cancelled" });
+            try { await callSchedule(r.id, { cancel: true }); toast && toast(r.status === "done" ? "Buffer から外しました" : "予約の依頼を取り消しました"); upd({}); } catch (e) { toast && toast(e.message); }
+          }} style={{ ...sb, color: "#b91c1c" }}>{armed ? "もう一度押すと取り消す" : isSch && r.status === "done" ? "予約を取り消す" : "取り消す"}</button>}
+          {!isSch && r.status === "cancelled" && <button onClick={() => upd({ status: "queued" })} style={sb}>依頼し直す</button>}
         </div>
       </div>}
     </div>
@@ -97,18 +102,22 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, [load]);
   const active = new Set((rows || []).filter(r => ACTIVE.includes(r.status) || (r.kind === "schedule" && r.status === "done")).map(r => r.kind));
   const isQuote = draft?.postType === "x_quote";
-  const texts = threadTexts(draft?.body || "");
-  const schBlock = scheduleBlock(draft || {}, texts, { xLen }) || (isQuote && !quoteOf ? "引用元を選んでください" : "");
+  const parts = threadParts(draft?.body || "");
+  const schBlock = scheduleBlock(draft || {}, parts, { xLen }) || (isQuote && !quoteOf ? "引用元を選んでください" : "");
+  const [showPrev, setShowPrev] = useState(true);
   // 引用元の候補：この投稿より前の日時の投稿（新しい順に 30 件）
   const sources = (allPosts || []).filter(p => p.id !== postId && p.datetime && (!draft?.datetime || p.datetime < draft.datetime) && ["x_post", "x_article", "x_quote"].includes(p.postType)).sort((a, b) => (a.datetime < b.datetime ? 1 : -1)).slice(0, 30);
   const schedule = async () => {
     if (schBlock || busy) return;
     setBusy(true); setErr("");
     try {
-      const row = await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: "schedule", media: "x_post", instruction: "", texts, ...(isQuote ? { quote_post_id: Number(quoteOf) } : {}) });
+      const row = await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: "schedule", media: "x_post", instruction: "", texts: parts.map(p => ({ text: p.text, images: p.images })), ...(isQuote ? { quote_post_id: Number(quoteOf) } : {}) });
       put(row);
+      // 予約した投稿は「予約済み」にしておく（あとで保存したときに、見回りが付けた状態を古い状態で上書きしないため）
+      setDraft(d => ({ ...d, status: "reserved" }));
       try {
         const d = await callSchedule(row.id);
+        if (d.buffer_post_id) setDraft(x => ({ ...x, buffer_post_id: d.buffer_post_id }));
         toast && toast(d.state === "done" ? "Buffer に入れました" : "引用元待ちにしました。引用元が X に出たら自動で入れます");
       } catch (e) { toast && toast(`依頼は残しました。見回りで入れ直します（${e.message}）`); }
       setRows(await dbFetchRequests(uid, { postId }));
@@ -163,7 +172,11 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
           <span style={{ fontSize: 11.5, color: "#8a8076", marginLeft: "auto" }}>{active.has("schedule") ? "依頼中" : isQuote ? "引用元が出たら自動で" : "すぐ Buffer へ"}</span>
         </label>
         {!active.has("schedule") && schBlock && <div style={{ fontSize: 12, color: "#8a8076" }}>{schBlock}</div>}
-        {!active.has("schedule") && !schBlock && <div style={{ fontSize: 11.5, color: "#8a8076" }}>チェックすると本物の X 予約になります（{texts.length > 1 ? `スレッド ${texts.length} 本` : "1 本"}）。</div>}
+        {!active.has("schedule") && !schBlock && <div style={{ fontSize: 11.5, color: "#8a8076" }}>チェックすると本物の X 予約になります（{parts.length > 1 ? `スレッド ${parts.length} 本` : "1 本"}{parts.some(p => p.images.length) ? "・画像つき" : ""}）。</div>}
+        {!active.has("schedule") && !!parts.length && <>
+          <button onClick={() => setShowPrev(v => !v)} aria-expanded={showPrev} style={{ alignSelf: "flex-start", border: "none", background: "none", padding: 0, fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer", fontFamily: "inherit" }}>{showPrev ? "▾" : "▸"} X での見え方</button>
+          {showPrev && <XPreview parts={parts} quote={isQuote ? (allPosts || []).find(p => String(p.id) === String(quoteOf)) : null} />}
+        </>}
       </div>
       {err && <div role="alert" style={{ fontSize: 12, color: "#b91c1c" }}>{err}</div>}
       <div style={{ display: "flex", alignItems: "center" }}>
