@@ -521,7 +521,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
-                {[["set","詳細"],["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","作る"],["ship","出す"]]:[])].map(([k,l])=>
+                {[["set","詳細"],["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","AI依頼"],["ship","予約投稿"]]:[])].map(([k,l])=>
                   <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
