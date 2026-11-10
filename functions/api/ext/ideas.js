@@ -13,7 +13,22 @@
 import { verifyIdToken } from "shia2n-core/server/db-gateway.js";
 import { fetchAccounts, genPostId, getSupabase, resolveTarget } from "../internal/_shared.js";
 
-export const ALLOW_ORIGINS = ["https://mindmap.shia2n.jp"];
+export const ALLOW_ORIGINS = ["https://mindmap.shia2n.jp", "https://dokusho.shia2n.jp", "https://dokusho.pages.dev"];
+// 2026-11-11 読書くん 便3（Naoki OK 07:27）：読書くんのメモ 1 件を受け箱へ。出どころは memo_links の 1 行目（本とメモの住所）に残し、同じメモは 2 件にしない
+export const BOOK_ORIGINS = ["https://dokusho.shia2n.jp", "https://dokusho.pages.dev"];
+const BOOK_URL = /^https:\/\/dokusho\.shia2n\.jp\/\?book=[0-9a-f-]{36}&memo=[0-9a-f-]{36}$/;
+/** 読書くんから来た中身：題（メモの 1 行目）・メモ（全文と出どころ）・memo_links（本とメモの住所） */
+export function bookFields(body) {
+  const clip = (s, n) => String(s ?? "").replace(/\r\n?/g, "\n").slice(0, n);
+  const tx = clip(body?.text, 4000).trim();
+  const book = clip(body?.book, 200).replace(/\s+/g, " ").trim();
+  const src = clip(body?.src_url, 300).trim();
+  const src_url = BOOK_URL.test(src) ? src : null;
+  const pg = Number.isFinite(+body?.page) && body?.page !== null && body?.page !== "" ? Math.round(+body.page) : null;
+  const where = `『${book || "本"}』${pg != null ? ` p.${pg}` : ""}`;
+  const title = tx.split("\n")[0].replace(/\s+/g, " ").trim().slice(0, 120);
+  return { title, memo: tx ? `${tx}\n\n— ${where}` : "", src_url, label: where };
+}
 const MAX_IDS = 100;
 
 export function cors(origin) {
@@ -51,6 +66,29 @@ async function who(request, env) {
   try { return await verifyIdToken(token, projectId); } catch { return null; }
 }
 
+async function fromBook(sb, uid, u, f, origin) {
+  if (!f.title) return out({ ok: false, error: "メモが空です" }, origin);
+  if (!f.src_url) return out({ ok: false, error: "本とメモの住所がありません" }, origin);
+  // 同じメモから入れたネタが既にあれば、それを返す
+  const cs = encodeURIComponent(JSON.stringify([{ url: f.src_url }]));
+  const r0 = await fetch(`${sb.url}/rest/v1/posts?select=id,status&user_id=eq.${u}&memo_links=cs.${cs}&limit=1`, { headers: sb.headers });
+  if (r0.ok) { const [same] = await r0.json(); if (same) return out({ ok: true, id: String(same.id), status: same.status, created: false }, origin); }
+  const target = resolveTarget(await fetchAccounts(sb, uid));
+  if (target.error) return out({ ok: false, error: "入れ先のアカウントがありません（コンテンツくんでアカウントを作ってください）" }, origin);
+  const record = {
+    id: genPostId(), user_id: uid, account_id: target.account_id, title: f.title, body: "", datetime: null,
+    platform: target.platform, post_type: "x_post", status: "idea", source: "dokusho", memo: f.memo,
+    memo_links: [{ url: f.src_url, label: f.label }], mm_url: null, threads: [], comments: [], notion_page_id: null, genre: null,
+    history: [{ at: new Date().toISOString(), note: "読書くんのメモから受け箱に入れた" }],
+  };
+  const r = await fetch(`${sb.url}/rest/v1/posts?select=id,status`, {
+    method: "POST", headers: { ...sb.headers, Prefer: "return=representation" }, body: JSON.stringify(record),
+  });
+  if (!r.ok) return out({ ok: false, error: `受け箱に入れられませんでした（${r.status}）` }, origin);
+  const [made] = await r.json();
+  return out({ ok: true, id: String(made.id), status: made.status, created: true, account: target.account_name }, origin);
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const origin = request.headers.get("Origin") || "";
@@ -75,6 +113,7 @@ export async function onRequest(context) {
     if (request.method !== "POST") return out({ ok: false, error: "GET と POST だけの口です" }, origin);
     let body;
     try { body = await request.json(); } catch { return out({ ok: false, error: "送られた形が正しくありません" }, origin); }
+    if (BOOK_ORIGINS.includes(origin)) return fromBook(sb, uid, u, bookFields(body), origin);
     const f = ideaFields(body);
     if (!f.title) return out({ ok: false, error: "枝の字が空です" }, origin);
 
