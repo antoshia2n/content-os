@@ -246,6 +246,15 @@ function App({uid,panel=false,owner=false}){
   const [templates,          setTemplates]          = useState([]);
   const [showTemplates,      setShowTemplates]      = useState(false);
   const [showRequests,       setShowRequests]       = useState(false);
+  // 2026-11-10 確認待ちの依頼の件数（右上の設定に丸で出す・2 分ごと・画面が見えているときだけ）
+  const [reviewCount,setReviewCount]=useState(0);
+  useEffect(()=>{
+    if(!uid||!isAdmin||panel)return;
+    let live=true;
+    const tick=async()=>{if(document.hidden)return;try{const {dbFetchRequests}=await import("./lib/supabase.js");const rs=await dbFetchRequests(uid,{limit:100});if(live)setReviewCount(rs.filter(r=>r.status==="review").length);}catch{/* 数えられなくても動く */}};
+    tick();const t=setInterval(tick,120000);
+    return()=>{live=false;clearInterval(t);};
+  },[uid,isAdmin,panel,showRequests]);
   useEffect(()=>{
     if(!uid)return;
     if(loading)return; // はじめての人は、アカウントと見本の型を入れ終えてから読む（2026-10-28）
@@ -654,6 +663,8 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
         ::-webkit-scrollbar-thumb{background:#d4cbbf;border-radius:99px;}
         ::-webkit-scrollbar-track{background:transparent;}
         button,select,input,textarea{font-family:inherit;}
+        /* 2026-11-10 キーボードで動かしたとき、今どこにいるかが見える枠（マウスでは出ない） */
+        :focus-visible{outline:2px solid #2563eb!important;outline-offset:2px;border-radius:4px;}
         button{transition:opacity .12s,background .12s,box-shadow .12s,transform .08s;}
         button:active{transform:scale(.97);}
         input:focus,textarea:focus,select:focus{outline:none;}
@@ -723,7 +734,8 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
             <>
               <span className="ck-sep" aria-hidden="true"/>
               <div ref={shareRef} style={{position:"relative"}} data-tour="settings">
-                <button className={`ck-ico ${showShare?"on":""}`} onClick={()=>setShowShare(s=>!s)} aria-label="設定" aria-expanded={showShare} title="設定">
+                <button className={`ck-ico ${showShare?"on":""}`} onClick={()=>setShowShare(s=>!s)} aria-label={reviewCount?`設定（確認待ちの依頼 ${reviewCount} 件）`:"設定"} aria-expanded={showShare} title="設定" style={{position:"relative"}}>
+                  {reviewCount>0&&<span aria-hidden="true" style={{position:"absolute",top:-3,right:-3,minWidth:17,height:17,borderRadius:99,background:"#b45309",color:"#fff",fontSize:11,fontWeight:800,display:"grid",placeItems:"center",padding:"0 4px",lineHeight:1}}>{reviewCount}</span>}
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
                 </button>
                 {showShare&&(
@@ -731,7 +743,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                     {[
                       ["配信計画",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
-                      ["依頼の一覧",()=>{setShowRequests(true);setShowShare(false);}],
+                      [reviewCount?`依頼の一覧（確認待ち ${reviewCount}）`:"依頼の一覧",()=>{setShowRequests(true);setShowShare(false);}],
                       ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(

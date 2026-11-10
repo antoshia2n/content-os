@@ -5,6 +5,8 @@ import { dbFetchRequests, dbAddRequest, dbUpdateRequest } from "../lib/supabase.
 import { REQUEST_KINDS, REQUEST_KIND_LABEL, REQUEST_STATUS, MEDIA_LABEL, mediaOf, pickRequestTemplate, requestPromptText, chatgptUrl, statusLabel, scheduleBlock } from "../lib/requests.js";
 import { threadParts, xLen } from "../lib/xtext.js";
 import { XPreview } from "./XPreview.jsx";
+import { RefPicker, RefChips } from "./RefPicker.jsx";
+import { mergeRefs, REF_MAX } from "../lib/refs.js";
 import { auth } from "../firebase.js";
 
 // 予約（Buffer）を今すぐ試す。引用元がまだなら「引用元待ち」で返る
@@ -25,7 +27,7 @@ const hm = s => { const d = new Date(s); return `${d.getMonth() + 1}/${d.getDate
 
 export function StatusChip({ status, kind }) {
   const s = REQUEST_STATUS[status] || REQUEST_STATUS.queued;
-  return <span style={{ fontSize: 11, fontWeight: 800, color: s.color, background: s.bg, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap" }}>{statusLabel({ status, kind })}</span>;
+  return <span style={{ fontSize: 12, fontWeight: 800, color: s.color, background: s.bg, borderRadius: 99, padding: "2px 8px", whiteSpace: "nowrap" }}>{statusLabel({ status, kind })}</span>;
 }
 
 export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast, showPost, posts }) {
@@ -45,11 +47,11 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
     <div style={{ border: `1px solid ${r.status === "review" ? "#fcd34d" : "#e7e0d8"}`, borderRadius: 10, padding: "9px 11px", background: r.status === "cancelled" ? "#faf8f5" : "#fff", opacity: r.status === "cancelled" ? .7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
         <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={{ border: "none", background: "none", padding: 0, fontSize: 13, fontWeight: 800, color: "#1a1a1a", cursor: "pointer", fontFamily: "inherit", textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {showPost && post ? `${post.title || "（無題）"} · ` : ""}{isSch ? "予約（Buffer）" : (REQUEST_KIND_LABEL[r.kind] || r.kind)}<span style={{ fontWeight: 600, color: "#8a8076", fontSize: 11.5 }}> · {isSch ? (post?.datetime ? post.datetime.replace("T", " ").slice(5) : "") : (MEDIA_LABEL[r.media] || "")}</span>
+          {showPost && post ? `${post.title || "（無題）"} · ` : ""}{isSch ? "予約（Buffer）" : (REQUEST_KIND_LABEL[r.kind] || r.kind)}<span style={{ fontWeight: 600, color: "#6b6259", fontSize: 12 }}> · {isSch ? (post?.datetime ? post.datetime.replace("T", " ").slice(5) : "") : (MEDIA_LABEL[r.media] || "")}</span>
         </button>
         <StatusChip status={r.status} kind={r.kind} />
       </div>
-      <div style={{ fontSize: 11.5, color: "#8a8076", marginTop: 2 }}>{hm(r.created_at)} 依頼 · {isSch ? (src ? `引用元：${src.title || "（無題）"}` : "Buffer へ") : `型：${tpl ? tpl.name : "なし"}`}{r.updated_at && r.status !== "queued" ? ` · ${hm(r.updated_at)} 更新` : ""}</div>
+      <div style={{ fontSize: 12, color: "#6b6259", marginTop: 2 }}>{hm(r.created_at)} 依頼 · {isSch ? (src ? `引用元：${src.title || "（無題）"}` : "Buffer へ") : `型：${tpl ? tpl.name : "なし"}`}{r.updated_at && r.status !== "queued" ? ` · ${hm(r.updated_at)} 更新` : ""}</div>
       {open && <div style={{ marginTop: 7, display: "flex", flexDirection: "column", gap: 7 }}>
         {r.instruction && <div style={{ fontSize: 12.5, color: "#4b4038", background: "#faf8f5", borderRadius: 6, padding: "5px 8px" }}>指示：{r.instruction}</div>}
         {r.note && <div style={{ fontSize: 12.5, color: "#92400e", background: "#fffbeb", borderRadius: 6, padding: "5px 8px" }}>申し送り：{r.note}</div>}
@@ -85,7 +87,8 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
   );
 }
 
-export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, toast, onManageTemplates, allPosts = [] }) {
+export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, toast, onManageTemplates, allPosts = [], refs = [], setRefs }) {
+  const [pickOpen, setPickOpen] = useState(false);
   const [rows, setRows] = useState(null);
   const [checks, setChecks] = useState({});
   const [inst, setInst] = useState("");
@@ -132,9 +135,9 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
     try {
       for (const k of picked) {
         const tpl = pickRequestTemplate(templates, k, draft.postType);
-        put(await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: k, media, template_id: tpl ? tpl.id : null, instruction: inst.trim() }));
+        put(await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: k, media, template_id: tpl ? tpl.id : null, instruction: inst.trim(), refs: mergeRefs(tpl?.refs, refs) }));
       }
-      setChecks({}); setInst("");
+      setChecks({}); setInst(""); setRefs && setRefs([]);
       toast && toast(`${picked.length} 件を依頼しました。1 時間以内に初稿が届きます`);
     } catch (e) { setErr(e.message || "依頼できませんでした"); }
     finally { setBusy(false); }
@@ -144,16 +147,25 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ border: "1px solid #e7e0d8", borderRadius: 10, padding: "10px 11px", display: "flex", flexDirection: "column", gap: 7 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>作るもの <span style={{ fontWeight: 600, color: "#8a8076" }}>· 媒体：{MEDIA_LABEL[media]}（{postTypes?.[draft.postType]?.label || draft.postType}から）</span></div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>作るもの <span style={{ fontWeight: 600, color: "#6b6259" }}>· 媒体：{MEDIA_LABEL[media]}（{postTypes?.[draft.postType]?.label || draft.postType}から）</span></div>
         {REQUEST_KINDS.map(([k, l]) => {
           const on = active.has(k);
           const tpl = pickRequestTemplate(templates, k, draft.postType);
           return <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: on ? "#a39a90" : "#1a1a1a", cursor: on ? "default" : "pointer" }}>
             <input type="checkbox" disabled={on} checked={!!checks[k] && !on} onChange={e => setChecks(c => ({ ...c, [k]: e.target.checked }))} style={{ accentColor: "#f59e0b", width: 15, height: 15 }} />
             <span style={{ fontWeight: 700 }}>{l}</span>
-            <span style={{ fontSize: 11.5, color: "#8a8076", marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{on ? "依頼中" : tpl ? `型：${tpl.name}` : "型なし"}</span>
+            <span style={{ fontSize: 12, color: "#6b6259", marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{on ? "依頼中" : tpl ? `型：${tpl.name}` : "型なし"}</span>
           </label>;
         })}
+        {(() => { const locked = mergeRefs(...picked.map(k => pickRequestTemplate(templates, k, draft.postType)?.refs)); return <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>参考 {refs.length}/{REF_MAX}</span>
+            {setRefs && <button onClick={() => setPickOpen(o => !o)} aria-expanded={pickOpen} style={{ ...sb, marginLeft: "auto", minHeight: 32 }}>{pickOpen ? "閉じる" : "＋ 参考を探す"}</button>}
+          </div>
+          <RefChips refs={refs} locked={locked} onRemove={setRefs ? r => setRefs(refs.filter(x => !(x.k === r.k && x.id === r.id))) : null} />
+          {!refs.length && !locked.length && !pickOpen && <div style={{ fontSize: 12, color: "#6b6259" }}>スワイプくん・思考整理くんから、お手本や考えの地図を付けると、GPT が初稿で使います（右の「検索」からも付けられます）</div>}
+          {pickOpen && setRefs && <RefPicker value={refs} onChange={setRefs} />}
+        </div>; })()}
         <textarea value={inst} onChange={e => setInst(e.target.value)} placeholder="ひとこと指示（任意）例：比較の図にして／文字は少なめ" rows={2} aria-label="ひとこと指示" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "6px 9px", fontSize: 12.5, fontFamily: "inherit", resize: "vertical", lineHeight: 1.6 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={send} disabled={!picked.length || busy} style={{ border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 800, fontFamily: "inherit", cursor: picked.length ? "pointer" : "default", background: picked.length ? "#f59e0b" : "#eee7df", color: picked.length ? "#fff" : "#a39a90" }}>{busy ? "依頼中…" : `依頼する${picked.length ? `（${picked.length}）` : ""}`}</button>
@@ -161,7 +173,7 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
         </div>
       </div>
       <div style={{ border: "1px solid #e7e0d8", borderRadius: 10, padding: "10px 11px", display: "flex", flexDirection: "column", gap: 7 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>出す <span style={{ fontWeight: 600, color: "#8a8076" }}>· Buffer（X @antoshia2n）{draft?.datetime ? ` · ${draft.datetime.replace("T", " ")}` : ""}</span></div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>出す <span style={{ fontWeight: 600, color: "#6b6259" }}>· Buffer（X @antoshia2n）{draft?.datetime ? ` · ${draft.datetime.replace("T", " ")}` : ""}</span></div>
         {isQuote && !active.has("schedule") && <select value={quoteOf} onChange={e => setQuoteOf(e.target.value)} aria-label="引用元" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "6px 8px", fontSize: 12.5, fontFamily: "inherit", background: "#fff" }}>
           <option value="">引用元を選ぶ（この投稿より前）</option>
           {sources.map(p => <option key={p.id} value={p.id}>{p.datetime.replace("T", " ").slice(5)} {p.title || "（無題）"}</option>)}
@@ -169,10 +181,10 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: active.has("schedule") || schBlock ? "#a39a90" : "#1a1a1a", cursor: active.has("schedule") || schBlock ? "default" : "pointer" }}>
           <input type="checkbox" checked={active.has("schedule")} disabled={active.has("schedule") || !!schBlock || busy} onChange={e => { if (e.target.checked) schedule(); }} style={{ accentColor: "#0ea5e9", width: 15, height: 15 }} />
           <span style={{ fontWeight: 700 }}>予約する</span>
-          <span style={{ fontSize: 11.5, color: "#8a8076", marginLeft: "auto" }}>{active.has("schedule") ? "依頼中" : isQuote ? "引用元が出たら自動で" : "すぐ Buffer へ"}</span>
+          <span style={{ fontSize: 12, color: "#6b6259", marginLeft: "auto" }}>{active.has("schedule") ? "依頼中" : isQuote ? "引用元が出たら自動で" : "すぐ Buffer へ"}</span>
         </label>
-        {!active.has("schedule") && schBlock && <div style={{ fontSize: 12, color: "#8a8076" }}>{schBlock}</div>}
-        {!active.has("schedule") && !schBlock && <div style={{ fontSize: 11.5, color: "#8a8076" }}>チェックすると本物の X 予約になります（{parts.length > 1 ? `スレッド ${parts.length} 本` : "1 本"}{parts.some(p => p.images.length) ? "・画像つき" : ""}）。</div>}
+        {!active.has("schedule") && schBlock && <div style={{ fontSize: 12, color: "#6b6259" }}>{schBlock}</div>}
+        {!active.has("schedule") && !schBlock && <div style={{ fontSize: 12, color: "#6b6259" }}>チェックすると本物の X 予約になります（{parts.length > 1 ? `スレッド ${parts.length} 本` : "1 本"}{parts.some(p => p.images.length) ? "・画像つき" : ""}）。</div>}
         {!active.has("schedule") && !!parts.length && <>
           <button onClick={() => setShowPrev(v => !v)} aria-expanded={showPrev} style={{ alignSelf: "flex-start", border: "none", background: "none", padding: 0, fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer", fontFamily: "inherit" }}>{showPrev ? "▾" : "▸"} X での見え方</button>
           {showPrev && <XPreview parts={parts} quote={isQuote ? (allPosts || []).find(p => String(p.id) === String(quoteOf)) : null} />}
@@ -183,8 +195,8 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
         <span style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>この投稿の依頼 {rows ? rows.length : ""}</span>
         <button onClick={load} style={{ ...sb, border: "none", marginLeft: "auto", color: "#736a62", fontWeight: 600 }}>最新にする</button>
       </div>
-      {rows === null ? <div style={{ fontSize: 12, color: "#8a8076" }}>読み込み中…</div>
-        : !sorted.length ? <div style={{ fontSize: 12.5, color: "#8a8076", lineHeight: 1.7 }}>まだ依頼はありません。上でチェックを入れて「依頼する」。</div>
+      {rows === null ? <div style={{ fontSize: 12, color: "#6b6259" }}>読み込み中…</div>
+        : !sorted.length ? <div style={{ fontSize: 12.5, color: "#6b6259", lineHeight: 1.7 }}>まだ依頼はありません。上でチェックを入れて「依頼する」。</div>
         : sorted.map(r => <RequestCard key={r.id} r={r} uid={uid} post={draft} posts={allPosts} templates={templates} onChange={put} toast={toast} onThumb={url => { setDraft(d => ({ ...d, thumb: url })); toast && toast("サムネにしました（保存で残ります）"); }} />)}
     </div>
   );

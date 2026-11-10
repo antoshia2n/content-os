@@ -23,3 +23,10 @@ test("GPT へ渡す文に題・指示・本文が入り、住所は ?q= にな�
   assert.match(t, /noteのサムネ/); assert.match(t, /指示：青で/); assert.match(t, /題：題/);
   assert.ok(chatgptUrl(t).startsWith("https://chatgpt.com/?q="));
 });
+import { mergeRefs } from "../src/lib/refs.js";
+test("参考は型と依頼を合わせ、重なりを除いて 5 件まで", () => {
+  const a = [{ k: "swipe", id: "1", title: "a" }, { k: "map", id: "2", title: "b" }];
+  const b = [{ k: "swipe", id: "1", title: "a" }, ...[3, 4, 5, 6, 7].map(i => ({ k: "swipe", id: String(i), title: "x" }))];
+  const m = mergeRefs(a, b);
+  assert.equal(m.length, 5); assert.equal(m[0].id, "1"); assert.equal(m.filter(r => r.id === "1").length, 1);
+});

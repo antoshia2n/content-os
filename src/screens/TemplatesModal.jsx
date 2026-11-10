@@ -3,6 +3,7 @@ import {BD,BD2,POST_TYPE} from '../constants.js';
 import {dbAddTemplate,dbUpdateTemplate,dbRemoveTemplate} from '../lib/supabase.js';
 import {TEMPLATE_KINDS,CURSOR_MARK,PROMPT_VARS} from '../lib/templates.js';
 import {REQUEST_KINDS,REQUEST_KIND_LABEL} from '../lib/requests.js';
+import {RefPicker,RefChips} from '../components/RefPicker.jsx';
 import {useDialogFocus} from '../lib/useDialogFocus.js';
 
 // 型の管理（2026-11-10 Naoki「型のところは別途管理画面があるとよさそう」→ デモに OK 11:36）
@@ -54,7 +55,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
 
   async function run(fn){
     if(busy.current)return;busy.current=true;setError('');
-    try{await fn();}catch(e){const m=e.message||String(e);setError(/check constraint|violates|make/i.test(m)?'この種類の置き場はまだ準備中です（表の準備が済むと使えます）':m);}
+    try{await fn();}catch(e){const m=e.message||String(e);setError(/check constraint|violates|make|refs/i.test(m)?'この種類の置き場はまだ準備中です（表の準備が済むと使えます）':m);}
     finally{busy.current=false;}
   }
   const put=row=>setTemplates(ts=>ts.some(t=>t.id===row.id)?ts.map(t=>t.id===row.id?row:t):[...ts,row]);
@@ -137,6 +138,12 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
                 {cur.post_type&&!postTypes[cur.post_type]&&<option value={cur.post_type}>{cur.post_type}</option>}
                 {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
+              {kind==='request'&&<>
+                <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>いつも付ける参考（この型で依頼すると毎回 GPT に渡る・5 件まで）</label>
+                <RefChips refs={Array.isArray(cur.refs)?cur.refs:[]} onRemove={r=>update(cur,{refs:(cur.refs||[]).filter(x=>!(x.k===r.k&&x.id===r.id))})}/>
+                <details><summary style={{fontSize:12.5,fontWeight:700,color:'#6b6259',cursor:'pointer'}}>参考を探して付ける</summary>
+                  <div style={{marginTop:6}}><RefPicker value={Array.isArray(cur.refs)?cur.refs:[]} onChange={v=>update(cur,{refs:v})}/></div></details>
+              </>}
               <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>中身</label>
               <Field key={cur.id+'c'} multiline inputRef={area} value={cur.content} label="型の中身" placeholder={kind==='memo'?'- 主題\n  - 理由':kind==='prompt'?'例：次の記事の冒頭を 3 案出して。\nタイトル：{タイトル}\n本文：{本文}':kind==='request'?'例：X記事の引用用の図解を1枚。\n・結論を1行、根拠を3つの箱で\n・文字は30字以内\n・色はシアニンの青と白':'中身'} onSave={v=>update(cur,{content:v})}/>
               {kind==='prompt'

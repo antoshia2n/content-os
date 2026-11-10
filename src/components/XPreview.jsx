@@ -28,14 +28,14 @@ export function XPreview({ parts, quote }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, display: "flex", gap: 5, alignItems: "baseline" }}>
               <b style={{ color: "#0f1419" }}>シアニン</b><span style={{ color: "#536471", fontSize: 12 }}>@antoshia2n</span>
-              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: over ? "#b91c1c" : "#8a8076" }}>{ps.length > 1 ? `${i + 1}/${ps.length}・` : ""}{len}/280</span>
+              <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: over ? "#b91c1c" : "#6b6259" }}>{ps.length > 1 ? `${i + 1}/${ps.length}・` : ""}{len}/280</span>
             </div>
             <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "#0f1419", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{p.text}</div>
             <Images urls={p.images} />
             {i === 0 && quote && <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: "8px 10px", marginTop: 6 }}>
               <div style={{ fontSize: 12, display: "flex", gap: 5, alignItems: "center" }}><span style={{ width: 16, height: 16, borderRadius: "50%", background: "#1d4ed8", display: "inline-block" }} /><b style={{ color: "#0f1419" }}>シアニン</b><span style={{ color: "#536471" }}>@antoshia2n · {quote.datetime ? quote.datetime.slice(5, 10).replace("-", "/") : ""}</span></div>
               <div style={{ fontSize: 12.5, color: "#0f1419", lineHeight: 1.55, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{stripHtml(quote.body || "").trim() || quote.title || "（本文なし）"}</div>
-              {!quote.x_url && <div style={{ fontSize: 11, color: "#0369a1", marginTop: 4 }}>引用元はまだ X に出ていません（出たら入ります）</div>}
+              {!quote.x_url && <div style={{ fontSize: 12, color: "#0369a1", marginTop: 4 }}>引用元はまだ X に出ていません（出たら入ります）</div>}
             </div>}
           </div>
         </div>;

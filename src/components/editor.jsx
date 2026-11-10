@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase.js";
 import { auth } from "../firebase.js"; import { buildPasteHtml } from "../lib/paste.js"; import { uploadImage } from "../lib/articleImages.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { searchMaps } from "../lib/mindmapLink.js";
+import { loadOthers, SWIPE_URL } from "../screens/FindView.jsx";
 
 // ════════════════════════════════════════════════════════
 // WYSIWYG
@@ -509,8 +510,18 @@ export function SideIcon({id,icon,label,sidePanel,setSidePanel}){
 // ════════════════════════════════════════════════════════
 // 過去コンテンツ検索パネル（エディタサイドバー内）
 // ════════════════════════════════════════════════════════
-export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
+export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange,refs=null,onToggleRef=null}){
   const [q,setQ]=useState("");
+  // 2026-11-10 スワイプくんも探す（読むだけ）。参考に付けられる（依頼の参考）
+  const [swipes,setSwipes]=useState(null);
+  useEffect(()=>{let live=true;loadOthers().then(d=>{if(live)setSwipes(d?.swipes||[]);});return()=>{live=false;};},[]);
+  const swHits=React.useMemo(()=>{
+    const terms=q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if(!terms.length||!swipes)return [];
+    return swipes.filter(s=>{const t=[s.title,s.excerpt,s.body,s.author,s.reason,s.an_hypo,s.an_idea].join(" ").toLowerCase();return terms.every(x=>t.includes(x));}).slice(0,20);
+  },[q,swipes]);
+  const refOn=r=>!!refs&&refs.some(x=>x.k===r.k&&String(x.id)===String(r.id));
+  const RefBtn=({r})=>onToggleRef?<button onClick={()=>onToggleRef(r)} aria-pressed={refOn(r)} aria-label={`「${r.title}」を依頼の参考に${refOn(r)?"付けた（押すと外す）":"付ける"}`} style={{flex:1,border:`1px solid ${refOn(r)?"#7c3aed":"#a39a90"}`,background:refOn(r)?"#7c3aed":"#fff",borderRadius:6,padding:"4px 0",minHeight:30,fontSize:12,fontWeight:700,color:refOn(r)?"#fff":"#1a1a1a",cursor:"pointer",fontFamily:"inherit"}}>{refOn(r)?"参考に付けた ✓":"参考に付ける"}</button>:null;
   const inputRef=useRef(null);
   const composing=useRef(false);
 
@@ -565,7 +576,7 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
             onChange={e=>setQ(e.target.value)}
             onCompositionStart={()=>{composing.current=true;}}
             onCompositionEnd={e=>{composing.current=false;setQ(e.target.value);}}
-            placeholder="コンテンツくんと思考整理くんを検索…" aria-label="コンテンツくんと思考整理くんを検索"
+            placeholder="投稿・スワイプくん・思考整理くんを検索…" aria-label="投稿・スワイプくん・思考整理くんを検索"
             style={{flex:1,border:"none",outline:"none",background:"transparent",fontSize:12,color:"#333",minWidth:0}}/>
           {q&&<button onClick={()=>setQ("")} style={{border:"none",background:"none",color:"#736a62",cursor:"pointer",fontSize:14,lineHeight:1}}>×</button>}
         </div>
@@ -597,12 +608,31 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange}){
                 {(m.hits||[]).map((h,i)=><div key={i} style={{fontSize:12,color:"#4b4540",background:"#f5f3ff",borderRadius:6,padding:"3px 7px",marginTop:4,lineHeight:1.5,wordBreak:"break-all"}}>{h}</div>)}
                 <div style={{display:"flex",gap:6,marginTop:6}}>
                   <a href={m.url} target="_blank" rel="noopener noreferrer" aria-label={`「${m.title}」を別タブで開く`} style={{flex:1,textAlign:"center",border:"1px solid #a39a90",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#1a1a1a",textDecoration:"none"}}>別タブで開く ↗</a>
+                  <RefBtn r={{k:"map",id:String(m.id),title:m.title||"無題のマップ"}}/>
                   <button onClick={()=>{onSaveRange();insertUrl(m.url);}} aria-label={`「${m.title}」の住所を本文に挿入`} style={{flex:1,border:"none",background:"#b45309",borderRadius:6,padding:"4px 0",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>← リンクを挿入</button>
                 </div>
               </div>
             ))}
           </div>
         )}
+        {q.trim()&&<div style={{borderBottom:BD2}}>
+          <div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
+            <span style={{width:8,height:8,borderRadius:2,background:"#9a3412",flexShrink:0}}/>
+            <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>スワイプくん</span>
+            <span style={{fontSize:12,color:"#736a62"}}>{swipes===null?"読み込み中…":`${swHits.length} 件`}</span>
+          </div>
+          {swipes!==null&&swHits.length===0&&<div style={{fontSize:12,color:"#736a62",padding:"0 12px 8px"}}>当たるスワイプはありません</div>}
+          {swHits.map(s=>{const title=(s.title||s.excerpt||s.body||"（見出しなし）").trim().split("\n")[0].slice(0,80);return(
+            <div key={s.id} style={{padding:"6px 12px 9px"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1a1a1a",lineHeight:1.4,wordBreak:"break-all"}}>{title}</div>
+              <div style={{fontSize:12,color:"#736a62",marginTop:1}}>{[s.shu,s.author].filter(Boolean).join("・")}</div>
+              {s.reason&&<div style={{fontSize:12,color:"#4b4540",background:"#fff7ed",borderRadius:6,padding:"3px 7px",marginTop:4,lineHeight:1.5,wordBreak:"break-all"}}>選んだ理由：{s.reason}</div>}
+              <div style={{display:"flex",gap:6,marginTop:6}}>
+                <a href={SWIPE_URL(s.id)} target="_blank" rel="noopener noreferrer" aria-label={`「${title}」をスワイプくんで開く`} style={{flex:1,textAlign:"center",border:"1px solid #a39a90",borderRadius:6,padding:"4px 0",minHeight:30,boxSizing:"border-box",fontSize:12,fontWeight:700,color:"#1a1a1a",textDecoration:"none"}}>開く ↗</a>
+                <RefBtn r={{k:"swipe",id:String(s.id),title}}/>
+              </div>
+            </div>);})}
+        </div>}
         {q.trim()&&<div style={{...S.row,gap:6,padding:"8px 12px 4px"}}>
           <span style={{width:8,height:8,borderRadius:2,background:"#ea580c",flexShrink:0}}/>
           <span style={{fontSize:12,fontWeight:800,color:"#1a1a1a"}}>コンテンツくん</span>

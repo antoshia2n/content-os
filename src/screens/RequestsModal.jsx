@@ -47,8 +47,8 @@ export function RequestsModal({ uid, posts = [], templates = [], onOpen, onClose
             {flowOpen && <RequestFlow counts={flowCounts((rows || []).filter(r => r.status !== "cancelled"))} />}
           </div>
           {err && <div role="alert" style={{ fontSize: 12.5, color: "#b91c1c" }}>{err}</div>}
-          {rows === null ? <div style={{ fontSize: 12.5, color: "#8a8076" }}>読み込み中…</div>
-            : !shown.length ? <div style={{ fontSize: 13, color: "#8a8076", lineHeight: 1.7 }}>{tab === "open" ? "進行中の依頼はありません。書く画面の右の「依頼」から出せます。" : "済んだ依頼はまだありません。"}</div>
+          {rows === null ? <div style={{ fontSize: 12.5, color: "#6b6259" }}>読み込み中…</div>
+            : !shown.length ? <div style={{ fontSize: 13, color: "#6b6259", lineHeight: 1.7 }}>{tab === "open" ? "進行中の依頼はありません。書く画面の右の「依頼」から出せます。" : "済んだ依頼はまだありません。"}</div>
             : shown.map(r => {
               const p = byId[String(r.post_id)];
               return <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
