@@ -2,6 +2,7 @@ import React, {useState,useEffect,useRef} from 'react';
 import {BD,BD2,POST_TYPE} from '../constants.js';
 import {dbAddTemplate,dbUpdateTemplate,dbRemoveTemplate} from '../lib/supabase.js';
 import {TEMPLATE_KINDS,CURSOR_MARK,PROMPT_VARS} from '../lib/templates.js';
+import {REQUEST_KINDS,REQUEST_KIND_LABEL} from '../lib/requests.js';
 import {useDialogFocus} from '../lib/useDialogFocus.js';
 
 // 型の管理（2026-11-10 Naoki「型のところは別途管理画面があるとよさそう」→ デモに OK 11:36）
@@ -11,6 +12,7 @@ const HINT={
   closing:'本文の末尾に足します（CTA・メンシプへの案内など）。',
   memo:'メモに差し込みます。「- 」と半角スペース 2 つで 1 階層の箇条書きのまま入ります。',
   prompt:'AI に渡す文。{タイトル}{本文}{メモ}{種類} を、書いている中身に置き換えてコピーします。',
+  request:'書く画面の「依頼」で使う、GPT への依頼の文。作るもの × 投稿の種類が合う型が自動で付きます。GPT は投稿の題と本文をいっしょに受け取ります。',
 };
 
 function Field({value,onSave,multiline,placeholder,style,inputRef,label}){
@@ -46,20 +48,20 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
 
   async function run(fn){
     if(busy.current)return;busy.current=true;setError('');
-    try{await fn();}catch(e){const m=e.message||String(e);setError(/check constraint|violates/i.test(m)?'プロンプトの置き場はまだ準備中です（表の準備が済むと使えます）':m);}
+    try{await fn();}catch(e){const m=e.message||String(e);setError(/check constraint|violates|make/i.test(m)?'この種類の置き場はまだ準備中です（表の準備が済むと使えます）':m);}
     finally{busy.current=false;}
   }
   const put=row=>setTemplates(ts=>ts.some(t=>t.id===row.id)?ts.map(t=>t.id===row.id?row:t):[...ts,row]);
   const add=()=>run(async()=>{
     const order=all.length?Math.max(...all.map(t=>t.sort_order))+1:0;
-    const row=await dbAddTemplate(uid,{name:'新しい'+(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1],kind,post_type:null,content:kind==='closing'||kind==='prompt'?'':CURSOR_MARK,sort_order:order});
+    const row=await dbAddTemplate(uid,{name:'新しい'+(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1],kind,post_type:null,content:kind==='closing'||kind==='prompt'||kind==='request'?'':CURSOR_MARK,sort_order:order,...(kind==='request'?{make:'quote_figure'}:{})});
     put(row);setSelId(row.id);setQ('');
   });
   const update=(t,fields)=>run(async()=>{put(await dbUpdateTemplate(uid,t.id,fields));const d=new Date();setSaved(`保存しました ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`);});
   // 確かめの窓（window.confirm）はやめ、2 回押しで消す（1 回目でボタンの字が変わる）
   const [armed,setArmed]=useState(null);
   const remove=t=>{if(armed!==t.id){setArmed(t.id);setTimeout(()=>setArmed(x=>x===t.id?null:x),4000);return;}setArmed(null);run(async()=>{await dbRemoveTemplate(uid,t.id);setTemplates(ts=>ts.filter(x=>x.id!==t.id));setSelId(null);});};
-  const duplicate=t=>run(async()=>{const row=await dbAddTemplate(uid,{name:(t.name||'')+'（コピー）',kind:t.kind,post_type:t.post_type,content:t.content,sort_order:Math.max(...all.map(x=>x.sort_order))+1});put(row);setSelId(row.id);});
+  const duplicate=t=>run(async()=>{const row=await dbAddTemplate(uid,{name:(t.name||'')+'（コピー）',kind:t.kind,post_type:t.post_type,content:t.content,...(t.kind==='request'?{make:t.make||null}:{}),sort_order:Math.max(...all.map(x=>x.sort_order))+1});put(row);setSelId(row.id);});
   const move=(i,dir)=>{
     if(!all[i+dir])return;
     const next=[...all];[next[i],next[i+dir]]=[next[i+dir],next[i]];
@@ -99,7 +101,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
                 <button key={t.id} onClick={()=>setSelId(t.id)} aria-current={cur&&cur.id===t.id?'true':undefined}
                   style={{display:'flex',flexDirection:'column',gap:3,width:'100%',textAlign:'left',border:'none',borderBottom:'1px solid #f1ebe4',padding:'10px 12px',cursor:'pointer',fontFamily:'inherit',background:cur&&cur.id===t.id?'#fffaf0':'#fff',boxShadow:cur&&cur.id===t.id?'inset 3px 0 0 #f59e0b':'none'}}>
                   <span style={{fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{t.name||'（名前なし）'}</span>
-                  <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
+                  <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.kind==='request'?`${REQUEST_KIND_LABEL[t.make]||'作るもの未設定'} × `:''}{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
                 </button>
               ))}
               {!items.length&&<div style={{color:'#736a62',fontSize:12.5,padding:'20px 14px',lineHeight:1.7}}>{q?'当てはまる型はありません':`${(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1]}の型はまだありません。上の「＋ 追加」で作れます`}</div>}
@@ -109,6 +111,13 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
             {cur?<>
               <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>名前</label>
               <Field key={cur.id+'n'} value={cur.name} label="型の名前" placeholder="型の名前" onSave={v=>update(cur,{name:v})} style={{fontWeight:700}}/>
+              {kind==='request'&&<>
+                <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>作るもの</label>
+                <select value={cur.make||''} onChange={e=>update(cur,{make:e.target.value||null})} style={{border:'1px solid #a39a90',borderRadius:8,padding:'8px 10px',fontSize:13,fontFamily:'inherit',background:'#fff',maxWidth:260}}>
+                  <option value="">どれにも使う</option>
+                  {REQUEST_KINDS.map(([k,l])=><option key={k} value={k}>{l}</option>)}
+                </select>
+              </>}
               <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>使う投稿の種類</label>
               <select value={cur.post_type||''} onChange={e=>update(cur,{post_type:e.target.value||null})} style={{border:'1px solid #a39a90',borderRadius:8,padding:'8px 10px',fontSize:13,fontFamily:'inherit',background:'#fff',maxWidth:260}}>
                 <option value="">すべての種類</option>
@@ -116,10 +125,10 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
                 {Object.entries(postTypes).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </select>
               <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>中身</label>
-              <Field key={cur.id+'c'} multiline inputRef={area} value={cur.content} label="型の中身" placeholder={kind==='memo'?'- 主題\n  - 理由':kind==='prompt'?'例：次の記事の冒頭を 3 案出して。\nタイトル：{タイトル}\n本文：{本文}':'中身'} onSave={v=>update(cur,{content:v})}/>
+              <Field key={cur.id+'c'} multiline inputRef={area} value={cur.content} label="型の中身" placeholder={kind==='memo'?'- 主題\n  - 理由':kind==='prompt'?'例：次の記事の冒頭を 3 案出して。\nタイトル：{タイトル}\n本文：{本文}':kind==='request'?'例：X記事の引用用の図解を1枚。\n・結論を1行、根拠を3つの箱で\n・文字は30字以内\n・色はシアニンの青と白':'中身'} onSave={v=>update(cur,{content:v})}/>
               {kind==='prompt'
                 ?<div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}><span style={{fontSize:12,color:'#736a62'}}>差し込める言葉：</span>{PROMPT_VARS.map(w=><button key={w} onMouseDown={e=>e.preventDefault()} onClick={()=>putVar(w)} style={{...sb,borderRadius:99}}>{w}</button>)}</div>
-                :kind!=='closing'&&<div style={{fontSize:12,color:'#736a62'}}><code style={{background:'#fef3c7',color:'#b45309',borderRadius:4,padding:'0 4px'}}>{CURSOR_MARK}</code> と書いた所に、差し込んだあとカーソルが来ます（1 つだけ）</div>}
+                :kind!=='closing'&&kind!=='request'&&<div style={{fontSize:12,color:'#736a62'}}><code style={{background:'#fef3c7',color:'#b45309',borderRadius:4,padding:'0 4px'}}>{CURSOR_MARK}</code> と書いた所に、差し込んだあとカーソルが来ます（1 つだけ）</div>}
               <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:4}}>
                 <button disabled={ix<=0} onClick={()=>move(ix,-1)} aria-label="上へ" style={{...sb,opacity:ix<=0?.45:1}}>▲ 上へ</button>
                 <button disabled={ix<0||ix>=all.length-1} onClick={()=>move(ix,1)} aria-label="下へ" style={{...sb,opacity:ix<0||ix>=all.length-1?.45:1}}>▼ 下へ</button>
