@@ -18,7 +18,7 @@ import {
 import { CK_CSS, CK_PHONE_CSS, AccountPill, ToOutModal, BRAND_ICON, nextFreeSlot } from "./screens/StockParts.jsx";
 import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./screens/PlanView.jsx";
 import {
-  SlotAddForm, slotLabel, slotMatchesDate,
+  slotMatchesDate,
 } from "./screens/CalendarView.jsx";
 
 // 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
@@ -37,6 +37,7 @@ const AccountSettings    =lazyNamed(()=>import("./screens/AccountSettings.jsx"),
 const MetricsView        =lazyNamed(()=>import("./screens/MetricsView.jsx"),"MetricsView");
 const ExportModal        =lazyNamed(()=>import("./screens/ExportModal.jsx"),"ExportModal");
 import { CtxMenuHost, openCtx } from "./components/CtxMenu.jsx";
+const DeliveryPlan       =lazyNamed(()=>import("./screens/DeliveryPlan.jsx"),"DeliveryPlan");
 const RepostModal        =lazyNamed(()=>import("./components/modals.jsx"),"RepostModal");
 // 2026-11-10 軽量化 便3（作る前の 1 枚に Naoki OK 2026-11-09 20:45）：最初の画面（カレンダー）で使わないものは開いたときに読む
 const loadFind=()=>import("./screens/FindView.jsx");
@@ -443,7 +444,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
   };
   const toNextSlot=p=>{
     const dt=nextFreeSlot({slots,posts,postType:p.postType||"x_post",today});
-    if(!dt){showToast("この種類の予約枠がありません（設定の予約枠で足せます）");return;}
+    if(!dt){showToast("この種類の枠がありません（設定の配信計画で足せます）");return;}
     placeAt(p.id,dt,p.postType||"x_post");
   };
   // 状態の切り替え：予約済みにしたとき、Buffer に入れられる 1 本なら確認の窓を出す（自動では入れない）
@@ -726,7 +727,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                 {showShare&&(
                   <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:BD2,borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
                     {[
-                      ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
+                      ["配信計画",()=>{setShowSlotSettings(true);setShowShare(false);}],
                       ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
                       ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
@@ -963,56 +964,9 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
 
       {/* 2026-11-03 便 B：窓の群も .ck の中に置き、スマホの決まり（字 16px・押す所 44px）を効かせる。囲みは見た目に出ない */}
       <div className="ck" style={{display:"contents"}}>
-      {/* ── 予約枠設定モーダル ── */}
-      {showSlotSettings&&isAdmin&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
-          onClick={e=>{if(e.target===e.currentTarget)setShowSlotSettings(false);}}>
-          <DialogFocus onClose={()=>setShowSlotSettings(false)}>{box=>(
-          <div ref={box} role="dialog" aria-modal="true" aria-labelledby="slot-settings-title" style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px #00000030"}}>
-            <div style={{padding:"14px 18px",borderBottom:BD2,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#f5f0eb"}}>
-              <div>
-                <div id="slot-settings-title" style={{fontWeight:800,fontSize:14}}>予約枠の設定</div>
-                <div style={{fontSize:12,color:"#736a62",marginTop:2}}>カレンダーに空いている枠として薄く出ます</div>
-              </div>
-              <Btn onClick={()=>setShowSlotSettings(false)}>閉じる</Btn>
-            </div>
-            {/* フォーム（固定） */}
-            <div style={{padding:"14px 18px",borderBottom:BD2}}>
-              <SlotAddForm postTypes={allPostTypes} onAdd={s=>{
-                saveSlots([...slots,{...s,id:genId()}]);
-              }}/>
-            </div>
-            {/* 枠一覧（スクロール可能） */}
-            <div style={{flex:1,minHeight:0,overflowY:"auto",padding:"12px 18px 24px"}}>
-              {slots.length===0
-                ?<div style={{textAlign:"center",color:"#736a62",fontSize:13,padding:"20px 0"}}>枠がまだありません</div>
-                :slots.map((s,i)=>{
-                  const pt=getPostTypeStyle(s.postType,allPostTypes);
-                  return(
-                    <div key={s.id} style={{...S.row,gap:8,background:"#f8f5f1",border:BD2,borderRadius:9,padding:"7px 10px",marginBottom:6}}>
-                      <span style={{width:7,height:7,borderRadius:"50%",background:pt.dot,flexShrink:0}}/>
-                      <span style={{fontSize:12,fontWeight:700,color:"#555",whiteSpace:"nowrap",flexShrink:0}}>{slotLabel(s)}</span>
-                      <input
-                        value={s.title||""}
-                        onChange={e=>{const v=e.target.value;saveSlots(prev=>prev.map((x,j)=>j===i?{...x,title:v}:x));}}
-                        placeholder="仮タイトル"
-                        style={{flex:1,minWidth:0,border:"none",borderBottom:BD,borderRadius:0,padding:"2px 4px",fontSize:12,fontFamily:"inherit",color:"#1a1a1a",outline:"none",background:"transparent"}}
-                        onFocus={e=>e.target.style.borderBottomColor="#f59e0b"}
-                        onBlur={e=>e.target.style.borderBottomColor="#e0d8ce"}
-                      />
-                      <span style={{fontSize:12,color:pt.color,background:pt.bg,border:`1px solid ${pt.border}`,padding:"1px 7px",borderRadius:10,fontWeight:700,flexShrink:0}}>{pt.label}</span>
-                      <button aria-label="この予約枠を消す" title="この予約枠を消す" onClick={()=>{const before=slots;saveSlots(slots.filter((_,j)=>j!==i));setUndo({msg:"予約枠を 1 つ消しました",run:()=>saveSlots(before)});}}
-                        style={{border:"none",background:"none",color:"#b91c1c",cursor:"pointer",fontSize:15,fontWeight:700,flexShrink:0,padding:"0 4px"}}>×</button>
-                    </div>
-                  );
-                })
-              }
-            </div>
-          </div>
-          )}</DialogFocus>
-        </div>
-      )}
-
+      {/* ── 配信計画（2026-11-10 予約枠の設定の窓を置き換えた・screens/DeliveryPlan.jsx） ── */}
+      {showSlotSettings&&isAdmin&&<DeliveryPlan uid={uid} slots={slots} saveSlots={saveSlots} posts={posts} postTypes={allPostTypes} placeAt={placeAt}
+        onOpen={p=>{setShowSlotSettings(false);openPost(p);}} onClose={()=>setShowSlotSettings(false)} showToast={showToast} setUndo={setUndo}/>}
 
       {/* ── エクスポートモーダル ── */}
       {showExport&&isAdmin&&(
