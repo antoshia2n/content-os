@@ -1,1 +1,0 @@
--- 本番へは適用済み（migration content_templates_guard）。中身は #75 を参照
