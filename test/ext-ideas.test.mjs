@@ -26,3 +26,17 @@ test("思考整理くん以外の画面からは呼べない・ログイン無�
   assert.equal(r.ok, false);
   assert.match(r.error, /ログイン/);
 });
+
+// 2026-11-11 読書くん 便3
+import { bookFields, BOOK_ORIGINS } from "../functions/api/ext/ideas.js";
+test("読書くんのメモ：題は 1 行目・メモに出どころ・住所は決まった形だけ", () => {
+  const b = "11111111-2222-3333-4444-555555555555", m = "66666666-7777-8888-9999-000000000000";
+  const f = bookFields({ text: "問いを選ぶ量で差がつく\n二行目", book: "イシューからはじめよ", page: 44, src_url: `https://dokusho.shia2n.jp/?book=${b}&memo=${m}` });
+  assert.equal(f.title, "問いを選ぶ量で差がつく");
+  assert.equal(f.memo, "問いを選ぶ量で差がつく\n二行目\n\n— 『イシューからはじめよ』 p.44");
+  assert.equal(f.label, "『イシューからはじめよ』 p.44");
+  assert.equal(f.src_url, `https://dokusho.shia2n.jp/?book=${b}&memo=${m}`);
+  assert.equal(bookFields({ text: "a", src_url: "https://evil.example/?book=x" }).src_url, null);
+  assert.equal(bookFields({ text: "a", book: "本" }).label, "『本』");
+  assert.ok(BOOK_ORIGINS.includes("https://dokusho.shia2n.jp"));
+});
