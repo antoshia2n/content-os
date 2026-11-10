@@ -91,7 +91,11 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
 export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, toast, onManageTemplates, allPosts = [], refs: pendingRaw = null, setRefs }) {
   const [pickOpen, setPickOpen] = useState(null); // どこに足す欄を開いているか（'all' か作るもの）
   const [openRow, setOpenRow] = useState({});
+  const [tplChoice, setTplChoice] = useState({}); // 作るものごとに選んだ型（パターン）の番号。空なら自動で合うもの
   const pending = normPending(pendingRaw);
+  // 作るものごとの型（パターン）：その作るもの用の型を並べ、投稿の種類が合うものを先に
+  const patternsOf = k => (templates || []).filter(t => t.kind === "request" && (t.make === k || !t.make) && (!t.post_type || t.post_type === draft?.postType)).sort((a, b) => ((b.make === k) - (a.make === k)) || ((b.post_type === draft?.postType) - (a.post_type === draft?.postType)) || a.sort_order - b.sort_order);
+  const tplFor = k => { const c = tplChoice[k]; if (c === "none") return null; if (c) return (templates || []).find(t => t.id === c) || null; return pickRequestTemplate(templates, k, draft?.postType); };
   const [rows, setRows] = useState(null);
   const [checks, setChecks] = useState({});
   const [inst, setInst] = useState("");
@@ -137,7 +141,7 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
     setBusy(true); setErr("");
     try {
       for (const k of picked) {
-        const tpl = pickRequestTemplate(templates, k, draft.postType);
+        const tpl = tplFor(k);
         put(await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: k, media, template_id: tpl ? tpl.id : null, instruction: inst.trim(), refs: resolveRefs(pending, k, tpl?.refs) }));
       }
       setChecks({}); setInst(""); setOpenRow({}); setPickOpen(null); setRefs && setRefs(p => { const n = normPending(p); const out = { ...n, excl: { ...n.excl } }; for (const k of picked) { delete out[k]; delete out.excl[k]; } return out; });
@@ -162,7 +166,8 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
         </div>}
         {REQUEST_KINDS.map(([k, l]) => {
           const on = active.has(k);
-          const tpl = pickRequestTemplate(templates, k, draft.postType);
+          const tpl = tplFor(k);
+          const pats = patternsOf(k);
           const tplRefs = Array.isArray(tpl?.refs) ? tpl.refs : [];
           const ex = new Set(pending.excl[k] || []);
           const own = pending[k] || [];
@@ -170,11 +175,15 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
           const open = !!openRow[k];
           return <div key={k} style={{ borderTop: "1px solid #f0ebe5", paddingTop: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: on ? "#a39a90" : "#1a1a1a", cursor: on ? "default" : "pointer", flex: 1, minWidth: 0, minHeight: 32 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: on ? "#a39a90" : "#1a1a1a", cursor: on ? "default" : "pointer", flex: "0 0 auto", minHeight: 32 }}>
                 <input type="checkbox" disabled={on} checked={!!checks[k] && !on} onChange={e => setChecks(c => ({ ...c, [k]: e.target.checked }))} style={{ accentColor: "#f59e0b", width: 16, height: 16 }} />
                 <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{l}</span>
-                <span style={{ fontSize: 12, color: "#6b6259", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{on ? "依頼中" : tpl ? `型：${tpl.name}` : "型なし"}</span>
+                {on && <span style={{ fontSize: 12, color: "#6b6259" }}>依頼中</span>}
               </label>
+              {!on && <select value={tplChoice[k] || (tpl ? tpl.id : "none")} onChange={e => setTplChoice(c => ({ ...c, [k]: e.target.value }))} aria-label={`${l}の型（パターン）`} title="この依頼で使う型（パターン）" style={{ flex: 1, minWidth: 0, maxWidth: 170, marginLeft: "auto", minHeight: 32, border: "1px solid #d4cbbf", borderRadius: 7, padding: "4px 6px", fontSize: 12, fontFamily: "inherit", background: "#fff", color: tpl ? "#1a1a1a" : "#6b6259" }}>
+                {pats.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                <option value="none">型なし</option>
+              </select>}
               {!on && setRefs && <button onClick={() => setOpenRow(o => ({ ...o, [k]: !o[k] }))} aria-expanded={open} aria-label={`${l}の参考（${final.length} 件）を${open ? "閉じる" : "開く"}`} style={{ ...sb, minHeight: 32, color: final.length ? "#4c1d95" : "#6b6259", borderColor: final.length ? "#c4b5fd" : "#d4cbbf", background: final.length ? "#f5f3ff" : "#fff" }}>参考 {final.length} {open ? "▾" : "▸"}</button>}
             </div>
             {open && !on && setRefs && <div style={{ margin: "6px 0 4px 24px", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -198,6 +207,10 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
             </div>}
           </div>;
         })}
+        {picked.length > 0 && <div role="status" style={{ fontSize: 12, color: "#3d3530", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "6px 9px", lineHeight: 1.7 }}>
+          <b>この内容で依頼します</b>
+          {picked.map(k => { const t = tplFor(k); const n = resolveRefs(pending, k, Array.isArray(t?.refs) ? t.refs : []).length; return <div key={k}>・{REQUEST_KIND_LABEL[k]}：{t ? t.name : "型なし"}／参考 {n} 件</div>; })}
+        </div>}
         <textarea value={inst} onChange={e => setInst(e.target.value)} placeholder="ひとこと指示（任意）例：比較の図にして／文字は少なめ" rows={2} aria-label="ひとこと指示" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "6px 9px", fontSize: 12.5, fontFamily: "inherit", resize: "vertical", lineHeight: 1.6 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={send} disabled={!picked.length || busy} style={{ border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 800, fontFamily: "inherit", cursor: picked.length ? "pointer" : "default", background: picked.length ? "#f59e0b" : "#eee7df", color: picked.length ? "#fff" : "#a39a90" }}>{busy ? "依頼中…" : `依頼する${picked.length ? `（${picked.length}）` : ""}`}</button>
