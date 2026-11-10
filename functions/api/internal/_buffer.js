@@ -43,7 +43,11 @@ export async function runScheduleRequest(env, sb, uid, req) {
   const dt = String(post.datetime || "").slice(0, 16);
   if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(dt)) return fail("日時が入っていません");
   const dueAt = `${dt}:00+09:00`;
-  if (new Date(dueAt).getTime() < Date.now() + 2 * 60 * 1000) return fail("日時が過ぎています。日時を直してから依頼し直してください");
+  if (new Date(dueAt).getTime() < Date.now() + 2 * 60 * 1000) {
+    // 日時を過ぎたものは見回りが毎回やり直さないよう、取り消しにして理由を残す
+    await patchRequest(sb, uid, req.id, { status: "cancelled", note: "日時を過ぎたので予約しませんでした。日時を直してもう一度チェックしてください" });
+    return { state: "error", message: "日時が過ぎています" };
+  }
 
   // 引用元の X の番号
   let retweetId = null;

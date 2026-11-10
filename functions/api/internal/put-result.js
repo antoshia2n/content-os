@@ -31,10 +31,11 @@ export async function onRequestPost({ request, env }) {
   const sb = getSupabase(env);
   if (!sb) return json({ ok: false, error: 'Missing env' }, 500);
 
-  const gr = await fetch(`${sb.url}/rest/v1/content_requests?select=id,version,result_urls,status&user_id=eq.${encodeURIComponent(user_id)}&id=eq.${encodeURIComponent(id)}`, { headers: sb.headers });
+  const gr = await fetch(`${sb.url}/rest/v1/content_requests?select=id,version,result_urls,status,kind&user_id=eq.${encodeURIComponent(user_id)}&id=eq.${encodeURIComponent(id)}`, { headers: sb.headers });
   if (!gr.ok) return json({ ok: false, error: 'supabase_error', detail: (await gr.text()).slice(0, 300) }, 502);
   const cur = (await gr.json())[0];
   if (!cur) return json({ ok: false, error: 'not_found', id }, 404);
+  if (cur.kind === 'schedule') return json({ ok: false, error: 'not_found', id }, 404); // 予約の依頼は GPT から書けない
   if (cur.status === 'cancelled') return json({ ok: false, error: 'cancelled', message: 'この依頼は取り消されています' }, 409);
 
   // 画像を置く
