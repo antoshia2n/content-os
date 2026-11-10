@@ -16,18 +16,77 @@ const SLASH_ITEMS=[
 ];
 const runBlock=k=>{
   const ex=(c,v)=>document.execCommand(c,false,v??null);
-  if(k==="p"||k==="h1"||k==="h2")ex("formatBlock",k);
-  else if(k==="quote")ex("formatBlock","blockquote");
+  if(k==="p")clearFormat();
+  else if(k==="h1"||k==="h2")toggleBlock(k);
+  else if(k==="quote")toggleBlock("blockquote");
   else if(k==="ul")ex("insertUnorderedList");
   else if(k==="ol")ex("insertOrderedList");
   else if(k==="hr")ex("insertHorizontalRule");
   else if(k==="thread")ex("insertHTML",'<hr class="thread-sep" data-thread="true"><p><br></p>');
 };
+
+// 2026-11-10 Naoki「書式解除、本文に戻すも使いづらい」→ デモに OK 11:36
+// 今の段の形（見出し・小見出し・引用・本文）と、箇条書きの中かを読む
+export function curBlock(){
+  try{
+    const sel=window.getSelection();if(!sel||!sel.rangeCount)return {tag:"p",list:null};
+    const n=sel.anchorNode;const el=n&&n.nodeType===3?n.parentElement:n;
+    const b=el&&el.closest?el.closest("h1,h2,blockquote"):null;
+    const l=el&&el.closest?el.closest("ul,ol"):null;
+    return {tag:b?b.tagName.toLowerCase():"p",list:l?l.tagName.toLowerCase():null};
+  }catch{return {tag:"p",list:null};}
+}
+// 見出し・小見出し・引用：今と同じ形をもう一度押すと本文に戻る。箇条書きの中なら先に箇条書きを外す
+export function toggleBlock(tag){
+  const ex=(c,v)=>document.execCommand(c,false,v??null);
+  const c=curBlock();
+  if(c.list&&tag!=="p")ex(c.list==="ul"?"insertUnorderedList":"insertOrderedList");
+  ex("formatBlock",c.tag===tag?"p":tag);
+}
+// 書式を外す：太字・斜体・取り消し線・リンク・箇条書き・見出し・引用を一度に外して本文に戻す（⌘＼ でも）
+// 段の形は execCommand に任せず、選んだ範囲にかかる段を 1 つずつ <p> に置き換える
+// （formatBlock は箇条書きをまたぐと <p> の中に <ul> を入れたり、段の順番を入れ替えたりするため・2026-11-10 の試しで見つけた）
+export function clearFormat(){
+  const ex=(c,v)=>document.execCommand(c,false,v??null);
+  const sel=window.getSelection();if(!sel||!sel.rangeCount)return;
+  const n0=sel.anchorNode;const root=(n0&&n0.nodeType===3?n0.parentElement:n0)?.closest?.('[contenteditable="true"],[contenteditable=""]');
+  if(!root)return;
+  const range=sel.getRangeAt(0);
+  if(!range.collapsed){ex("removeFormat");ex("unlink");}
+  else{ // 何も選んでいないときは、今の段の中の太字などを外す
+    const r=sel.getRangeAt(0);const blk=(r.startContainer.nodeType===3?r.startContainer.parentElement:r.startContainer).closest("p,h1,h2,h3,blockquote,li");
+    if(blk&&root.contains(blk)){const rr=document.createRange();rr.selectNodeContents(blk);sel.removeAllRanges();sel.addRange(rr);ex("removeFormat");ex("unlink");sel.collapseToEnd();}
+  }
+  const rg=sel.getRangeAt(0);
+  const hits=el=>{try{return rg.intersectsNode(el);}catch{return false;}};
+  const toP=el=>{const p=document.createElement("p");
+    // 引用の中に段があれば、中身の字だけを順に入れる
+    while(el.firstChild){const c=el.firstChild;if(c.nodeType===1&&/^(P|DIV|H1|H2|H3|BLOCKQUOTE)$/.test(c.tagName)){while(c.firstChild)p.appendChild(c.firstChild);if(c.nextSibling)p.appendChild(document.createElement("br"));c.remove();}else if(c.nodeType===1&&/^(UL|OL)$/.test(c.tagName)){c.remove();}else p.appendChild(c);}
+    if(!p.childNodes.length)p.appendChild(document.createElement("br"));return p;};
+  const made=[];
+  for(const top of [...root.children]){
+    if(!hits(top))continue;
+    if(/^(H1|H2|H3|BLOCKQUOTE)$/.test(top.tagName)){const p=toP(top);top.replaceWith(p);made.push(p);}
+    else if(/^(UL|OL)$/.test(top.tagName)){
+      const items=[...top.children];const out=[];let run=null;
+      for(const li of items){
+        if(li.tagName==="LI"&&hits(li)){
+          const nested=[...li.querySelectorAll(":scope > ul, :scope > ol")];nested.forEach(x=>x.remove());
+          const p=toP(li);out.push(p);made.push(p);run=null;
+          // 中の箇条書き（字下げした行）は、外した行のすぐ下に箇条書きのまま残す
+          nested.forEach(x=>out.push(x));
+        }else{if(!run){run=document.createElement(top.tagName.toLowerCase());out.push(run);}run.appendChild(li);}
+      }
+      top.replaceWith(...out);
+    }
+  }
+  if(made.length){try{const r=document.createRange();r.setStartBefore(made[0]);r.setEndAfter(made[made.length-1]);sel.removeAllRanges();sel.addRange(r);}catch{}}
+}
 export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,onInsertOpen}){
   const isComposing=useRef(false),internal=useRef(false);
   const [sl,setSl]=useState(null); // {q, x, y, i}
   const slRef=useRef(null);slRef.current=sl;
-  const [bb,setBb]=useState(null); // {x, y}
+  const [bb,setBb]=useState(null); // {x, y, tag, list, b, i, s}
   const bbRef=useRef(null);
   const slItems=sl?SLASH_ITEMS.filter(it=>!sl.q||it.l.includes(sl.q)):[];
   // 「/」の後ろの言葉を、今カーソルのある文字の並びから読む（行の頭か空白のあとの「/」だけ）
@@ -54,7 +113,8 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
       const sel=window.getSelection();
       if(!sel||!sel.rangeCount||sel.isCollapsed||!editorRef.current?.contains(sel.anchorNode)){setBb(null);return;}
       const r=sel.getRangeAt(0).getBoundingClientRect();if(!r.width){setBb(null);return;}
-      setBb({x:r.left+r.width/2,y:r.top-8});
+      const c=curBlock();let b=false,i=false,st=false;try{b=document.queryCommandState("bold");i=document.queryCommandState("italic");st=document.queryCommandState("strikeThrough");}catch{}
+      setBb({x:r.left+r.width/2,y:r.top-8,tag:c.tag,list:c.list,b,i,s:st});
     };
     // 画面の形が変わったとき（集中モード・スクロール・幅の変化）も、帯を選んだ文字の上へ置き直す
     const later=()=>requestAnimationFrame(upd);
@@ -75,6 +135,8 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
 
   const handleKeyDown=e=>{
     if(e.isComposing||isComposing.current)return;
+    // ⌘＼（Ctrl＋＼）で書式を外す（Google ドキュメントと同じ）
+    if((e.metaKey||e.ctrlKey)&&(e.key==="\\"||e.code==="Backslash"||e.code==="IntlYen"||e.key==="¥")){e.preventDefault();clearFormat();emit();return;}
     // 「/」の一覧が開いている間は、↑↓ で選ぶ・Enter で入れる・Esc で閉じる
     if(slRef.current&&slItems.length){
       if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();const d=e.key==="ArrowDown"?1:-1;setSl(o=>({...o,i:(o.i+d+slItems.length)%slItems.length}));return;}
@@ -120,7 +182,8 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
     emit();
   };
 
-  const bbBtn=(l,fn,t)=><button key={l} title={t||l} aria-label={t||l} onMouseDown={e=>{e.preventDefault();fn();emit();}} style={{border:"none",background:"none",color:"#fff",fontSize:12.5,fontWeight:700,padding:"5px 9px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",minHeight:28}}>{l}</button>;
+  // on：今の形なら明るく（押すと外れる）。押したあとは帯の光り方を今の形に合わせ直す
+  const bbBtn=(l,fn,t,on)=><button key={t||l} title={t||l} aria-label={t||l} aria-pressed={on===undefined?undefined:!!on} onMouseDown={e=>{e.preventDefault();fn();emit();const c=curBlock();let b=false,i=false,st=false;try{b=document.queryCommandState("bold");i=document.queryCommandState("italic");st=document.queryCommandState("strikeThrough");}catch{}setBb(o=>o?{...o,tag:c.tag,list:c.list,b,i,s:st}:o);}} style={{border:"none",background:on?"rgba(255,255,255,.22)":"none",color:"#fff",fontSize:12.5,fontWeight:700,padding:"5px 9px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",minHeight:28}}>{l}</button>;
   const ex=(c,v)=>document.execCommand(c,false,v??null);
   return(<>
     {sl&&slItems.length>0&&<div role="listbox" aria-label="入れるもの" style={{position:"fixed",left:Math.min(sl.x,window.innerWidth-290),top:Math.min(sl.y,window.innerHeight-330),zIndex:400,width:270,maxHeight:320,overflowY:"auto",background:"#fff",border:"1px solid #e6dfd6",borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,.14)",padding:5}}>
@@ -135,12 +198,12 @@ export function BodyEditor({value,onChange,editorRef,slash=false,bubble=false,on
     {bb&&(()=>{const w=bbRef.current?.offsetWidth||520;const left=Math.min(Math.max(8,bb.x-w/2),window.innerWidth-w-8);
       const sep=k=><span key={k} aria-hidden="true" style={{width:1,alignSelf:"stretch",margin:"4px 2px",background:"rgba(255,255,255,.22)"}}/>;
       return <div ref={bbRef} role="toolbar" aria-label="書式" style={{position:"fixed",left,top:Math.max(8,bb.y-40),zIndex:400,display:"flex",alignItems:"center",gap:1,background:"#1a1a1a",borderRadius:9,padding:3,boxShadow:"0 6px 18px rgba(0,0,0,.2)",whiteSpace:"nowrap"}}>
-      {bbBtn(<strong>B</strong>,()=>ex("bold"),"太字")}{bbBtn(<em>I</em>,()=>ex("italic"),"斜体")}{bbBtn(<s>S</s>,()=>ex("strikeThrough"),"取り消し線")}
-      {sep("a")}{bbBtn("見出し",()=>ex("formatBlock","h1"))}{bbBtn("小見出し",()=>ex("formatBlock","h2"))}{bbBtn("引用",()=>ex("formatBlock","blockquote"))}
-      {sep("b")}{bbBtn("• 箇条書き",()=>ex("insertUnorderedList"),"箇条書き")}{bbBtn("1. 番号",()=>ex("insertOrderedList"),"番号リスト")}
+      {bbBtn(<strong>B</strong>,()=>ex("bold"),"太字",bb.b)}{bbBtn(<em>I</em>,()=>ex("italic"),"斜体",bb.i)}{bbBtn(<s>S</s>,()=>ex("strikeThrough"),"取り消し線",bb.s)}
+      {sep("a")}{bbBtn("見出し",()=>toggleBlock("h1"),bb.tag==="h1"?"見出し（押すと本文に戻る）":"見出し",bb.tag==="h1")}{bbBtn("小見出し",()=>toggleBlock("h2"),bb.tag==="h2"?"小見出し（押すと本文に戻る）":"小見出し",bb.tag==="h2")}{bbBtn("引用",()=>toggleBlock("blockquote"),bb.tag==="blockquote"?"引用（押すと本文に戻る）":"引用",bb.tag==="blockquote")}
+      {sep("b")}{bbBtn("• 箇条書き",()=>ex("insertUnorderedList"),"箇条書き",bb.list==="ul")}{bbBtn("1. 番号",()=>ex("insertOrderedList"),"番号リスト",bb.list==="ol")}
       {sep("c")}{bbBtn("リンク",()=>{const u=prompt("URL:");if(u)ex("createLink",u);})}
       <button key="img" title="画像（選んだ文字のあとに入れる）" aria-label="画像を挿入" onMouseDown={e=>{e.preventDefault();const sel=window.getSelection();if(sel&&sel.rangeCount)sel.collapseToEnd();setBb(null);onInsertOpen&&onInsertOpen("image");}} style={{border:"none",background:"none",color:"#fff",fontSize:12.5,fontWeight:700,padding:"5px 9px",borderRadius:6,cursor:"pointer",fontFamily:"inherit",minHeight:28}}>画像</button>
-      {sep("d")}{bbBtn("✕ 書式",()=>ex("removeFormat"),"書式クリア")}
+      {sep("d")}{bbBtn("✕ 書式を外す",()=>clearFormat(),"書式を外して本文に戻す（⌘＼）")}
     </div>;})()}
     <div ref={editorRef} contentEditable suppressContentEditableWarning
       className="xb" data-ph="本文を入力…"
@@ -200,7 +263,9 @@ export function Toolbar({onInsertOpen}){
         const node=sel.getRangeAt(0).commonAncestorContainer;
         const el=node.nodeType===3?node.parentElement:node;
         const block=el?.closest("h1,h2,blockquote,p,li")||el;
+        const lst=el?.closest("ul,ol");
         setFmt({
+          list:lst?lst.tagName.toLowerCase():null,
           bold:document.queryCommandState("bold"),
           italic:document.queryCommandState("italic"),
           strike:document.queryCommandState("strikeThrough"),
@@ -221,7 +286,7 @@ export function Toolbar({onInsertOpen}){
     <div style={{...S.row,gap:1,padding:"5px 14px",borderBottom:BD2,background:"#fff",flexWrap:"wrap",flexShrink:0}}>
       {/* 形式セレクト（現在の形式を表示） */}
       <select value={["p","h1","h2","blockquote"].includes(fmt.block)?fmt.block:"p"}
-        onChange={e=>{exec("formatBlock",e.target.value);}}
+        onChange={e=>{const v=e.target.value;if(v==="p")clearFormat();else toggleBlock(v);}}
         style={{border:BD2,borderRadius:5,padding:"2px 7px",fontSize:"max(12px,0.77em)",color:"#1a1a1a",background:"#fff",cursor:"pointer",fontFamily:"inherit",height:28,fontWeight:600}}>
         <option value="p">本文</option>
         <option value="h1">見出し</option>
@@ -233,13 +298,13 @@ export function Toolbar({onInsertOpen}){
       <ToolbarBtn title="斜体 (Ctrl+I)" onClick={()=>exec("italic")} active={fmt.italic} ch={<em>I</em>}/>
       <ToolbarBtn title="取り消し線" onClick={()=>exec("strikeThrough")} active={fmt.strike} ch={<s>S</s>}/>
       <ToolbarSep/>
-      <ToolbarBtn title="箇条書き" onClick={()=>exec("insertUnorderedList")} active={fmt.block==="li"} ch={
+      <ToolbarBtn title="箇条書き" onClick={()=>exec("insertUnorderedList")} active={fmt.list==="ul"} ch={
         <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor">
           <circle cx="1.5" cy="3" r="1.5"/><rect x="4" y="2" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="7" r="1.5"/><rect x="4" y="6" width="10" height="2" rx="1"/>
           <circle cx="1.5" cy="11" r="1.5"/><rect x="4" y="10" width="10" height="2" rx="1"/>
         </svg>}/>
-      <ToolbarBtn title="番号リスト" onClick={()=>exec("insertOrderedList")} active={false} ch="1≡"/>
+      <ToolbarBtn title="番号リスト" onClick={()=>exec("insertOrderedList")} active={fmt.list==="ol"} ch="1≡"/>
       <ToolbarSep/>
       <ToolbarBtn title="リンク" onClick={()=>{const u=prompt("URL:");if(u)exec("createLink",u);}} active={false} ch="🔗"/>
       <ToolbarBtn title="区切り線" onClick={()=>exec("insertHorizontalRule")} active={false} ch="—"/>
@@ -259,7 +324,7 @@ export function Toolbar({onInsertOpen}){
         onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.color="#536471";}}>
         ＋挿入
       </button>
-      <ToolbarBtn title="書式クリア" onClick={()=>exec("removeFormat")} active={false} ch="✕"/>
+      <ToolbarBtn title="書式を外して本文に戻す（⌘＼）" onClick={()=>clearFormat()} active={false} ch="✕"/>
       {/* 現在の形式バッジ */}
       <div style={{marginLeft:6,fontSize:"max(12px,0.68em)",color:"#1d9bf0",background:"#e8f5fe",border:"1px solid #93d3fc",borderRadius:10,padding:"1px 7px",fontWeight:700}}>{blockLabel}</div>
       <div style={{marginLeft:"auto",fontSize:"max(12px,0.6em)",color:"#736a62"}}>Enter=新段落　⇧Enter=同形式改行</div>
