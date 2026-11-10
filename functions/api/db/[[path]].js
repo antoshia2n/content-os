@@ -37,6 +37,8 @@ const makeGateway = (allowUids) => createDbGateway({
     mm_maps:               { owner: "user_id", readOnly: true },
     // 2026-10-23 4便：1 日 1 行の記録（書いた字数・計画・チェック・ひとこと）
     cos_days:              { owner: "user_id" },
+    // 2026-11-10 依頼（チェックで作る初稿の依頼。GPT の予定タスクが読み書きする）
+    content_requests:      { owner: "user_id" },
   },
   functions: [],
 });
