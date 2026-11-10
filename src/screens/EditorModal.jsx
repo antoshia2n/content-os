@@ -5,6 +5,7 @@ import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlai
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
+import { TemplateTab } from "../components/TemplateTab.jsx";
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
@@ -514,10 +515,11 @@ export function EditorModal({post,onSave,onClose,allPosts=[],accounts=[],compact
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
-                {[["set","詳細"],["search","検索"]].map(([k,l])=>
+                {[["set","詳細"],["search","検索"],["tpl","型"]].map(([k,l])=>
                   <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
+                {sidePanel==="tpl"&&!compact&&<TemplateTab templates={templates} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates?()=>onManageTemplates():null} onEdit={onManageTemplates?(t=>onManageTemplates(t.id)):null} toast={showSmall}/>}
                 {sidePanel==="search"&&(
                   <PostSearchPanel
                     posts={allPosts}

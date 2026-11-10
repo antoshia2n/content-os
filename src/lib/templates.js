@@ -1,6 +1,11 @@
 // 段 5：型の差し込み。{{cursor}} の印は 1 つだけ。差し込んだあと印を消し、その位置にカーソルを置く
 export const CURSOR_MARK='{{cursor}}';
-export const TEMPLATE_KINDS=[['body','本文'],['memo','メモ'],['closing','締め']];
+export const TEMPLATE_KINDS=[['body','本文'],['closing','締め'],['memo','メモ'],['prompt','プロンプト']];
+// 2026-11-10 プロンプト：中の {タイトル}{本文}{メモ}{種類} を、いま書いている中身に置き換えてコピーする
+export const PROMPT_VARS=['{タイトル}','{本文}','{メモ}','{種類}'];
+export function fillPrompt(content,{title='',body='',memo='',type=''}={}){
+  return String(content||'').split('{タイトル}').join(title).split('{本文}').join(body).split('{メモ}').join(memo).split('{種類}').join(type);
+}
 const PIN='\uE000'; // 差し込み中だけ使う目印（私用の文字。画面にも保存にも残さない）
 
 export function templatesFor(templates,side,postType){

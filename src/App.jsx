@@ -727,7 +727,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                   <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:BD2,borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
                     {[
                       ["予約枠",()=>{setShowSlotSettings(true);setShowShare(false);}],
-                      ["型の一覧",()=>{setShowTemplates(true);setShowShare(false);}],
+                      ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
                       ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
@@ -1028,8 +1028,8 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* ── モーダル群 ── */}
       {/* 2026-11-07 Notion の形へ 便②：プレビューの窓はなくした。開くときは下の決まりで、いつもエディタへ直接入る */}
 
-      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={()=>setShowTemplates(true)}/>}
-      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} onClose={()=>setShowTemplates(false)}/>}
+      {editing&&<EditorModal post={{postType:'x_post',body:'',memo:'',memoLinks:[],comments:[],history:[],account_id:targetAccId,...editing}} onSave={panel?(async p=>{await save(markSaved(p));setPreview(null);setEditing(null);}):(p=>save(markSaved(p)))} onDuplicate={panel?undefined:handleDuplicate} onRepost={panel?undefined:(p=>setRepostTgt(p))} onDelete={panel?undefined:trashWithUndo} onClose={closeEditor} allPosts={posts} accounts={switchableAccounts} compact={panel} onAutoSave={autoSaveIdea} onSentToNotion={panel&&owner?sentToNotion:undefined} owner={owner} templates={templates} postTypes={shownPostTypes} onManageTemplates={id=>setShowTemplates(typeof id==="string"?{id}:true)}/>}
+      {showTemplates&&<TemplatesModal uid={uid} templates={templates} setTemplates={setTemplates} postTypes={shownPostTypes} initialId={showTemplates?.id||null} onClose={()=>setShowTemplates(false)}/>}
 
 
       <CtxMenuHost/>
