@@ -51,3 +51,15 @@ test("元の投稿が無ければ止まる", async () => {
   const r = await call({ kind: "body", name: "a", content: "b", why: "w", source_post_id: 7 });
   assert.equal(r.status, 404);
 });
+
+test("今ある型の改訂案は候補で入り、種類と作るものは元の型のまま", async () => {
+  const T0 = "33333333-3333-3333-3333-333333333333";
+  const calls = fakeDb([{ id: T0, kind: "request", make: "quote_figure", name: "赤ペン", content: "旧", status: null, refs: [], replaces_id: null }]);
+  const j = await (await call({ revise_id: T0, kind: "body", content: "新", why: "反応が良かった", made_in: "https://claude.ai/chat/x" })).json();
+  assert.equal(j.ok, true);
+  const sent = calls.find((c) => c.method === "POST").body;
+  assert.equal(sent.status, "candidate"); assert.equal(sent.replaces_id, T0);
+  assert.equal(sent.kind, "request"); assert.equal(sent.make, "quote_figure"); assert.equal(sent.name, "赤ペン");
+  assert.equal(sent.made_in, "https://claude.ai/chat/x");
+  assert.equal(calls.some((c) => c.method === "PATCH"), false);
+});

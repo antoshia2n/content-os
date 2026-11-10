@@ -51,7 +51,7 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
         </button>
         <StatusChip status={r.status} kind={r.kind} />
       </div>
-      <div style={{ fontSize: 12, color: "#6b6259", marginTop: 2 }}>{hm(r.created_at)} 依頼 · {isSch ? (src ? `引用元：${src.title || "（無題）"}` : "Buffer へ") : `型：${tpl ? tpl.name : "なし"}`}{r.updated_at && r.status !== "queued" ? ` · ${hm(r.updated_at)} 更新` : ""}</div>
+      <div style={{ fontSize: 12, color: "#6b6259", marginTop: 2 }}>{hm(r.created_at)} 依頼 · {isSch ? (src ? `引用元：${src.title || "（無題）"}` : "Buffer へ") : `パターン：${tpl ? tpl.name : "なし"}`}{r.updated_at && r.status !== "queued" ? ` · ${hm(r.updated_at)} 更新` : ""}</div>
       {open && <div style={{ marginTop: 7, display: "flex", flexDirection: "column", gap: 7 }}>
         {r.instruction && <div style={{ fontSize: 12.5, color: "#4b4038", background: "#faf8f5", borderRadius: 6, padding: "5px 8px" }}>指示：{r.instruction}</div>}
         {Array.isArray(r.refs) && r.refs.length > 0 && <div><div style={{ fontSize: 12, color: "#6b6259", marginBottom: 4 }}>GPT に渡した参考</div><RefChips refs={r.refs} /></div>}
@@ -96,7 +96,7 @@ export function RequestTab({ mode = "make", uid, draft, setDraft, saved, templat
   const [histOpen, setHistOpen] = useState(false);
   const pending = normPending(pendingRaw);
   // 作るものごとの型（パターン）：その作るもの用の型を並べ、投稿の種類が合うものを先に
-  const patternsOf = k => (templates || []).filter(t => t.kind === "request" && (t.make === k || !t.make) && (!t.post_type || t.post_type === draft?.postType)).sort((a, b) => ((b.make === k) - (a.make === k)) || ((b.post_type === draft?.postType) - (a.post_type === draft?.postType)) || a.sort_order - b.sort_order);
+  const patternsOf = k => (templates || []).filter(t => t.kind === "request" && !t.replaces_id && (t.make === k || !t.make) && (!t.post_type || t.post_type === draft?.postType)).sort((a, b) => ((b.make === k) - (a.make === k)) || ((b.post_type === draft?.postType) - (a.post_type === draft?.postType)) || a.sort_order - b.sort_order);
   const tplFor = k => { const c = tplChoice[k]; if (c === "none") return null; if (c) return (templates || []).find(t => t.id === c) || null; return pickRequestTemplate(templates, k, draft?.postType); };
   const [rows, setRows] = useState(null);
   const [checks, setChecks] = useState({});
