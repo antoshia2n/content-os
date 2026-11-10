@@ -6,7 +6,7 @@ import { REQUEST_KINDS, REQUEST_KIND_LABEL, REQUEST_STATUS, MEDIA_LABEL, mediaOf
 import { threadParts, xLen } from "../lib/xtext.js";
 import { XPreview } from "./XPreview.jsx";
 import { RefPicker, RefChips } from "./RefPicker.jsx";
-import { mergeRefs, REF_MAX } from "../lib/refs.js";
+import { REF_MAX, REF_LABEL, refKey, normPending, resolveRefs, toggleIn, toggleExcl } from "../lib/refs.js";
 import { auth } from "../firebase.js";
 
 // 予約（Buffer）を今すぐ試す。引用元がまだなら「引用元待ち」で返る
@@ -54,6 +54,7 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
       <div style={{ fontSize: 12, color: "#6b6259", marginTop: 2 }}>{hm(r.created_at)} 依頼 · {isSch ? (src ? `引用元：${src.title || "（無題）"}` : "Buffer へ") : `型：${tpl ? tpl.name : "なし"}`}{r.updated_at && r.status !== "queued" ? ` · ${hm(r.updated_at)} 更新` : ""}</div>
       {open && <div style={{ marginTop: 7, display: "flex", flexDirection: "column", gap: 7 }}>
         {r.instruction && <div style={{ fontSize: 12.5, color: "#4b4038", background: "#faf8f5", borderRadius: 6, padding: "5px 8px" }}>指示：{r.instruction}</div>}
+        {Array.isArray(r.refs) && r.refs.length > 0 && <div><div style={{ fontSize: 12, color: "#6b6259", marginBottom: 4 }}>GPT に渡した参考</div><RefChips refs={r.refs} /></div>}
         {r.note && <div style={{ fontSize: 12.5, color: "#92400e", background: "#fffbeb", borderRadius: 6, padding: "5px 8px" }}>申し送り：{r.note}</div>}
         {r.result_text && <div style={{ fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap", color: "#1a1a1a", border: "1px solid #eee7df", borderRadius: 6, padding: "7px 9px", maxHeight: 220, overflowY: "auto" }}>{r.result_text}</div>}
         {!!urls.length && <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -87,8 +88,10 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
   );
 }
 
-export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, toast, onManageTemplates, allPosts = [], refs = [], setRefs }) {
-  const [pickOpen, setPickOpen] = useState(false);
+export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, toast, onManageTemplates, allPosts = [], refs: pendingRaw = null, setRefs }) {
+  const [pickOpen, setPickOpen] = useState(null); // どこに足す欄を開いているか（'all' か作るもの）
+  const [openRow, setOpenRow] = useState({});
+  const pending = normPending(pendingRaw);
   const [rows, setRows] = useState(null);
   const [checks, setChecks] = useState({});
   const [inst, setInst] = useState("");
@@ -135,9 +138,9 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
     try {
       for (const k of picked) {
         const tpl = pickRequestTemplate(templates, k, draft.postType);
-        put(await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: k, media, template_id: tpl ? tpl.id : null, instruction: inst.trim(), refs: mergeRefs(tpl?.refs, refs) }));
+        put(await dbAddRequest(uid, { post_id: postId, account_id: draft.account_id || null, kind: k, media, template_id: tpl ? tpl.id : null, instruction: inst.trim(), refs: resolveRefs(pending, k, tpl?.refs) }));
       }
-      setChecks({}); setInst(""); setRefs && setRefs([]);
+      setChecks({}); setInst(""); setOpenRow({}); setPickOpen(null); setRefs && setRefs(p => { const n = normPending(p); const out = { ...n, excl: { ...n.excl } }; for (const k of picked) { delete out[k]; delete out.excl[k]; } return out; });
       toast && toast(`${picked.length} 件を依頼しました。1 時間以内に初稿が届きます`);
     } catch (e) { setErr(e.message || "依頼できませんでした"); }
     finally { setBusy(false); }
@@ -148,24 +151,53 @@ export function RequestTab({ uid, draft, setDraft, saved, templates, postTypes, 
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ border: "1px solid #e7e0d8", borderRadius: 10, padding: "10px 11px", display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>作るもの <span style={{ fontWeight: 600, color: "#6b6259" }}>· 媒体：{MEDIA_LABEL[media]}（{postTypes?.[draft.postType]?.label || draft.postType}から）</span></div>
+        {setRefs && <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "6px 8px", background: "#faf8ff", border: "1px solid #ede9fe", borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#4c1d95" }}>全部の依頼に付ける参考 {pending.all.length}</span>
+            <button onClick={() => setPickOpen(o => o === "all" ? null : "all")} aria-expanded={pickOpen === "all"} style={{ ...sb, marginLeft: "auto", minHeight: 32 }}>{pickOpen === "all" ? "閉じる" : "＋ 探す"}</button>
+          </div>
+          <RefChips refs={pending.all} onRemove={r => setRefs(p => toggleIn(p, "all", r))} />
+          {!pending.all.length && pickOpen !== "all" && <div style={{ fontSize: 12, color: "#6b6259" }}>この投稿の考えの地図など、どの依頼にも使うもの。作るものごとの参考は、下の各行の「参考」から</div>}
+          {pickOpen === "all" && <RefPicker value={pending.all} onChange={v => setRefs(p => ({ ...normPending(p), all: v }))} />}
+        </div>}
         {REQUEST_KINDS.map(([k, l]) => {
           const on = active.has(k);
           const tpl = pickRequestTemplate(templates, k, draft.postType);
-          return <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: on ? "#a39a90" : "#1a1a1a", cursor: on ? "default" : "pointer" }}>
-            <input type="checkbox" disabled={on} checked={!!checks[k] && !on} onChange={e => setChecks(c => ({ ...c, [k]: e.target.checked }))} style={{ accentColor: "#f59e0b", width: 15, height: 15 }} />
-            <span style={{ fontWeight: 700 }}>{l}</span>
-            <span style={{ fontSize: 12, color: "#6b6259", marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{on ? "依頼中" : tpl ? `型：${tpl.name}` : "型なし"}</span>
-          </label>;
+          const tplRefs = Array.isArray(tpl?.refs) ? tpl.refs : [];
+          const ex = new Set(pending.excl[k] || []);
+          const own = pending[k] || [];
+          const final = resolveRefs(pending, k, tplRefs);
+          const open = !!openRow[k];
+          return <div key={k} style={{ borderTop: "1px solid #f0ebe5", paddingTop: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: on ? "#a39a90" : "#1a1a1a", cursor: on ? "default" : "pointer", flex: 1, minWidth: 0, minHeight: 32 }}>
+                <input type="checkbox" disabled={on} checked={!!checks[k] && !on} onChange={e => setChecks(c => ({ ...c, [k]: e.target.checked }))} style={{ accentColor: "#f59e0b", width: 16, height: 16 }} />
+                <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{l}</span>
+                <span style={{ fontSize: 12, color: "#6b6259", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{on ? "依頼中" : tpl ? `型：${tpl.name}` : "型なし"}</span>
+              </label>
+              {!on && setRefs && <button onClick={() => setOpenRow(o => ({ ...o, [k]: !o[k] }))} aria-expanded={open} aria-label={`${l}の参考（${final.length} 件）を${open ? "閉じる" : "開く"}`} style={{ ...sb, minHeight: 32, color: final.length ? "#4c1d95" : "#6b6259", borderColor: final.length ? "#c4b5fd" : "#d4cbbf", background: final.length ? "#f5f3ff" : "#fff" }}>参考 {final.length} {open ? "▾" : "▸"}</button>}
+            </div>
+            {open && !on && setRefs && <div style={{ margin: "6px 0 4px 24px", display: "flex", flexDirection: "column", gap: 6 }}>
+              {tplRefs.length > 0 && <div>
+                <div style={{ fontSize: 12, color: "#6b6259", marginBottom: 4 }}>型から付く参考（× で今回だけ外す）</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {tplRefs.map(r => { const off = ex.has(refKey(r)); return <span key={refKey(r)} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, borderRadius: 99, padding: "3px 4px 3px 9px", border: "1px solid #d4cbbf", background: off ? "#fff" : "#f3f0ec", color: off ? "#a39a90" : "#4b4038", maxWidth: "100%" }}>
+                    <span style={{ textDecoration: off ? "line-through" : "none", display: "inline-flex", minWidth: 0 }}>{REF_LABEL[r.k]}：<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{r.title}</span></span>
+                    <button onClick={() => setRefs(p => toggleExcl(p, k, r))} aria-label={off ? `「${r.title}」を今回も付ける` : `「${r.title}」を今回だけ外す`} style={{ border: "none", background: "none", cursor: "pointer", color: "inherit", fontSize: off ? 12 : 14, padding: "0 4px", minWidth: 24, minHeight: 24, textDecoration: "none" }}>{off ? "戻す" : "×"}</button>
+                  </span>; })}
+                </div>
+              </div>}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 12, color: "#6b6259" }}>今回だけ足す参考</span>
+                <button onClick={() => setPickOpen(o => o === k ? null : k)} aria-expanded={pickOpen === k} style={{ ...sb, marginLeft: "auto", minHeight: 32 }}>{pickOpen === k ? "閉じる" : "＋ 探す"}</button>
+              </div>
+              <RefChips refs={own} onRemove={r => setRefs(p => toggleIn(p, k, r))} />
+              {pickOpen === k && <RefPicker value={own} onChange={v => setRefs(p => ({ ...normPending(p), [k]: v }))} />}
+              {pending.all.length > 0 && <div style={{ fontSize: 12, color: "#6b6259" }}>＋ 全部の依頼に付ける参考 {pending.all.length} 件</div>}
+              <div style={{ fontSize: 12, color: final.length >= REF_MAX ? "#b45309" : "#6b6259" }}>GPT に渡す参考：{final.length}/{REF_MAX} 件{final.length >= REF_MAX ? "（上限。超えた分は渡さない）" : ""}</div>
+            </div>}
+          </div>;
         })}
-        {(() => { const locked = mergeRefs(...picked.map(k => pickRequestTemplate(templates, k, draft.postType)?.refs)); return <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: "#6b6259" }}>参考 {refs.length}/{REF_MAX}</span>
-            {setRefs && <button onClick={() => setPickOpen(o => !o)} aria-expanded={pickOpen} style={{ ...sb, marginLeft: "auto", minHeight: 32 }}>{pickOpen ? "閉じる" : "＋ 参考を探す"}</button>}
-          </div>
-          <RefChips refs={refs} locked={locked} onRemove={setRefs ? r => setRefs(refs.filter(x => !(x.k === r.k && x.id === r.id))) : null} />
-          {!refs.length && !locked.length && !pickOpen && <div style={{ fontSize: 12, color: "#6b6259" }}>スワイプくん・思考整理くんから、お手本や考えの地図を付けると、GPT が初稿で使います（右の「検索」からも付けられます）</div>}
-          {pickOpen && setRefs && <RefPicker value={refs} onChange={setRefs} />}
-        </div>; })()}
         <textarea value={inst} onChange={e => setInst(e.target.value)} placeholder="ひとこと指示（任意）例：比較の図にして／文字は少なめ" rows={2} aria-label="ひとこと指示" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "6px 9px", fontSize: 12.5, fontFamily: "inherit", resize: "vertical", lineHeight: 1.6 }} />
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={send} disabled={!picked.length || busy} style={{ border: "none", borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 800, fontFamily: "inherit", cursor: picked.length ? "pointer" : "default", background: picked.length ? "#f59e0b" : "#eee7df", color: picked.length ? "#fff" : "#a39a90" }}>{busy ? "依頼中…" : `依頼する${picked.length ? `（${picked.length}）` : ""}`}</button>

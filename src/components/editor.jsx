@@ -510,7 +510,7 @@ export function SideIcon({id,icon,label,sidePanel,setSidePanel}){
 // ════════════════════════════════════════════════════════
 // 過去コンテンツ検索パネル（エディタサイドバー内）
 // ════════════════════════════════════════════════════════
-export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange,refs=null,onToggleRef=null}){
+export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange,refWhere=null,onToggleRef=null}){
   const [q,setQ]=useState("");
   // 2026-11-10 スワイプくんも探す（読むだけ）。参考に付けられる（依頼の参考）
   const [swipes,setSwipes]=useState(null);
@@ -520,8 +520,17 @@ export function PostSearchPanel({posts,bodyEditorRef,savedRange,onSaveRange,refs
     if(!terms.length||!swipes)return [];
     return swipes.filter(s=>{const t=[s.title,s.excerpt,s.body,s.author,s.reason,s.an_hypo,s.an_idea].join(" ").toLowerCase();return terms.every(x=>t.includes(x));}).slice(0,20);
   },[q,swipes]);
-  const refOn=r=>!!refs&&refs.some(x=>x.k===r.k&&String(x.id)===String(r.id));
-  const RefBtn=({r})=>onToggleRef?<button onClick={()=>onToggleRef(r)} aria-pressed={refOn(r)} aria-label={`「${r.title}」を依頼の参考に${refOn(r)?"付けた（押すと外す）":"付ける"}`} style={{flex:1,border:`1px solid ${refOn(r)?"#7c3aed":"#a39a90"}`,background:refOn(r)?"#7c3aed":"#fff",borderRadius:6,padding:"4px 0",minHeight:30,fontSize:12,fontWeight:700,color:refOn(r)?"#fff":"#1a1a1a",cursor:"pointer",fontFamily:"inherit"}}>{refOn(r)?"参考に付けた ✓":"参考に付ける"}</button>:null;
+  // 参考に付ける：どの依頼に付けるかを選ぶ（全部・作るものごと）。付いている先は ✓ で出し、もう一度選ぶと外れる
+  const REF_TARGETS=[["all","全部の依頼"],["quote_figure","引用の図解"],["article_figure","記事内の図解"],["thumbnail","サムネ"],["text","本文"]];
+  const RefBtn=({r})=>{
+    if(!onToggleRef)return null;
+    const at=refWhere?refWhere(r):[];
+    return <select value="" onChange={e=>{if(e.target.value)onToggleRef(r,e.target.value);}} aria-label={`「${r.title}」を依頼の参考に付ける（付ける先を選ぶ）`}
+      style={{flex:1,border:`1px solid ${at.length?"#7c3aed":"#a39a90"}`,background:at.length?"#7c3aed":"#fff",borderRadius:6,padding:"4px 6px",minHeight:30,fontSize:12,fontWeight:700,color:at.length?"#fff":"#1a1a1a",cursor:"pointer",fontFamily:"inherit"}}>
+      <option value="">{at.length?`参考に付けた ✓（${at.length}）`:"参考に付ける ▾"}</option>
+      {REF_TARGETS.map(([k,l])=><option key={k} value={k} style={{color:"#1a1a1a",background:"#fff"}}>{at.includes(k)?`✓ ${l}（押すと外す）`:l}</option>)}
+    </select>;
+  };
   const inputRef=useRef(null);
   const composing=useRef(false);
 

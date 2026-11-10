@@ -47,9 +47,10 @@ export async function onRequestPost({ request, env }) {
     const tr = await fetch(`${sb.url}/rest/v1/content_templates?select=*&user_id=eq.${encodeURIComponent(user_id)}&id=in.(${tplIds.join(',')})`, { headers: sb.headers });
     if (tr.ok) for (const t of await tr.json()) tpls[t.id] = t;
   }
-  // 2026-11-10 参考：型の参考と依頼の参考を合わせ（5 件まで）、スワイプくん・思考整理くんの中身を付けて返す
+  // 2026-11-10 参考：依頼に保存された参考（5 件まで）、スワイプくん・思考整理くんの中身を付けて返す
   const mergeRefs = (...ls) => { const seen = new Set(), out = []; for (const l of ls) for (const r of Array.isArray(l) ? l : []) { if (!r?.k || !r?.id) continue; const k = `${r.k}:${r.id}`; if (seen.has(k)) continue; seen.add(k); out.push(r); } return out.slice(0, 5); };
-  const refsOf = x => mergeRefs(tpls[x.template_id]?.refs, x.refs);
+  // 依頼を出した時点で「型の分 − 外した分 ＋ 全部 ＋ その作るもの」を画面が確定して保存している。ここでは足し直さない（今回だけ外した参考を戻さないため）
+  const refsOf = x => mergeRefs(x.refs);
   const allRefs = rows.flatMap(refsOf);
   const uuid = v => /^[0-9a-f-]{36}$/i.test(String(v));
   const swIds = [...new Set(allRefs.filter(r => r.k === 'swipe' && uuid(r.id)).map(r => r.id))];
