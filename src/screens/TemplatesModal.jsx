@@ -7,6 +7,12 @@ import {useDialogFocus} from '../lib/useDialogFocus.js';
 
 // 型の管理（2026-11-10 Naoki「型のところは別途管理画面があるとよさそう」→ デモに OK 11:36）
 // 左＝種類（本文・締め・メモ・プロンプト）、真ん中＝一覧（名前で探す・並べ替え）、右＝中身。書く画面の右の「型」タブは、ここで作ったものを使う場所
+const REQUEST_STARTERS=[
+  {name:'引用の図解',make:'quote_figure',content:'引用ポストに付ける図解を1枚。\n・結論を1行、根拠を3つの箱で\n・文字は30字以内\n・16:9、色はシアニンの青と白'},
+  {name:'記事内の図解',make:'article_figure',content:'記事の中に置く図解。見出しごとに要点を1枚ずつ（最大3枚）。\n・箱と矢印で、文字は少なめ\n・16:9、色はシアニンの青と白'},
+  {name:'サムネ',make:'thumbnail',content:'見出し画像を1枚。題を短く言い換えた大きな文字1行。16:9。色はシアニンの青と白。'},
+  {name:'本文の初稿',make:'text',content:'題と本文のメモを材料に、本文の初稿を書く。\n・冒頭で結論\n・見出しは3〜5個\n・シアニンの口調（です・ます、短い文）'},
+];
 const HINT={
   body:'書く画面の右の「型」から、本文のカーソルの位置に差し込みます。',
   closing:'本文の末尾に足します（CTA・メンシプへの案内など）。',
@@ -57,6 +63,12 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
     const row=await dbAddTemplate(uid,{name:'新しい'+(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1],kind,post_type:null,content:kind==='closing'||kind==='prompt'||kind==='request'?'':CURSOR_MARK,sort_order:order,...(kind==='request'?{make:'quote_figure'}:{})});
     put(row);setSelId(row.id);setQ('');
   });
+  // 2026-11-10 依頼の型が 0 件のとき、作るもの 4 つ分のひな形を 1 回で入れる（そのあと中身を直して使う）
+  const addStarters=()=>run(async()=>{
+    let last=null;
+    for(let i=0;i<REQUEST_STARTERS.length;i++){const row=await dbAddTemplate(uid,{...REQUEST_STARTERS[i],kind:'request',post_type:null,sort_order:i});put(row);last=last||row;}
+    if(last)setSelId(last.id);
+  });
   const update=(t,fields)=>run(async()=>{put(await dbUpdateTemplate(uid,t.id,fields));const d=new Date();setSaved(`保存しました ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`);});
   // 確かめの窓（window.confirm）はやめ、2 回押しで消す（1 回目でボタンの字が変わる）
   const [armed,setArmed]=useState(null);
@@ -104,7 +116,8 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
                   <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.kind==='request'?`${REQUEST_KIND_LABEL[t.make]||'作るもの未設定'} × `:''}{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
                 </button>
               ))}
-              {!items.length&&<div style={{color:'#736a62',fontSize:12.5,padding:'20px 14px',lineHeight:1.7}}>{q?'当てはまる型はありません':`${(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1]}の型はまだありません。上の「＋ 追加」で作れます`}</div>}
+              {!items.length&&<div style={{color:'#736a62',fontSize:12.5,padding:'20px 14px',lineHeight:1.7}}>{q?'当てはまる型はありません':`${(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1]}の型はまだありません。上の「＋ 追加」で作れます`}
+                {!q&&kind==='request'&&<button onClick={addStarters} style={{display:'block',marginTop:10,border:'none',borderRadius:8,padding:'8px 12px',fontSize:12.5,fontWeight:800,background:'#f59e0b',color:'#fff',cursor:'pointer',fontFamily:'inherit'}}>ひな形を 4 つ入れる</button>}</div>}
             </div>
           </div>
           <div style={{padding:16,display:'flex',flexDirection:'column',gap:10,overflowY:'auto',minWidth:0}}>
