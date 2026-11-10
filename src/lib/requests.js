@@ -24,7 +24,7 @@ export function mediaOf(postType){
 }
 // 依頼の型（kind=request）から、作るもの × 投稿の種類に合うものを 1 つ選ぶ。種類まで合うものを先に
 export function pickRequestTemplate(templates,make,postType){
-  const rs=(templates||[]).filter(t=>t.kind==='request'&&(t.make===make||!t.make)).sort((a,b)=>a.sort_order-b.sort_order);
+  const rs=(templates||[]).filter(t=>t.kind==='request'&&!t.replaces_id&&(t.make===make||!t.make)).sort((a,b)=>a.sort_order-b.sort_order);
   const score=t=>(t.make===make?2:0)+(t.post_type===postType?1:t.post_type?-9:0);
   return rs.filter(t=>score(t)>=0).sort((a,b)=>score(b)-score(a))[0]||null;
 }

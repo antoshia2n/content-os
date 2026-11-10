@@ -9,17 +9,17 @@ import {useDialogFocus} from '../lib/useDialogFocus.js';
 // 型の管理（2026-11-10 Naoki「型のところは別途管理画面があるとよさそう」→ デモに OK 11:36）
 // 左＝種類（本文・締め・メモ・プロンプト）、真ん中＝一覧（名前で探す・並べ替え）、右＝中身。書く画面の右の「型」タブは、ここで作ったものを使う場所
 const REQUEST_STARTERS=[
-  {name:'引用の図解',make:'quote_figure',content:'引用ポストに付ける図解を1枚。\n・結論を1行、根拠を3つの箱で\n・文字は30字以内\n・16:9、色はシアニンの青と白'},
-  {name:'記事内の図解',make:'article_figure',content:'記事の中に置く図解。見出しごとに要点を1枚ずつ（最大3枚）。\n・箱と矢印で、文字は少なめ\n・16:9、色はシアニンの青と白'},
-  {name:'サムネ',make:'thumbnail',content:'見出し画像を1枚。題を短く言い換えた大きな文字1行。16:9。色はシアニンの青と白。'},
-  {name:'本文の初稿',make:'text',content:'題と本文のメモを材料に、本文の初稿を書く。\n・冒頭で結論\n・見出しは3〜5個\n・シアニンの口調（です・ます、短い文）'},
+  {name:'結論と根拠3つの図解',make:'quote_figure',content:'引用ポストに付ける図解を1枚。\n・結論を1行、根拠を3つの箱で\n・文字は30字以内\n・16:9、色はシアニンの青と白'},
+  {name:'見出しごとの要点図解',make:'article_figure',content:'記事の中に置く図解。見出しごとに要点を1枚ずつ（最大3枚）。\n・箱と矢印で、文字は少なめ\n・16:9、色はシアニンの青と白'},
+  {name:'大きな文字1行のサムネ',make:'thumbnail',content:'見出し画像を1枚。題を短く言い換えた大きな文字1行。16:9。色はシアニンの青と白。'},
+  {name:'結論から書く初稿',make:'text',content:'題と本文のメモを材料に、本文の初稿を書く。\n・冒頭で結論\n・見出しは3〜5個\n・シアニンの口調（です・ます、短い文）'},
 ];
 const HINT={
   body:'書く画面の右の「型」から、本文のカーソルの位置に差し込みます。',
   closing:'本文の末尾に足します（CTA・メンシプへの案内など）。',
   memo:'メモに差し込みます。「- 」と半角スペース 2 つで 1 階層の箇条書きのまま入ります。',
   prompt:'AI に渡す文。{タイトル}{本文}{メモ}{種類} を、書いている中身に置き換えてコピーします。',
-  request:'書く画面の「依頼」で使う、GPT への依頼の文。作るもの × 投稿の種類が合う型が自動で付きます。GPT は投稿の題と本文をいっしょに受け取ります。',
+  request:'書く画面の「AI依頼」で使う、GPT への依頼の文（パターン）。「作るもの」（引用の図解・サムネなど）ごとに、名前の違うパターンをいくつでも持てます。作るもの × 投稿の種類が合う型が自動で付きます。GPT は投稿の題と本文をいっしょに受け取ります。',
 };
 
 function Field({value,onSave,multiline,placeholder,style,inputRef,label}){
@@ -40,6 +40,8 @@ function Field({value,onSave,multiline,placeholder,style,inputRef,label}){
 
 // 2026-11-10 型の持ち帰り 便1：AI（Claude・GPT）がチャットから書き込んだ型は「候補」の印つきで入る
 const MADE_BY_LABEL={claude:'Claude',gpt:'GPT'};
+const fmtAt=s=>{if(!s)return'';const d=new Date(s);return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;};
+const chip={display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:700,color:'#1d4ed8',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:6,padding:'1px 6px',whiteSpace:'nowrap'};
 const badge={display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:800,color:'#b45309',background:'#fef3c7',border:'1px solid #fcd34d',borderRadius:99,padding:'1px 8px',whiteSpace:'nowrap'};
 
 export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,onClose,initialKind='body',initialId=null,posts=[],onOpenPost}){
@@ -75,6 +77,12 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
     if(last)setSelId(last.id);
   });
   const update=(t,fields)=>run(async()=>{put(await dbUpdateTemplate(uid,t.id,fields));const d=new Date();setSaved(`保存しました ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`);});
+  // 2026-11-10 改訂案を採用：中身・参考・出どころを元の型へ移し、改訂案の行は消す（元の型の名前・並び・使う種類はそのまま）
+  const adopt=(c,target)=>run(async()=>{
+    const row=await dbUpdateTemplate(uid,target.id,{content:c.content,refs:Array.isArray(c.refs)?c.refs:[],why:c.why||'',source_post_id:c.source_post_id??null,made_by:c.made_by||null,made_in:c.made_in||''});
+    put(row);await dbRemoveTemplate(uid,c.id);setTemplates(ts=>ts.filter(x=>x.id!==c.id));setSelId(target.id);
+    const d=new Date();setSaved(`採用しました ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`);
+  });
   // 確かめの窓（window.confirm）はやめ、2 回押しで消す（1 回目でボタンの字が変わる）
   const [armed,setArmed]=useState(null);
   const remove=t=>{if(armed!==t.id){setArmed(t.id);setTimeout(()=>setArmed(x=>x===t.id?null:x),4000);return;}setArmed(null);run(async()=>{await dbRemoveTemplate(uid,t.id);setTemplates(ts=>ts.filter(x=>x.id!==t.id));setSelId(null);});};
@@ -117,8 +125,8 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
               {items.map(t=>(
                 <button key={t.id} onClick={()=>setSelId(t.id)} aria-current={cur&&cur.id===t.id?'true':undefined}
                   style={{display:'flex',flexDirection:'column',gap:3,width:'100%',textAlign:'left',border:'none',borderBottom:'1px solid #f1ebe4',padding:'10px 12px',cursor:'pointer',fontFamily:'inherit',background:cur&&cur.id===t.id?'#fffaf0':'#fff',boxShadow:cur&&cur.id===t.id?'inset 3px 0 0 #f59e0b':'none'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{t.status==='candidate'&&<span style={badge}>候補</span>}<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name||'（名前なし）'}</span></span>
-                  <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.kind==='request'?`${REQUEST_KIND_LABEL[t.make]||'作るもの未設定'} × `:''}{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:700,color:'#1a1a1a'}}>{t.status==='candidate'&&<span style={badge}>{t.replaces_id?'改訂案':'候補'}</span>}{t.kind==='request'&&<span style={chip}>{REQUEST_KIND_LABEL[t.make]||'作るもの未設定'}</span>}<span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name||'（名前なし）'}</span></span>
+                  <span style={{fontSize:12,color:'#736a62',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.post_type?(postTypes[t.post_type]?.label||t.post_type):'すべての種類'} · {(t.content||'').replace(/\n/g,' ')}</span>
                 </button>
               ))}
               {!items.length&&<div style={{color:'#736a62',fontSize:12.5,padding:'20px 14px',lineHeight:1.7}}>{q?'当てはまる型はありません':`${(TEMPLATE_KINDS.find(([k])=>k===kind)||[,''])[1]}の型はまだありません。上の「＋ 追加」で作れます`}
@@ -127,21 +135,35 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
           </div>
           <div style={{padding:16,display:'flex',flexDirection:'column',gap:10,overflowY:'auto',minWidth:0}}>
             {cur?<>
-              {(cur.status==='candidate'||cur.why||cur.source_post_id)&&(()=>{
+              {(cur.status==='candidate'||cur.why||cur.source_post_id||cur.made_by)&&(()=>{
                 const src=cur.source_post_id!=null?posts.find(p=>String(p.id)===String(cur.source_post_id)):null;
+                const target=cur.replaces_id?templates.find(t=>t.id===cur.replaces_id):null;
+                const where=`${cur.made_by?`${MADE_BY_LABEL[cur.made_by]||cur.made_by} のチャット`:'チャット'}で作成${cur.created_at?` · ${fmtAt(cur.created_at)}`:''}`;
+                const pre={margin:0,whiteSpace:'pre-wrap',wordBreak:'break-word',fontFamily:'inherit',fontSize:12.5,lineHeight:1.7,color:'#1a1a1a',background:'#fff',border:'1px solid #e6dfd6',borderRadius:8,padding:'8px 10px',maxHeight:240,overflowY:'auto'};
                 return <div style={{border:'1px solid #fcd34d',background:'#fffbeb',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    {cur.status==='candidate'&&<span style={badge}>候補</span>}
-                    <span style={{fontSize:12,color:'#6b6259'}}>{cur.made_by?`${MADE_BY_LABEL[cur.made_by]||cur.made_by} がチャットから書き込んだ型`:'チャットから書き込んだ型'}</span>
+                    {cur.status==='candidate'&&<span style={badge}>{cur.replaces_id?'改訂案':'候補'}</span>}
+                    <span style={{fontSize:12,color:'#6b6259'}}>{where}</span>
+                    {/^https?:\/\//.test(cur.made_in||'')?<a href={cur.made_in} target="_blank" rel="noopener noreferrer" style={{fontSize:12,fontWeight:700,color:'#b45309'}}>作ったチャットを開く</a>:cur.made_in?<span style={{fontSize:12,color:'#736a62'}}>（{cur.made_in}）</span>:null}
                     {cur.source_post_id!=null&&(src&&onOpenPost
                       ?<button onClick={()=>onOpenPost(src)} style={{...sb,marginLeft:'auto',color:'#b45309'}}>元の投稿：{(src.title||'（題なし）').slice(0,24)} を開く</button>
                       :<span style={{marginLeft:'auto',fontSize:12,color:'#736a62'}}>元の投稿 #{cur.source_post_id}（いまの表示には無い投稿）</span>)}
                   </div>
+                  {cur.replaces_id&&(target
+                    ?<>
+                      <div style={{fontSize:12.5,fontWeight:700,color:'#6b6259'}}>「{target.name||'（名前なし）'}」の改訂案。採用すると、元の型の中身と参考がこの案に置き換わります</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                        <div><div style={{fontSize:12,fontWeight:700,color:'#736a62',marginBottom:4}}>いまの型</div><pre style={pre}>{target.content}</pre></div>
+                        <div><div style={{fontSize:12,fontWeight:700,color:'#b45309',marginBottom:4}}>改訂案</div><pre style={pre}>{cur.content}</pre></div>
+                      </div>
+                      <div><button onClick={()=>adopt(cur,target)} style={{border:'1px solid #b45309',background:'#b45309',color:'#fff',borderRadius:8,padding:'7px 12px',fontSize:12.5,fontWeight:800,cursor:'pointer',fontFamily:'inherit'}}>採用して元の型に反映</button></div>
+                    </>
+                    :<div style={{fontSize:12,color:'#736a62'}}>直す先の型が見つかりません（消された可能性があります）。この案を新しい型として使えます</div>)}
                   <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>なぜ効いたか</label>
                   <Field key={cur.id+'w'} multiline value={cur.why||''} label="なぜ効いたか" placeholder="成果が出た理由（主観と数字）" onSave={v=>update(cur,{why:v})} style={{minHeight:70,background:'#fff'}}/>
                 </div>;
               })()}
-              <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>名前</label>
+              <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>{kind==='request'?'パターンの名前（作るものの名前とは別に、中身が分かる名前）':'名前'}</label>
               <Field key={cur.id+'n'} value={cur.name} label="型の名前" placeholder="型の名前" onSave={v=>update(cur,{name:v})} style={{fontWeight:700}}/>
               {kind==='request'&&<>
                 <label style={{fontSize:12,fontWeight:700,color:'#6b6259'}}>作るもの</label>

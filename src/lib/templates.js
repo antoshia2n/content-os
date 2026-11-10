@@ -1,6 +1,6 @@
 // 段 5：型の差し込み。{{cursor}} の印は 1 つだけ。差し込んだあと印を消し、その位置にカーソルを置く
 export const CURSOR_MARK='{{cursor}}';
-export const TEMPLATE_KINDS=[['body','本文'],['closing','締め'],['memo','メモ'],['prompt','プロンプト'],['request','依頼']];
+export const TEMPLATE_KINDS=[['body','本文'],['closing','締め'],['memo','メモ'],['prompt','プロンプト'],['request','依頼パターン']];
 // 2026-11-10 プロンプト：中の {タイトル}{本文}{メモ}{種類} を、いま書いている中身に置き換えてコピーする
 export const PROMPT_VARS=['{タイトル}','{本文}','{メモ}','{種類}'];
 export function fillPrompt(content,{title='',body='',memo='',type=''}={}){

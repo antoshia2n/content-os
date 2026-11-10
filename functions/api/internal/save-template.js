@@ -6,13 +6,15 @@
 //  - 新しく作るときは必ず status=candidate（AI が勝手に「確定」にはできない）
 //  - id を渡して書き換えられるのは、まだ候補のものだけ（Naoki が自分の型にした・検証中・確定のものは変えない）
 //  - why（なぜ効いたか）は必須。Naoki がチャットで言った言葉を入れる
+//  - 今ある型を直したいときは revise_id を渡し「改訂案」の候補にする（元の型は Naoki が画面で採用するまで変わらない）
+//  - made_in＝どこで作ったか（チャットの住所など）
 import { checkAuth, getSupabase, json, preflight } from './_shared.js';
 
 const KINDS = ['body', 'closing', 'memo', 'prompt', 'request'];
 const MAKES = ['quote_figure', 'article_figure', 'thumbnail', 'text'];
 const MADE_BY = ['claude', 'gpt'];
 const REF_MAX = 5;
-const COLS = 'id,name,kind,post_type,content,sort_order,make,refs,status,why,source_post_id,made_by,created_at,updated_at';
+const COLS = 'id,name,kind,post_type,content,sort_order,make,refs,status,why,source_post_id,made_by,replaces_id,made_in,created_at,updated_at';
 const uuid = (v) => /^[0-9a-f-]{36}$/i.test(String(v));
 
 export const onRequestOptions = () => preflight();
@@ -36,12 +38,23 @@ export async function onRequestPost({ request, env }) {
     if (!r.ok) return json({ ok: false, error: 'supabase_error', detail: (await r.text()).slice(0, 300) }, 502);
     cur = (await r.json())[0];
     if (!cur) return json({ ok: false, error: 'not_found', id: b.id }, 404);
-    if (cur.status !== 'candidate') return json({ ok: false, error: 'not_candidate', message: 'Naoki が手を入れた型（候補ではないもの）は書き換えられません。新しい候補として作ってください' }, 409);
+    if (cur.status !== 'candidate') return json({ ok: false, error: 'not_candidate', message: 'Naoki の型（候補ではないもの）は書き換えられません。直したいときは revise_id にこの型の id を渡して改訂案の候補を作ってください', revise_id: cur.id }, 409);
   }
 
-  const kind = b.kind ?? cur?.kind;
+  // 改訂案：直す先の型を読む（新しく作るときだけ）
+  let target = null;
+  if (b.revise_id && !cur) {
+    if (!uuid(b.revise_id)) return json({ ok: false, error: 'bad revise_id' }, 400);
+    const r = await fetch(`${sb.url}/rest/v1/content_templates?select=${COLS}&user_id=eq.${enc(uid)}&id=eq.${enc(b.revise_id)}`, { headers: sb.headers });
+    target = r.ok ? (await r.json())[0] : null;
+    if (!target) return json({ ok: false, error: 'revise_target_not_found', revise_id: b.revise_id }, 404);
+    if (target.replaces_id) return json({ ok: false, error: 'target_is_revision', message: '改訂案の改訂案は作れません。元の型の id を渡してください', revise_id: target.replaces_id }, 400);
+  }
+  const base = cur || target;
+
+  const kind = target ? target.kind : (b.kind ?? cur?.kind);
   if (!KINDS.includes(kind)) return json({ ok: false, error: 'bad kind', allowed: KINDS }, 400);
-  const name = String(b.name ?? cur?.name ?? '').trim().slice(0, 120);
+  const name = String(b.name ?? base?.name ?? '').trim().slice(0, 120);
   if (!name) return json({ ok: false, error: 'name required' }, 400);
   const content = String(b.content ?? cur?.content ?? '');
   if (!content.trim()) return json({ ok: false, error: 'content required' }, 400);
@@ -51,9 +64,10 @@ export async function onRequestPost({ request, env }) {
   if (why.length > 4000) return json({ ok: false, error: 'why too long (4000)' }, 400);
   const madeBy = b.made_by ?? cur?.made_by ?? 'claude';
   if (!MADE_BY.includes(madeBy)) return json({ ok: false, error: 'bad made_by', allowed: MADE_BY }, 400);
-  let make = kind === 'request' ? (b.make ?? cur?.make ?? null) : null;
+  let make = kind === 'request' ? (b.make ?? base?.make ?? null) : null;
   if (make !== null && !MAKES.includes(make)) return json({ ok: false, error: 'bad make', allowed: MAKES }, 400);
-  const postType = b.post_type === undefined ? (cur?.post_type ?? null) : (b.post_type ? String(b.post_type).trim() : null);
+  const postType = b.post_type === undefined ? (base?.post_type ?? null) : (b.post_type ? String(b.post_type).trim() : null);
+  const madeIn = String(b.made_in ?? cur?.made_in ?? '').trim().slice(0, 300);
 
   // 元の投稿：あるか確かめる
   let sourcePostId = b.source_post_id === undefined ? (cur?.source_post_id ?? null) : b.source_post_id;
@@ -67,7 +81,7 @@ export async function onRequestPost({ request, env }) {
   } else sourcePostId = null;
 
   // 参考：形をそろえ、題が無ければ元の表から引く
-  let refs = b.refs === undefined ? (cur?.refs || []) : b.refs;
+  let refs = b.refs === undefined ? (base?.refs || []) : b.refs;
   if (!Array.isArray(refs)) return json({ ok: false, error: 'refs must be an array of {k:"swipe"|"map", id}' }, 400);
   const seen = new Set(), clean = [];
   for (const r of refs) {
@@ -90,7 +104,7 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  const fields = { name, kind, content, post_type: postType, make, refs: clean, why, source_post_id: sourcePostId, made_by: madeBy, updated_at: new Date().toISOString() };
+  const fields = { name, kind, content, post_type: postType, make, refs: clean, why, source_post_id: sourcePostId, made_by: madeBy, made_in: madeIn, updated_at: new Date().toISOString() };
   let row;
   if (cur) {
     const r = await fetch(`${sb.url}/rest/v1/content_templates?user_id=eq.${enc(uid)}&id=eq.${enc(cur.id)}&status=eq.candidate`, {
@@ -103,11 +117,11 @@ export async function onRequestPost({ request, env }) {
     const last = o.ok ? (await o.json())[0] : null;
     const r = await fetch(`${sb.url}/rest/v1/content_templates`, {
       method: 'POST', headers: { ...sb.headers, Prefer: 'return=representation' },
-      body: JSON.stringify({ ...fields, user_id: uid, status: 'candidate', sort_order: last ? last.sort_order + 1 : 0 }),
+      body: JSON.stringify({ ...fields, user_id: uid, status: 'candidate', replaces_id: target ? target.id : null, sort_order: last ? last.sort_order + 1 : 0 }),
     });
     if (!r.ok) return json({ ok: false, error: 'supabase_error', detail: (await r.text()).slice(0, 300) }, 502);
     row = (await r.json())[0];
   }
   const { user_id, ...out } = row || {};
-  return json({ ok: true, created: !cur, template: out, source_post: source, open: 'https://content-os.shia2n.jp の上の帯「型」→ 候補' });
+  return json({ ok: true, created: !cur, template: out, revises: target ? { id: target.id, name: target.name } : (cur?.replaces_id ? { id: cur.replaces_id } : null), source_post: source, open: 'https://content-os.shia2n.jp の上の帯「型」→ 候補' });
 }

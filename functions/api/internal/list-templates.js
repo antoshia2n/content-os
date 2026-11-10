@@ -6,7 +6,7 @@ import { checkAuth, getSupabase, json, preflight } from './_shared.js';
 
 const KINDS = ['body', 'closing', 'memo', 'prompt', 'request'];
 const STATUSES = ['mine', 'candidate', 'testing', 'confirmed'];
-const COLS = 'id,name,kind,post_type,content,make,refs,status,why,source_post_id,made_by,updated_at';
+const COLS = 'id,name,kind,post_type,content,make,refs,status,why,source_post_id,made_by,replaces_id,made_in,updated_at';
 
 export const onRequestOptions = () => preflight();
 
