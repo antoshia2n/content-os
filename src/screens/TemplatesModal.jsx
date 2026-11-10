@@ -135,7 +135,7 @@ export function TemplatesModal({uid,templates,setTemplates,postTypes=POST_TYPE,o
           </div>
           <div style={{padding:16,display:'flex',flexDirection:'column',gap:10,overflowY:'auto',minWidth:0}}>
             {cur?<>
-              {(cur.status==='candidate'||cur.why||cur.source_post_id||cur.made_by)&&(()=>{
+              {(cur.status==='candidate'||cur.why||cur.source_post_id||cur.made_by||cur.made_in)&&(()=>{
                 const src=cur.source_post_id!=null?posts.find(p=>String(p.id)===String(cur.source_post_id)):null;
                 const target=cur.replaces_id?templates.find(t=>t.id===cur.replaces_id):null;
                 const where=`${cur.made_by?`${MADE_BY_LABEL[cur.made_by]||cur.made_by} のチャット`:'チャット'}で作成${cur.created_at?` · ${fmtAt(cur.created_at)}`:''}`;
