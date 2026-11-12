@@ -34,8 +34,13 @@ export function requestPromptText({make,media,instruction,template,title,bodyTex
   const body=String(bodyText||'').slice(0,4000);
   return [head,instruction?`指示：${instruction}`:'',`題：${title||'（無題）'}`,`本文：\n${body}`].filter(Boolean).join('\n\n');
 }
+// 2026-11-12 直し：本文まで ?q= に入れると住所が 50KB を超え、ChatGPT が「Exceeded maximum HTTP header buffer size of 100KB」で開けなかった。
+// ?q= には依頼の番号だけを入れ、GPT にコンテンツくんの口（content_os__list_requests）で本文と型を読ませる。全文はコピーしておき、口が使えないときの控えにする
+export function requestShortPrompt({id,title}){
+  return `コンテンツくんの依頼を1件作ってください。content_os__list_requests を id=${id} で呼び、返ってきた依頼の型（template.content）どおりに作り、content_os__put_result で戻してください。題：${String(title||'（無題）').slice(0,80)}`;
+}
 export function chatgptUrl(text){
-  return 'https://chatgpt.com/?q='+encodeURIComponent(String(text).slice(0,6000));
+  return 'https://chatgpt.com/?q='+encodeURIComponent(String(text).slice(0,1500));
 }
 
 // 2026-11-10 予約（kind=schedule）：Buffer に入れる依頼。GPT ではなく、こちらの 30 分ごとの見回りが入れる

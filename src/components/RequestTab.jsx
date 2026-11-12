@@ -2,7 +2,7 @@
 // 作るものにチェックを入れて「依頼する」→ ChatGPT の予定タスクが 1 時間以内に初稿を作り、確認待ちにする。仕上げは GPT のチャットで
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { dbFetchRequests, dbAddRequest, dbUpdateRequest } from "../lib/supabase.js";
-import { REQUEST_KINDS, REQUEST_KIND_LABEL, REQUEST_STATUS, MEDIA_LABEL, mediaOf, pickRequestTemplate, requestPromptText, chatgptUrl, statusLabel, scheduleBlock } from "../lib/requests.js";
+import { REQUEST_KINDS, REQUEST_KIND_LABEL, REQUEST_STATUS, MEDIA_LABEL, mediaOf, pickRequestTemplate, requestPromptText, requestShortPrompt, chatgptUrl, statusLabel, scheduleBlock } from "../lib/requests.js";
 import { threadParts, xLen } from "../lib/xtext.js";
 import { XPreview } from "./XPreview.jsx";
 import { RefPicker, RefChips } from "./RefPicker.jsx";
@@ -40,7 +40,8 @@ export function RequestCard({ r, uid, post, templates, onChange, onThumb, toast,
   const upd = async f => { try { onChange(await dbUpdateRequest(uid, r.id, f)); } catch (e) { toast && toast(e.message || "保存できませんでした"); } };
   const gpt = () => {
     const text = requestPromptText({ make: r.kind, media: r.media, instruction: r.instruction, template: tpl, title: post?.title, bodyText: stripHtml(post?.body || "") });
-    window.open(chatgptUrl(text), "_blank", "noopener");
+    navigator.clipboard?.writeText(text).then(() => toast && toast("依頼の全文もコピーしました（GPT が依頼を読めないときは貼ってください）")).catch(() => {});
+    window.open(chatgptUrl(requestShortPrompt({ id: r.id, title: post?.title })), "_blank", "noopener");
   };
   const copy = () => navigator.clipboard?.writeText(r.result_text || "").then(() => toast && toast("初稿をコピーしました"));
   return (
