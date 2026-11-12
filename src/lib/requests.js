@@ -37,7 +37,7 @@ export function requestPromptText({make,media,instruction,template,title,bodyTex
 // 2026-11-12 直し：本文まで ?q= に入れると住所が 50KB を超え、ChatGPT が「Exceeded maximum HTTP header buffer size of 100KB」で開けなかった。
 // ?q= には依頼の番号だけを入れ、GPT にコンテンツくんの口（content_os__list_requests）で本文と型を読ませる。全文はコピーしておき、口が使えないときの控えにする
 export function requestShortPrompt({id,title}){
-  return `コンテンツくんの依頼を1件作ってください。content_os__list_requests を id=${id} で呼び、返ってきた依頼の型（template.content）どおりに作り、content_os__put_result で戻してください。題：${String(title||'（無題）').slice(0,80)}`;
+  return `コンテンツくんの依頼を1件作ってください。content_os__list_requests を id=${id} で呼び、返ってきた依頼の型（template.content）どおりに作り、文は content_os__put_result、画像は content_os__put_images（ファイルのまま）で戻してください。題：${String(title||'（無題）').slice(0,80)}`;
 }
 export function chatgptUrl(text){
   return 'https://chatgpt.com/?q='+encodeURIComponent(String(text).slice(0,1500));
