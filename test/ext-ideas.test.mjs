@@ -40,3 +40,11 @@ test("読書くんのメモ：題は 1 行目・メモに出どころ・住所�
   assert.equal(bookFields({ text: "a", book: "本" }).label, "『本』");
   assert.ok(BOOK_ORIGINS.includes("https://dokusho.shia2n.jp"));
 });
+
+// 2026-11-13 セミナー管理の流れ 便1
+import { seminarTypeOf } from "../functions/api/ext/ideas.js";
+test("「セミナー」の種類の鍵を名前で探す・無ければ null", () => {
+  assert.equal(seminarTypeOf([{ key: "custom_a", label: "動画" }, { key: "custom_セミナー_1", label: " セミナー " }]), "custom_セミナー_1");
+  assert.equal(seminarTypeOf([{ key: "custom_a", label: "セミナー告知" }]), null);
+  assert.equal(seminarTypeOf(null), null);
+});

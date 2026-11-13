@@ -286,6 +286,8 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
     // 種類のフォルダの中では、全行が同じ種類なので種類の列と札を出さない
     const oneType = /^(if|it|of|ot):/.test(loc);
     const inFolder = mode === "idea" && loc.startsWith("if:");
+    // 2026-11-13 セミナー管理の流れ 便1：「セミナー」のフォルダのアウトプットの表だけ、評価とインプの代わりに「解放するアプリ」（theme）を出す
+    const semOut = mode === "out" && /^(of|ot):/.test(loc) && (postTypes[loc.split(":")[1]]?.label || "").trim() === "セミナー";
     const TT = props => oneType ? null : <TypeTag {...props} />;
     body = <>
       <div className="ck-crumb">{crumb}</div><h1 className="ck-title">{title}</h1>{note && <p className="ck-note">{note}</p>}{tabs}
@@ -311,7 +313,7 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
         </div>; })}</div>
         : <div className="ck-card"><div className="ck-tw"><table className="ck-table"><thead><tr>
           {mode === "idea" ? <><th>ネタ</th><th>状態</th>{!oneType && <th>種類</th>}{inFolder && <th>ジャンル</th>}<th>素材</th><th>入れた日</th><th /></>
-            : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>ジャンル</th><th>素材</th><th>評価</th><th style={{ textAlign: "right" }}>インプ</th><th /></>}
+            : <><th>タイトル</th><th>状態</th>{!oneType && <th>種類</th>}<th>予定</th><th>{semOut ? "軸" : "ジャンル"}</th><th>素材</th>{semOut ? <th>解放するアプリ</th> : <><th>評価</th><th style={{ textAlign: "right" }}>インプ</th></>}<th /></>}
         </tr></thead><tbody>
           {shown.map(p => mode === "idea" ?
             <tr key={p.id} onClick={e => { if (!e.target.closest("button,select,a")) onOpen(p); }}>
@@ -330,8 +332,12 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
               {!oneType && <td><TypeTag t={p.postType} postTypes={postTypes} /></td>}
               <td className="ck-num">{p.datetime ? fmtDt(p.datetime) : <span className="ck-dash">日時なし</span>}</td>
               <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.genre || ""}</td>
-              <td><Srcs p={p} /></td><td><Score s={p.score} /></td>
-              <td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td>
+              <td><Srcs p={p} /></td>
+              {semOut ? <td>{readOnly ? <span style={{ fontSize: 12, color: "var(--muted)" }}>{p.theme || ""}</span>
+                : <input key={`th-${p.id}-${p.theme || ""}`} className="ck-sel" style={{ minWidth: 120 }} aria-label={`「${headOf(p) || "タイトルなし"}」で解放するアプリ`} placeholder="アプリの名前" defaultValue={p.theme || ""}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) e.currentTarget.blur(); }}
+                  onBlur={e => { const v = e.currentTarget.value.trim(); if (v !== (p.theme || "")) patch(p, { theme: v || null }, v ? `解放するアプリを「${v}」にしました` : "解放するアプリを外しました"); }} />}</td>
+                : <><td><Score s={p.score} /></td><td className="ck-num" style={{ textAlign: "right" }}>{p.impressions != null ? kNum(p.impressions) : ""}</td></>}
               <td style={{ width: 40, textAlign: "right", whiteSpace: "nowrap" }}>{!readOnly && <>{p === shown[0] && <GQ id={gs} n={loc === "arch" ? 1 : 3} />}{menuOf(p)}</>}</td>
             </tr>)}
           {newTr}

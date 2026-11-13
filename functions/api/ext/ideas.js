@@ -4,6 +4,8 @@
  * POST { title, memo, mm_url }  → { ok, id, status }
  *   思考整理くんの枝から「コンテンツくんのネタにする」。既定のアカウントの受け箱（状態 idea・ジャンル空）に 1 件入れる。
  *   同じ mm_url（同じマップの同じ枝）のネタが既にあれば、作らずにそれを返す（2 回押し・通信のやり直しで 2 件にしない）
+ *   2026-11-13 セミナー管理の流れ 便1（作る前の 1 枚に Naoki OK 19:02）：kind:"seminar" を付けると、受け箱ではなく
+ *   そのアカウントの「セミナー」の種類のフォルダ（custom_post_types の名前が「セミナー」）へ入れる
  * GET ?ids=1,2,3               → { ok, items: [{ id, status, title }] }
  *   枝に付けた札の状態を読む。本人の行だけ・100 件まで。消されたネタは返らない（枝の札は「見つからない」になる）
  *
@@ -53,6 +55,19 @@ export function ideaFields(body) {
   const mm = clip(body?.mm_url, 500).trim();
   const mm_url = /^https:\/\/mindmap\.shia2n\.jp\/m\/[0-9a-f-]{36}(\?n=[\w-]{1,64})?$/.test(mm) ? mm : null;
   return { title, memo, mm_url };
+}
+
+/** そのアカウントの種類のうち、名前が「セミナー」のものの鍵。無ければ null（2026-11-13 便1） */
+export function seminarTypeOf(customTypes) {
+  const hit = (Array.isArray(customTypes) ? customTypes : []).find(c => c && typeof c.key === "string" && String(c.label || "").trim() === "セミナー");
+  return hit ? hit.key : null;
+}
+
+async function seminarType(sb, accountId) {
+  const r = await fetch(`${sb.url}/rest/v1/accounts?select=custom_post_types&id=eq.${encodeURIComponent(accountId)}&limit=1`, { headers: sb.headers });
+  if (!r.ok) return null;
+  const [a] = await r.json();
+  return seminarTypeOf(a?.custom_post_types);
 }
 
 /** ?ids= を数の並びにする（数字だけ・重なりなし・100 件まで） */
@@ -125,18 +140,24 @@ export async function onRequest(context) {
 
     const target = resolveTarget(await fetchAccounts(sb, uid));
     if (target.error) return out({ ok: false, error: "入れ先のアカウントがありません（コンテンツくんでアカウントを作ってください）" }, origin);
+    const seminar = body?.kind === "seminar";
+    let postType = "x_post";
+    if (seminar) {
+      postType = await seminarType(sb, target.account_id);
+      if (!postType) return out({ ok: false, error: `「${target.account_name}」に「セミナー」の種類がありません（コンテンツくんの設定で種類を足してください）` }, origin);
+    }
     const record = {
       id: genPostId(), user_id: uid, account_id: target.account_id, title: f.title, body: "", datetime: null,
-      platform: target.platform, post_type: "x_post", status: "idea", source: "mindmap", memo: f.memo,
+      platform: target.platform, post_type: postType, status: "idea", source: "mindmap", memo: f.memo,
       memo_links: [], mm_url: f.mm_url, threads: [], comments: [], notion_page_id: null, genre: null,
-      history: [{ at: new Date().toISOString(), note: "思考整理くんの枝から受け箱に入れた" }],
+      history: [{ at: new Date().toISOString(), note: seminar ? "思考整理くんのセミナーのマップから「セミナー」に入れた" : "思考整理くんの枝から受け箱に入れた" }],
     };
     const r = await fetch(`${sb.url}/rest/v1/posts?select=id,status`, {
       method: "POST", headers: { ...sb.headers, Prefer: "return=representation" }, body: JSON.stringify(record),
     });
     if (!r.ok) return out({ ok: false, error: `受け箱に入れられませんでした（${r.status}）` }, origin);
     const [made] = await r.json();
-    return out({ ok: true, id: String(made.id), status: made.status, created: true, account: target.account_name }, origin);
+    return out({ ok: true, id: String(made.id), status: made.status, created: true, account: target.account_name, seminar }, origin);
   } catch (e) {
     console.error("[ext/ideas]", e);
     return out({ ok: false, error: "中で止まりました。少しおいてもう一度試してください" }, origin);
