@@ -441,6 +441,8 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
           {canAuto&&<span role="status" aria-live="polite" style={{fontSize:12,fontWeight:700,whiteSpace:"nowrap",color:autoOn&&/^保存(しました|済み)/.test(autoMsg)?"#047857":autoOn&&/できません/.test(autoMsg)?"#b91c1c":"#6b6259"}}>{autoOn?autoMsg:(akey(draft)!==savedKey.current?"保存していない変更があります":"")}</span>}
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
+          {/* 2026-11-13 Naoki「通常のコピーボタンは右上に」：右下から上の帯へ戻した（note 用・X記事用の別の形は「…」のまま） */}
+          <button onClick={()=>doCopy("x")} style={{height:34,padding:"0 14px",borderRadius:10,border:copyX?"1px solid #047857":"none",background:copyX?"#ecfdf5":"#b45309",color:copyX?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}} title={isXArticle&&imgs.length?"画像の位置に目印を入れてコピー（X記事は画像を貼り付けで入れられないため）":undefined}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー":imgs.length?"コピー（画像つき）":"コピー"}</button>
           {!focusOn&&<MoreMenu items={[
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
@@ -489,13 +491,13 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
             {compact&&<div style={{overflowX:"auto",flexShrink:0}}><Toolbar onInsertOpen={openInsert}/></div>}
             <div style={{flex:1,overflowY:"auto"}}>
               <div ref={articleAreaRef} style={{padding:compact?"16px 14px 80px":"28px 32px 100px",...(focusOn&&!compact?{maxWidth:760,margin:"0 auto",paddingTop:56}:{})}}>
-                {/* 2026-11-10 Naoki「タイトルもコピー可能にする」：タイトルの横に「コピー」 */}
+                {/* 2026-11-10 Naoki「タイトルもコピー可能にする」：タイトルの横に。2026-11-13 Naoki「タイトルは元の位置に『タイトルをコピー』で」 */}
                 <div style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:compact?12:18,paddingBottom:compact?12:18,borderBottom:BD2}}>
                 <input ref={titleRef} type="text" value={draft.title} onChange={e=>setDraft(d=>({...d,title:e.target.value}))}
                   placeholder="タイトルを入力..."
                   style={{flex:1,minWidth:0,border:"none",outline:"none",fontSize:compact?20:28,fontWeight:800,lineHeight:1.25,color:"#0f1419",fontFamily:XFONT,background:"transparent",display:"block",boxSizing:"border-box"}}/>
                 <button type="button" onClick={copyTitle} disabled={!draft.title} aria-label="タイトルをコピー" title={draft.title?"タイトルをコピー":"タイトルが空です"}
-                  style={{flexShrink:0,marginTop:compact?0:4,height:30,padding:"0 10px",borderRadius:8,border:titleCopied?"1px solid #047857":"1px solid #a39a90",background:titleCopied?"#ecfdf5":"#fff",color:titleCopied?"#047857":"#1a1a1a",fontSize:12,fontWeight:800,cursor:draft.title?"pointer":"default",fontFamily:"inherit",whiteSpace:"nowrap",opacity:draft.title?1:.5}}>{titleCopied?"✓ コピーしました":"コピー"}</button>
+                  style={{flexShrink:0,marginTop:compact?0:4,height:30,padding:"0 10px",borderRadius:8,border:titleCopied?"1px solid #047857":"1px solid #a39a90",background:titleCopied?"#ecfdf5":"#fff",color:titleCopied?"#047857":"#1a1a1a",fontSize:12,fontWeight:800,cursor:draft.title?"pointer":"default",fontFamily:"inherit",whiteSpace:"nowrap",opacity:draft.title?1:.5}}>{titleCopied?"✓ コピーしました":"タイトルをコピー"}</button>
                 </div>
                 {!compact&&<div role="tablist" aria-label="本文と構成" style={{display:"flex",alignItems:"center",gap:2,borderBottom:BD2,margin:"-6px 0 14px"}}>
                   {[["body","本文"],["outline","構成（箇条書き）"]].map(([k,l])=><button key={k} role="tab" aria-selected={bodyTab===k} onClick={()=>setBodyTab(k)} style={{border:"none",background:"none",padding:"6px 10px",fontSize:13,fontWeight:700,color:bodyTab===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${bodyTab===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
@@ -620,10 +622,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                   </div>
                 )}
               </div>
-              {/* 2026-11-07 便②：コピーは右の下にいつも置く（ヘッダーから移した） */}
-              {!compact&&<div style={{borderTop:BD2,background:"#fff",padding:10,display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
-                <button onClick={()=>doCopy("x")} style={{height:36,borderRadius:9,border:copyX?"1px solid #047857":"1px solid #a39a90",background:copyX?"#ecfdf5":"#fff",color:copyX?"#047857":"#1a1a1a",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー（画像の位置に目印）":imgs.length?"コピー（画像つき）":"コピー"}</button>
-              </div>}
+              {/* 2026-11-13：右下のコピーは上の帯へ移した（Naoki「通常のコピーボタンは右上に」） */}
             </div>
             </>
           )}
