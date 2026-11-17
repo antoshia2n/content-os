@@ -84,6 +84,17 @@ export async function onRequestPost(context) {
     }
   }
 
+  // x_url：X のポストの住所（2026-11-17 開発部・X で直接予約した画像ポストを後で引けるように）。空の文字か null で空に戻す
+  if ('x_url' in body) {
+    if (body.x_url === null || body.x_url === '') {
+      patch.x_url = null;
+    } else if (typeof body.x_url === 'string' && /^https:\/\/(x|twitter)\.com\//.test(body.x_url.trim())) {
+      patch.x_url = body.x_url.trim();
+    } else {
+      return json({ ok: false, error: 'x_url must be https://x.com/... or null' }, 400);
+    }
+  }
+
   if ('labels' in body) {
     if (Array.isArray(body.labels)) patch.labels = body.labels;
     else return json({ ok: false, error: 'labels must be an array' }, 400);
@@ -99,7 +110,7 @@ export async function onRequestPost(context) {
   const params = new URLSearchParams();
   params.set('id', `eq.${body.id}`);
   params.set('user_id', `eq.${body.user_id}`);
-  params.set('select', `${POST_COLUMNS},memo,mm_url`);
+  params.set('select', `${POST_COLUMNS},memo,mm_url,x_url`);
 
   let res;
   try {
