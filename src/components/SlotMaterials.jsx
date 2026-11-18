@@ -19,14 +19,14 @@ const sb = { border: "1px solid #e6dfd6", background: "#fff", borderRadius: 7, p
 const safeUrl = u => (/^https?:\/\//i.test(String(u || "").trim()) ? String(u).trim() : "");
 
 // ── 配信計画：資料を置く ─────────────────────────────
-export function MaterialsEditor({ materials = [], onChange, showToast }) {
+export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved }) {
   const [form, setForm] = useState(null); // { id?, kind, label, url, text }
   const [find, setFind] = useState(null); // "swipe" | "map"
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
   const drag = useRef(null);
   const put = list => onChange(list);
-  const open = (kind, m) => setForm(m ? { id: m.id, kind, label: m.label || "", url: m.url || "", text: (m.items || []).map(i => i.text).join("\n") } : { kind, label: "", url: "", text: "" });
+  const open = (kind, m) => { setFind(null); return setForm(m ? { id: m.id, kind, label: m.label || "", url: m.url || "", text: (m.items || []).map(i => i.text).join("\n") } : { kind, label: "", url: "", text: "" }); };
   const save = () => {
     const f = form; if (!f) return;
     if (f.kind === "link" && !safeUrl(f.url)) { showToast?.("リンクは https:// から始まる住所を入れてください"); return; }
@@ -45,7 +45,7 @@ export function MaterialsEditor({ materials = [], onChange, showToast }) {
     catch (err) { showToast?.(err.message || "置けませんでした"); }
     finally { setBusy(false); }
   };
-  const remove = m => put(materials.filter(x => x.id !== m.id));
+  const remove = m => { const before = materials; put(materials.filter(x => x.id !== m.id)); onRemoved?.(m, before); };
   const move = (from, to) => { if (from === to || from == null) return; const l = [...materials]; const [x] = l.splice(from, 1); l.splice(to, 0, x); put(l); };
 
   return <div>

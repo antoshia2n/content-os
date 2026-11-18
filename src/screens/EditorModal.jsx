@@ -169,6 +169,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
   const [sidePanel,setSidePanel]=useState(compact?(post.status==="idea"?"meta":null):"set");
   // 2026-11-18 枠の資料：この投稿の枠（予定の日時と種類から）に資料があれば、右に「手順」タブを出す
   const mSlot=React.useMemo(()=>{const s=slotForPost(draft,slots);return s&&((s.materials||[]).length||s.tpl_id||s.aim||s.genre)?s:null;},[draft.datetime,draft.postType,slots]);
+  useEffect(()=>{if(sidePanel==="steps"&&!mSlot)setSidePanel("set");},[sidePanel,mSlot]); // 2026-11-18 見直し：中身の無い「手順」タブを開いたままにしない
   const stepsLeft=mSlot?(mSlot.materials||[]).filter(m=>m.kind==="check").flatMap(m=>m.items||[]).filter(i=>!(draft.checks||{})[i.id]).length:0;
   const [sideW,setSideW]=useState(340);
   const [cmt,setCmt]=useState("");
