@@ -3,12 +3,15 @@
 // MaterialsView  ：書く画面の右の「手順」タブで、資料を見てチェックを付ける
 import React, { useEffect, useRef, useState } from "react";
 import { itemsFromText, newId, uploadDoc } from "../lib/materials.js";
+import { loadOthers, findAll } from "../screens/FindView.jsx";
 
 const KIND = {
   link: { mark: "↗", bg: "#e0f2fe", fg: "#0369a1", name: "リンク" },
   check: { mark: "✓", bg: "#dcfce7", fg: "#047857", name: "チェックリスト" },
   pdf: { mark: "PDF", bg: "#fee2e2", fg: "#b91c1c", name: "PDF" },
   md: { mark: "MD", bg: "#ede9fe", fg: "#6d28d9", name: "MD" },
+  swipe: { mark: "S", bg: "#fef3c7", fg: "#92400e", name: "スワイプくん" }, // 2026-11-18 参考の見本
+  map: { mark: "M", bg: "#e0e7ff", fg: "#3730a3", name: "思考整理くん" }, // 2026-11-18 参考の下地
 };
 const Mark = ({ kind }) => { const k = KIND[kind] || KIND.link; return <span aria-hidden style={{ width: 24, height: 22, borderRadius: 6, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 800, flex: "none", background: k.bg, color: k.fg }}>{k.mark}</span>; };
 const fld = { width: "100%", border: "1px solid #a39a90", borderRadius: 8, padding: "7px 9px", fontSize: 13, fontFamily: "inherit", background: "#fff", boxSizing: "border-box" };
@@ -18,6 +21,7 @@ const safeUrl = u => (/^https?:\/\//i.test(String(u || "").trim()) ? String(u).t
 // ── 配信計画：資料を置く ─────────────────────────────
 export function MaterialsEditor({ materials = [], onChange, showToast }) {
   const [form, setForm] = useState(null); // { id?, kind, label, url, text }
+  const [find, setFind] = useState(null); // "swipe" | "map"
   const [busy, setBusy] = useState(false);
   const fileRef = useRef(null);
   const drag = useRef(null);
@@ -69,7 +73,9 @@ export function MaterialsEditor({ materials = [], onChange, showToast }) {
         <button type="button" onClick={save} style={{ ...sb, background: "#b45309", color: "#fff", border: "none" }}>保存</button>
       </div>
     </div>}
+    {find && <OtherPicker kind={find} onClose={() => setFind(null)} onPick={r => { put([...materials, { id: newId(), kind: find, label: r.title.slice(0, 80), url: r.url, ref: String(r.id) }]); setFind(null); }} />}
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {[["swipe", "＋ スワイプくんから"], ["map", "＋ 思考整理くんから"]].map(([k, l]) => <button key={k} type="button" onClick={() => { setForm(null); setFind(f => (f === k ? null : k)); }} aria-expanded={find === k} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{l}</button>)}
       {[["link", "＋ リンク"], ["check", "＋ チェックリスト"]].map(([k, l]) => <button key={k} type="button" onClick={() => open(k)} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{l}</button>)}
       <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{busy ? "置いています…" : "＋ ファイル（PDF・MD）"}</button>
       <input ref={fileRef} type="file" accept=".pdf,.md,application/pdf,text/markdown" onChange={pick} style={{ display: "none" }} />
@@ -77,11 +83,41 @@ export function MaterialsEditor({ materials = [], onChange, showToast }) {
   </div>;
 }
 
+// スワイプくん・思考整理くんを題名で探して 1 つ選ぶ（コンテンツくんの右の検索と同じ読み方）
+function OtherPicker({ kind, onPick, onClose }) {
+  const [q, setQ] = useState("");
+  const [d, setD] = useState(null);
+  useEffect(() => { let live = true; loadOthers().then(x => { if (live) setD(x); }); return () => { live = false; }; }, []);
+  const res = d ? findAll(q, [], d, 20) : null;
+  const rows = res ? (kind === "swipe" ? res.S : res.M) : [];
+  const err = d && (kind === "swipe" ? d.swErr : d.mmErr);
+  return <div style={{ border: "1px solid #a39a90", borderRadius: 10, background: "#fff", marginBottom: 6, overflow: "hidden" }} onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+    <div style={{ display: "flex", gap: 6, padding: 8, borderBottom: "1px solid #e6dfd6" }}>
+      <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={kind === "swipe" ? "スワイプくんを題名・言葉で探す" : "思考整理くんのマップを題名で探す"} aria-label="探す言葉" style={{ ...fld, flex: 1 }} />
+      <button type="button" onClick={onClose} style={sb}>閉じる</button>
+    </div>
+    <div style={{ maxHeight: 240, overflowY: "auto" }}>
+      {!d && <div style={{ padding: 10, fontSize: 12.5, color: "#736a62" }}>読み込んでいます…</div>}
+      {err && <div style={{ padding: 10, fontSize: 12.5, color: "#b91c1c" }}>読めませんでした：{err}</div>}
+      {d && !err && !rows.length && <div style={{ padding: 10, fontSize: 12.5, color: "#736a62" }}>当てはまるものがありません</div>}
+      {rows.map(r => <button key={r.id} type="button" onClick={() => onPick(r)} style={{ display: "block", width: "100%", textAlign: "left", border: "none", borderBottom: "1px solid #f1ebe4", background: "#fff", padding: "7px 10px", cursor: "pointer", fontFamily: "inherit" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+        {r.sub && <div style={{ fontSize: 12, color: "#736a62", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.sub}</div>}
+      </button>)}
+    </div>
+  </div>;
+}
+
 // ── 書く画面：資料を見る・チェックを付ける ─────────────────────
-export function MaterialsView({ slot, slotName, checks = {}, onToggle }) {
+export function MaterialsView({ slot, slotName, checks = {}, onToggle, tplName, onOpenTpl }) {
   const ms = slot?.materials || [];
   return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-    <div style={{ fontSize: 12, color: "#6b6259" }}>枠：{slotName}（資料を直すときは 上の帯の「配信計画」→ この枠）</div>
+    <div style={{ fontSize: 12, color: "#6b6259" }}>枠：{slotName}（直すときは 上の帯の「配信計画」→ この枠）</div>
+    {(slot?.genre || tplName || slot?.aim) && <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, padding: "8px 10px", fontSize: 13, display: "grid", gridTemplateColumns: "auto 1fr", gap: "3px 10px" }}>
+      {slot?.genre && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>柱</span><span>{slot.genre}</span></>}
+      {tplName && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>型</span><span>{tplName}{onOpenTpl && <button type="button" onClick={onOpenTpl} style={{ ...sb, marginLeft: 6, padding: "1px 7px" }}>型を開く →</button>}</span></>}
+      {slot?.aim && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>狙い</span><span>{slot.aim}</span></>}
+    </div>}
     {ms.map(m => m.kind === "check" ? <CheckBlock key={m.id} m={m} checks={checks} onToggle={onToggle} />
       : m.kind === "md" ? <MdBlock key={m.id} m={m} />
       : <a key={m.id} href={safeUrl(m.url) || undefined} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, background: "#fff", border: "1px solid #e6dfd6", fontSize: 13, color: "#1a1a1a", textDecoration: "none" }}>
