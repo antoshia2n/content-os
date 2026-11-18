@@ -14,6 +14,9 @@ import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
 import { hasThumbCol, hasQuoteCol } from "../constants.js";
 import { QuoteSource } from "../components/QuoteSource.jsx";
+import { MaterialsView } from "../components/SlotMaterials.jsx";
+import { slotForPost } from "../lib/materials.js";
+import { slotLabel } from "./CalendarView.jsx";
 // 2026-11-18 Naoki「予約機能は現状、一旦停止でいいよ。Buffer のアプデ待ち」→ 書く画面の「予約投稿」タブを隠す。戻すときは false に
 const SCHEDULE_PAUSED=true;
 import { OutlineEditor } from "../components/OutlineEditor.jsx";
@@ -62,7 +65,7 @@ function MoreMenu({items}){
 const FS_SUPPORTED = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // compact：/panel（幅 360px 前後）で開くときだけ true。広い画面では今と同じ見た目と動き
-export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion,owner=false,onDuplicate,onRepost,onDelete}){
+export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accounts=[],compact=false,templates=[],postTypes=POST_TYPE,onManageTemplates,onAutoSave,onSentToNotion,owner=false,onDuplicate,onRepost,onDelete}){
   const [draft,setDraft]=useState({...post,memoLinks:post.memoLinks||[],history:post.history||[]});
   // 2026-11-10 依頼に付ける参考（右の「検索」と「依頼」の両方から足せる。依頼を出すまでこの端末に覚えておく）
   const [reqRefs,setReqRefs]=useState(()=>loadPendingRefs(post.id));
@@ -95,7 +98,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
   const canAuto=!post._unsaved&&!!onAutoSave&&!AUTO_OFF.includes(post.status);
   const autoOn=canAuto&&!AUTO_OFF.includes(draft.status);
   const autoOnRef=useRef(autoOn);autoOnRef.current=autoOn;
-  const akey=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb,d.mm_url,d.comments]);
+  const akey=d=>JSON.stringify([d.title,d.body,d.memo,d.memoLinks,d.labels,d.status,d.datetime,d.postType,d.account_id,d.score,d.thumb,d.mm_url,d.comments,d.quote_of??null,d.checks||null]); // 2026-11-18 引用元とチェックも自動保存の対象
   const savedKey=useRef(akey(draft));
   const [autoMsg,setAutoMsg]=useState(canAuto?"保存済み":"");
   const runAuto=async()=>{
@@ -164,6 +167,9 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
   // 2026-11-07 Notion の形へ 便②：広い画面は右の機能をいつも出す（左で書く・右に機能）。最初のタブはネタならメモ、ほかは設定
   // 2026-11-10 軽量化 便1：広い画面の右は「詳細・検索」の 2 つ。詳細は 設定 → メモとリンク → コメント → ラベルとサムネ の 1 本（履歴は画面から外した。記録は表に残る）
   const [sidePanel,setSidePanel]=useState(compact?(post.status==="idea"?"meta":null):"set");
+  // 2026-11-18 枠の資料：この投稿の枠（予定の日時と種類から）に資料があれば、右に「手順」タブを出す
+  const mSlot=React.useMemo(()=>{const s=slotForPost(draft,slots);return s&&(s.materials||[]).length?s:null;},[draft.datetime,draft.postType,slots]);
+  const stepsLeft=mSlot?(mSlot.materials||[]).filter(m=>m.kind==="check").flatMap(m=>m.items||[]).filter(i=>!(draft.checks||{})[i.id]).length:0;
   const [sideW,setSideW]=useState(340);
   const [cmt,setCmt]=useState("");
   // 2026-11-07 便③：集中モード。右の機能とヘッダーの飾りを隠し、紙だけにする（⌘. / Ctrl+. で出し入れ）
@@ -526,11 +532,12 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
-                {[["set","詳細"],["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","AI依頼"],...(SCHEDULE_PAUSED?[]:[["ship","予約投稿"]])]:[])].map(([k,l])=>
-                  <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
+                {[["set","詳細"],...(mSlot?[["steps","手順"]]:[]),["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","AI依頼"],...(SCHEDULE_PAUSED?[]:[["ship","予約投稿"]])]:[])].map(([k,l])=>
+                  <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}} aria-label={k==="steps"&&stepsLeft?`手順（残り ${stepsLeft}）`:undefined}>{l}{k==="steps"&&stepsLeft>0&&<span aria-hidden style={{marginLeft:4,minWidth:18,height:18,borderRadius:99,background:"#fef3c7",color:"#b45309",fontSize:12,fontWeight:800,display:"inline-grid",placeItems:"center",padding:"0 5px"}}>{stepsLeft}</span>}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
                 {(sidePanel==="req"||sidePanel==="ship")&&!compact&&<RequestTab key={sidePanel} mode={sidePanel==="ship"?"ship":"make"} uid={uid} refs={reqRefs} setRefs={setReqRefs} allPosts={allPosts} draft={draft} setDraft={setDraft} saved={allPosts.some(p=>p.id===draft.id)} templates={templates} postTypes={postTypes} toast={showSmall} onManageTemplates={onManageTemplates?()=>onManageTemplates({kind:"request"}):null}/>}
+                {sidePanel==="steps"&&!compact&&mSlot&&<MaterialsView slot={mSlot} slotName={slotLabel(mSlot)} checks={draft.checks||{}} onToggle={id=>setDraft(d=>{const c={...(d.checks||{})};if(c[id])delete c[id];else c[id]=true;return {...d,checks:c};})}/>}
                 {sidePanel==="tpl"&&!compact&&<TemplateTab templates={templates} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates?()=>onManageTemplates():null} onEdit={onManageTemplates?(t=>onManageTemplates(t.id)):null} toast={showSmall}/>}
                 {sidePanel==="search"&&(
                   <PostSearchPanel

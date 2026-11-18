@@ -16,6 +16,8 @@ import { canUseContent, allowListOf } from "../../_lib/content-access.js";
 const BUCKETS = {
   // 本文に差し込む挿し絵。保存先は images/ の下に固定する。
   contentos: { prefix: "images/" },
+  // 2026-11-18 枠の資料（配信計画の枠に置く PDF と MD）。入れ物を分け、画像の入れ物には PDF を入れない
+  "contentos-docs": { prefix: "docs/", maxBytes: 20 * 1024 * 1024, extensions: ["pdf", "md"], contentTypePrefix: "" },
 };
 
 // 2026-10-28 開発部（会員公開の関門 3）：置けるのは表の口と同じ人だけ（それまでは誰の Google でも置けた）
