@@ -9,6 +9,7 @@ import { dbFetchSheetGenres, dbAddSheetGenre } from "../lib/supabase.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { makeStructure } from "../lib/mindmapLink.js";
+import { useWorkspaces } from "../components/WsChip.jsx";
 
 // ── 見た目（スワイプくん・思考整理くんと同じ色と形） ─────────
 export const CK_CSS = `
@@ -202,6 +203,9 @@ td.ck-pop{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 @keyframes ckchk{to{transform:rotate(45deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){.ck-pop::after,.ck-pop::before{animation:none;transform:rotate(45deg) scale(1)}}
 .ck-nav.off{display:none}
+.ck-nav>div>.ck-nh:first-child{padding-right:36px}
+.ck-navx{position:absolute;top:9px;right:8px;width:28px;height:28px;border:0!important;border-radius:7px;background:none!important;color:var(--muted);font-size:16px;font-weight:700;display:grid;place-items:center;z-index:2}.ck-navx:hover{background:var(--soft)!important;color:var(--fg)}
+.ck-navo{position:sticky;top:8px;margin:8px 0 0 12px;height:30px;padding:0 10px!important;border:1px solid var(--line)!important;border-radius:8px;background:var(--panel)!important;color:var(--muted);font-size:12.5px;font-weight:700;z-index:3}.ck-navo:hover{color:var(--fg);background:var(--soft)!important}
 /* 小さなボタン（PlanView・FindView でも使う。2 か所に別々にあった決まりを 1 つにした） */
 .ck-mini{font-size:12px;font-weight:700;color:var(--accent-ink);border:1px solid var(--accent-line)!important;background:var(--accent-bg)!important;border-radius:6px;padding:1px 7px!important;margin-left:auto;white-space:nowrap}
 .ck-mini:hover{filter:brightness(.97)}
@@ -349,15 +353,30 @@ export function RowMenu({ label, items }) {
 }
 
 // ── アカウントの切り替え（混ぜて出す画面は無い） ──────────────
-export function AccountPill({ accounts, activeAcc, onPick, onManage }) {
+// 2026-11-18 場所（ワークスペース）の切り替えもこの中へ（上の帯で 2 つ並んでいたのを 1 つに）。ws を渡すと、入っている場所があるときだけ上に「場所」を並べる
+export function AccountPill({ accounts, activeAcc, onPick, onManage, ws }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => { if (!open) return; const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, [open]);
+  const ref = useRef(null), btn = useRef(null);
+  const w = useWorkspaces({ ...(ws || {}), onDone: () => btn.current?.focus() });
+  const showWs = !!ws && w.has;
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const k = e => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); btn.current?.focus(); } };
+    document.addEventListener("mousedown", h); document.addEventListener("keydown", k, true);
+    return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k, true); };
+  }, [open]);
+  const place = showWs && w.cur ? w.nameOf(w.cur) : "";
   return <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
-    <button className="ck-acc" onClick={() => setOpen(o => !o)} aria-label="アカウントを切り替える">
-      <i style={{ background: activeAcc?.color || "#ccc" }} /><span>{activeAcc?.name || "アカウント"}</span>{I.down}
+    <button ref={btn} className={`ck-acc ${place ? "shared" : ""}`} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`場所とアカウントを切り替える（今は${place ? `${place}・` : ""}${activeAcc?.name || "アカウント"}）`}>
+      <i style={{ background: activeAcc?.color || "#ccc" }} />{place && <small style={{ color: "var(--accent-ink)" }}>{place} ·</small>}<span>{activeAcc?.name || "アカウント"}</span>{I.down}
     </button>
     {open && <div className="ck-accpop">
+      {showWs && <>
+        <div className="h">場所（替えると見るデータが入れ替わる）</div>
+        {w.items.map(it => <button key={it.id || "me"} className={it.id === w.cur ? "on" : ""} onClick={() => { setOpen(false); w.go(it.id); }}><i style={{ background: it.id ? "var(--accent-ink)" : "var(--muted)", borderRadius: 2 }} />{it.name}<small>{it.sub}</small>{it.id === w.cur && <span aria-hidden="true" style={{ marginLeft: "auto", color: "var(--accent-ink)", fontWeight: 800 }}>✓</span>}</button>)}
+        <div style={{ height: 1, background: "var(--line)", margin: "4px 2px" }} />
+      </>}
       <div className="h">アカウント（1 つずつ開く）</div>
       {accounts.map(a => <button key={a.id} className={a.id === activeAcc?.id ? "on" : ""} onClick={() => { setOpen(false); onPick(a.id); }}><i style={{ background: a.color }} />{a.name}<small>{a.handle}</small></button>)}
       {onManage && <button onClick={() => { setOpen(false); onManage(); }} style={{ color: "var(--faint)", fontSize: 12 }}>アカウントを足す・直す</button>}

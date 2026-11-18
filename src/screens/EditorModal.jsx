@@ -12,7 +12,10 @@ import { loadPendingRefs, savePendingRefs, toggleIn, whereAttached } from "../li
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
-import { hasThumbCol } from "../constants.js";
+import { hasThumbCol, hasQuoteCol } from "../constants.js";
+import { QuoteSource } from "../components/QuoteSource.jsx";
+// 2026-11-18 Naoki「予約機能は現状、一旦停止でいいよ。Buffer のアプデ待ち」→ 書く画面の「予約投稿」タブを隠す。戻すときは false に
+const SCHEDULE_PAUSED=true;
 import { OutlineEditor } from "../components/OutlineEditor.jsx";
 import { createStructureMap } from "../lib/mindmapLink.js";
 
@@ -523,7 +526,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
               <div onFocusCapture={()=>setLastSide("memo")} style={compact?{flex:1,minWidth:0,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column"}:{width:sideW,borderLeft:"1px solid #e6dfd6",background:"#fafafa",display:"flex",flexDirection:"column",flexShrink:0}}>
               {!compact&&<div role="tablist" aria-label="右の機能" style={{display:"flex",gap:2,padding:"6px 8px 0",borderBottom:BD2,background:"#fff"}}>
-                {[["set","詳細"],["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","AI依頼"],["ship","予約投稿"]]:[])].map(([k,l])=>
+                {[["set","詳細"],["search","検索"],["tpl","型"],...(uid&&!getWorkspace()?[["req","AI依頼"],...(SCHEDULE_PAUSED?[]:[["ship","予約投稿"]])]:[])].map(([k,l])=>
                   <button key={k} role="tab" aria-selected={sidePanel===k} onClick={()=>setSidePanel(k)} style={{border:"none",background:"none",padding:"8px 10px",fontSize:12.5,fontWeight:700,color:sidePanel===k?"#1a1a1a":"#6b6259",borderBottom:`2px solid ${sidePanel===k?"#f59e0b":"transparent"}`,marginBottom:-1,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
@@ -572,6 +575,7 @@ export function EditorModal({uid,post,onSave,onClose,allPosts=[],accounts=[],com
                           style={{minWidth:30,height:30,borderRadius:7,border:`1.5px solid ${on?SCORE[k].bg:"#a39a90"}`,background:on?SCORE[k].bg:"#fff",color:on?"#fff":"#333",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{on?"✓ ":""}{k}</button>;})}
                       </div>
                     </div>
+                    {draft.postType==="x_quote"&&hasQuoteCol()&&<QuoteSource draft={draft} setDraft={setDraft} allPosts={allPosts} toast={showSmall}/>}
                     {hasNums&&<div>
                       <span style={lab}>反応の数字（Buffer から毎日）</span>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>

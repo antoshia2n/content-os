@@ -39,9 +39,20 @@ export function nextOccurrence(s, now = new Date()) {
 const shortDt = dt => { if (!dt) return ""; const d = new Date(dt.slice(0, 10) + "T00:00"); return `${d.getMonth() + 1}/${d.getDate()}（${DOW[dowOf(d)]}）${dt.slice(11, 16)}`; };
 const nameOf = (s, postTypes) => `${s.type === "daily" ? "毎日" : DOW[s.dow] || ""} ${slotTime(s)} ${getPostTypeStyle(s.postType, postTypes).label}`;
 
-export function DeliveryPlan({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, onClose, showToast, setUndo }) {
+// 2026-11-18 Naoki「設定の配信計画とかは外に出す」→ 上の帯のタブ「配信計画」の画面として出す（asScreen）。窓の形も残す
+export function DeliveryPlan(props) {
+  return props.asScreen ? <PlanBody {...props} /> : <PlanDialog {...props} />;
+}
+function PlanDialog(props) {
   const box = useRef(null);
-  useDialogFocus(box, { onClose });
+  useDialogFocus(box, { onClose: props.onClose });
+  return <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onMouseDown={e => { if (e.target === e.currentTarget) props.onClose(); }}>
+    <div ref={box} role="dialog" aria-modal="true" aria-labelledby="plan-title" style={{ background: "#f5f0eb", borderRadius: 16, width: "100%", maxWidth: 1240, height: "min(860px, calc(100vh - 28px))", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px #00000030" }}>
+      <PlanBody {...props} />
+    </div>
+  </div>;
+}
+function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, onClose, showToast, setUndo, asScreen }) {
   const [sel, setSel] = useState(null);
   const [genres, setGenres] = useState([]);
   const [newTime, setNewTime] = useState("");
@@ -100,15 +111,14 @@ export function DeliveryPlan({ uid, slots, saveSlots, posts, postTypes, placeAt,
   const srcFill = cur && src && nextDt ? (() => { const d = new Date(nextDt.slice(0, 10) + "T00:00"); d.setDate(d.getDate() - gapDays(src, cur)); return fillAt(src, `${fmtDate(d)}T${slotTime(src)}`); })() : null;
   const ideas = cur ? ideasOf(cur) : [];
 
-  return <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div ref={box} role="dialog" aria-modal="true" aria-labelledby="plan-title" style={{ background: "#f5f0eb", borderRadius: 16, width: "100%", maxWidth: 1240, height: "min(860px, calc(100vh - 28px))", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 20px 60px #00000030" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "#fff", borderBottom: "1px solid #e6dfd6" }}>
-        <span id="plan-title" style={{ fontWeight: 800, fontSize: 16 }}>配信計画</span>
+  return <div style={asScreen ? { display: "flex", flexDirection: "column", height: "calc(100vh - 55px)", background: "#f5f0eb" } : { display: "contents" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: asScreen ? "8px 16px" : "12px 16px", background: "#fff", borderBottom: "1px solid #e6dfd6", flexWrap: "wrap", rowGap: 6 }}>
+        {!asScreen && <span id="plan-title" style={{ fontWeight: 800, fontSize: 16 }}>配信計画</span>}
         <span style={{ fontSize: 12, color: "#736a62" }}>マスの空いた所を押すと枠を追加・枠を右クリックでメニュー</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} aria-label="追加する時刻" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "4px 6px", fontSize: 13, fontFamily: "inherit" }} />
           <button type="button" onClick={() => { if (!newTime) { showToast("時刻を入れてください"); return; } setExtraTimes(t => [...new Set([...t, newTime])]); setNewTime(""); }} style={{ border: "1px solid #e6dfd6", background: "#fff", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>＋ 時刻の行を追加</button>
-          <button type="button" onClick={onClose} style={{ border: "1px solid #e6dfd6", background: "#fff", borderRadius: 20, padding: "5px 12px", fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer", fontFamily: "inherit" }}>閉じる</button>
+          {!asScreen && <button type="button" onClick={onClose} style={{ border: "1px solid #e6dfd6", background: "#fff", borderRadius: 20, padding: "5px 12px", fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer", fontFamily: "inherit" }}>閉じる</button>}
         </span>
       </div>
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 14, padding: 14 }}>
@@ -188,7 +198,6 @@ export function DeliveryPlan({ uid, slots, saveSlots, posts, postTypes, placeAt,
         </div>
       </div>
       <style>{`.dp-add:hover,.dp-add:focus-visible{background:#f7f3ee!important;color:#a39a90!important}`}</style>
-    </div>
   </div>;
 }
 

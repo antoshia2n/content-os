@@ -344,10 +344,12 @@ export function StockView({ mode, uid, owner = false, onClearSamples, accountId,
   }
 
   return <div className="ck-screen">
+    {/* 2026-11-18 フォルダの開閉は上の帯から、この画面の左上へ（この画面でしか使わないため・Notion と同じ置き方） */}
     <aside className={`ck-nav ${navOn ? "" : "off"}`}>
+      <button type="button" className="ck-navx" onClick={() => setNavOn(false)} aria-label="フォルダを畳む" title="フォルダを畳む">«</button>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>{nav}</div>
       <div className="ck-nav-foot">{mode === "idea" ? "ネタは「1 つに 1 つの主張」。タイトルを言い切りの文にしておくと、書くときに迷わない" : "表の行を押すと、いつもの編集画面が開く"}</div>
     </aside>
-    <main className="ck-main"><div className="ck-wrap">{body}</div></main>
+    <main className="ck-main">{!navOn && <button type="button" className="ck-navo" onClick={() => setNavOn(true)} aria-label="フォルダを開く">» フォルダ</button>}<div className="ck-wrap">{body}</div></main>
   </div>;
 }

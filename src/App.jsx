@@ -121,7 +121,8 @@ function isEmptyIdea(p){return !!p&&p.status==="idea"&&!hasContent(p);}
 // シートはアウトプットの見せ方（表・流れ・シート）の 1 つへ移した。月・リストのコードは残してある
 // 2026-11-07 Notion の形へ 便 ①（Naoki OK 22:40）：上の帯は「カレンダー・コンテンツ・積み上げ」の 3 つ。
 // コンテンツ＝ネタとアウトプット（中の値は今までどおり idea / out で、左の一覧から行き来する）。最初の画面はカレンダー
-const HEAD=[["calendar","カレンダー"],["data","コンテンツ"],["metrics","積み上げ"]];
+// 2026-11-18 Naoki「ヘッドメニューがごちゃつく」「設定の配信計画とかは外に出す」→ 配信計画をタブへ（デモに OK 10:30）
+const HEAD=[["calendar","カレンダー"],["plan","配信計画"],["data","コンテンツ"],["metrics","積み上げ"]];
 const VIEW_KEY="contentos.view";
 function lastStock(){try{const v=localStorage.getItem(VIEW_KEY);if(v==="idea"||v==="out")return v;}catch{/* 覚えられなくても動く */}return "out";}
 function firstView(){return "calendar";}
@@ -599,7 +600,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
         case"ArrowRight":
           if(view==="calendar"){e.preventDefault();setWeek(d=>{const x=new Date(d);x.setDate(x.getDate()+7);return x;});}
           break;
-        case"c":case"C": e.preventDefault();setView(v=>{const ks=["calendar",v==="idea"||v==="out"?v:lastStock(),"metrics"];const i=ks.indexOf(v);return ks[(i+1)%ks.length];});break;
+        case"c":case"C": e.preventDefault();setView(v=>{const ks=["calendar",...(isAdmin?["plan"]:[]),v==="idea"||v==="out"?v:lastStock(),"metrics"];const i=ks.indexOf(v);return ks[(i+1)%ks.length];});break;
         case"e":case"E":
           if(preview){e.preventDefault();setPreview(null);setEditing({...preview});}
           break;
@@ -726,18 +727,18 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* ── ヘッダー ── */}
       <div className="ck"><style>{CK_CSS+CK_PHONE_CSS}</style>
       <div className="ck-top">
-        {(view==="idea"||view==="out")&&<button className="ck-ghost" style={{width:32,padding:0,justifyContent:"center",border:"0"}} aria-label="メニュー" onClick={()=>setNavOn(o=>!o)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>}
         <span className="ck-brand">{BRAND_ICON}<span>コンテンツくん<b>.</b></span></span>
-        {!isClient&&<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast}/>}
-        {isAdmin&&<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)}/>}
+        {/* 2026-11-18 場所とアカウントの切り替えを 1 つに（中で場所も選ぶ） */}
+        {isAdmin?<AccountPill accounts={switchableAccounts} activeAcc={activeAcc||targetAcc} onPick={id=>{setActiveAccId(id);setPreview(null);}} onManage={()=>setShowAccountSettings(true)} ws={{beforeSwitch:wsBeforeSwitch,onToast:showToast}}/>
+          :!isClient&&<WsChip beforeSwitch={wsBeforeSwitch} onToast={showToast}/>}
 
         <nav className="ck-hm" aria-label="機能" data-tour="nav">
-          {HEAD.map(([k,l])=>{
+          {HEAD.filter(([k])=>k!=="plan"||isAdmin).map(([k,l])=>{
             const isData=k==="data";const on=isData?(view==="idea"||view==="out"):view===k;
             const n=isData?posts.filter(p=>p.status==="idea"&&!p.genre&&(p.postType||"x_post")==="x_post"&&!(p.labels||[]).includes("寝かせ")).length:0;
             // 2026-11-03 上の帯の整理：予約のまま日時が過ぎた数は、直す場所（カレンダー）のタブの横に赤丸と数で出す
             const late=k==="calendar"&&isAdmin?overdueCount:0;
-            return <button key={k} className={on?"on":""} aria-current={on?"page":undefined} onClick={()=>setView(isData?(on?view:lastStock()):k)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:n?`${l}（受け箱 ${n} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title="受け箱">{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}</button>;
+            return <button key={k} className={on?"on":""} aria-current={on?"page":undefined} onClick={()=>setView(isData?(on?view:lastStock()):k)} aria-label={late?`${l}（予約のまま日時が過ぎた投稿 ${late} 件）`:n?`${l}（受け箱 ${n} 件）`:undefined} title={late?`予約のまま日時が過ぎた投稿 ${late} 件`:undefined}>{l}{n>0&&<span className="n" title="受け箱">{n}</span>}{late>0&&<span className="ck-late"><i/>{late}</span>}{k==="metrics"&&!isClient&&<span data-tour="today" title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} style={{display:"inline-flex",marginLeft:2}}><TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/></span>}</button>;
           })}
         </nav>
         {/* 共有リンクバッジ */}
@@ -752,23 +753,20 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
         {/* 右側コントロール */}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
           <button className="ck-q" data-tour="quick" onClick={()=>setQuickOpen(true)} title="検索・追加（⌘K）" aria-label="検索・追加（⌘K）"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span className="ql">検索・追加</span><span className="ck-kbd">⌘K</span></button>
-          {!isClient&&<button data-tour="today" style={{display:"inline-flex",alignItems:"center",gap:6,height:32,padding:"0 8px",borderRadius:8,flexShrink:0}} title={`今日書いた字数 ${dayApi.todayRow.chars.toLocaleString()} 字（目安 ${(dayApi.todayRow.goal||3000).toLocaleString()} 字）`} onClick={()=>setView("metrics")}>
-            <TodayRing chars={dayApi.todayRow.chars} goal={dayApi.todayRow.goal||3000}/><span className="ql" style={{fontSize:12,fontWeight:700,color:"var(--muted)",fontVariantNumeric:"tabular-nums"}}>{dayApi.todayRow.chars.toLocaleString()} 字</span></button>}
           <button className="ck-new" onClick={()=>openNew()}>＋ 新規</button>
           {isAdmin&&(
             <>
               <span className="ck-sep" aria-hidden="true"/>
               <div ref={shareRef} style={{position:"relative"}} data-tour="settings">
-                <button className={`ck-ico ${showShare?"on":""}`} onClick={()=>setShowShare(s=>!s)} aria-label={reviewCount?`設定（確認待ちの依頼 ${reviewCount} 件）`:"設定"} aria-expanded={showShare} title="設定" style={{position:"relative"}}>
+                <button className={`ck-ico ${showShare?"on":""}`} onClick={()=>setShowShare(s=>!s)} aria-label={reviewCount?`その他（確認待ちの依頼 ${reviewCount} 件）`:"その他"} aria-expanded={showShare} title="その他" style={{position:"relative"}}>
                   {reviewCount>0&&<span aria-hidden="true" style={{position:"absolute",top:-3,right:-3,minWidth:17,height:17,borderRadius:99,background:"#b45309",color:"#fff",fontSize:11,fontWeight:800,display:"grid",placeItems:"center",padding:"0 4px",lineHeight:1}}>{reviewCount}</span>}
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
                 </button>
                 {showShare&&(
                   <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"#fff",border:BD2,borderRadius:12,padding:6,zIndex:100,width:200,boxShadow:"0 8px 24px rgba(0,0,0,.1)",display:"flex",flexDirection:"column",gap:1}}>
                     {[
-                      ["配信計画",()=>{setShowSlotSettings(true);setShowShare(false);}],
-                      ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
                       [reviewCount?`依頼の一覧（確認待ち ${reviewCount}）`:"依頼の一覧",()=>{setShowRequests(true);setShowShare(false);}],
+                      ["型の管理",()=>{setShowTemplates(true);setShowShare(false);}],
                       ["書き出し（AI 用・ファイル・CSV）",()=>{setShowExport("ai");setShowShare(false);}], // 2026-11-03 便 C：3 つとも同じ窓だったので 1 つに。窓の中のタブで選ぶ
                       [owner?"クライアント管理":"アカウントの設定",()=>{setShowAccountSettings(true);setShowShare(false);}],
                     ].map(([label,fn])=>(
@@ -987,6 +985,10 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
 
       {/* シートはアウトプットの「シート」へ移した（2026-10-23） */}
 
+      {/* ── 配信計画の画面（2026-11-18 上の帯のタブ） ── */}
+      {view==="plan"&&isAdmin&&<div className="ck"><DeliveryPlan asScreen uid={uid} slots={slots} saveSlots={saveSlots} posts={posts} postTypes={allPostTypes} placeAt={placeAt}
+        onOpen={openPost} onClose={()=>setView("calendar")} showToast={showToast} setUndo={setUndo}/></div>}
+
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}
       {/* ステータスの絞り込みは通さない。数字の有無で絞るほうが目的に合うため */}
       {view==="metrics"&&!isClient&&<ReviewView days={dayApi.days} today={dayApi.today} todayRow={dayApi.todayRow} ready={dayApi.ready} err={dayApi.err} saveDay={dayApi.saveDay}
@@ -1004,7 +1006,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
 
       {/* 2026-11-03 便 B：窓の群も .ck の中に置き、スマホの決まり（字 16px・押す所 44px）を効かせる。囲みは見た目に出ない */}
       <div className="ck" style={{display:"contents"}}>
-      {/* ── 配信計画（2026-11-10 予約枠の設定の窓を置き換えた・screens/DeliveryPlan.jsx） ── */}
+      {/* ── 配信計画（2026-11-10 予約枠の設定の窓を置き換えた・screens/DeliveryPlan.jsx。2026-11-18 から上の帯のタブの画面。窓はほかの入口から開くときだけ） ── */}
       {showSlotSettings&&isAdmin&&<DeliveryPlan uid={uid} slots={slots} saveSlots={saveSlots} posts={posts} postTypes={allPostTypes} placeAt={placeAt}
         onOpen={p=>{setShowSlotSettings(false);openPost(p);}} onClose={()=>setShowSlotSettings(false)} showToast={showToast} setUndo={setUndo}/>}
 
