@@ -9,6 +9,7 @@ import { dbFetchSheetGenres } from "../lib/supabase.js";
 import { slotLabel } from "./CalendarView.jsx";
 import { openCtx } from "../components/CtxMenu.jsx";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
+import { MaterialsEditor } from "../components/SlotMaterials.jsx";
 
 const DOW = ["", "月", "火", "水", "木", "金", "土", "日"];
 const SLEEP = "寝かせ";
@@ -90,8 +91,11 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
     const pt = getPostTypeStyle(s.postType, postTypes); const q = s.quote_of ? slots.find(x => String(x.id) === String(s.quote_of)) : null;
     const by = quotedBy(s.id).length; const f = filled(s);
     const isSrc = cur && src && src.id === s.id, isUse = cur && String(s.quote_of) === String(cur.id);
-    return <button key={s.id} type="button" onClick={() => setSel(s.id)} onContextMenu={e => openCtx(e, menuFor(s))} aria-pressed={sel === s.id}
-      aria-label={`${nameOf(s, postTypes)}${s.genre ? `・ネタの表 ${s.genre}` : ""}${q ? `・${gapDays(q, s)}日前の枠を引用` : ""}`}
+    // 2026-11-18 Naoki「『空き』とかでるのはマウスオーバーポップアップにして、代わりに資料 4 とかの表示で OK」
+    const nm = (s.materials || []).length;
+    const tip = `次の回：${f ? headOf(f) : "空き"}${s.aim ? `\n狙い：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
+    return <button key={s.id} type="button" onClick={() => setSel(s.id)} onContextMenu={e => openCtx(e, menuFor(s))} aria-pressed={sel === s.id} title={tip}
+      aria-label={`${nameOf(s, postTypes)}${s.genre ? `・ネタの表 ${s.genre}` : ""}${q ? `・${gapDays(q, s)}日前の枠を引用` : ""}・次の回 ${f ? headOf(f) : "空き"}${nm ? `・資料 ${nm}` : ""}`}
       style={{ position: "relative", width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 3, padding: "6px 7px", borderRadius: 9, background: "#fff", cursor: "pointer", fontFamily: "inherit", minHeight: small ? 0 : 66, marginBottom: 4,
         border: `1px solid ${sel === s.id ? "#f59e0b" : "#e6dfd6"}`, outline: sel === s.id ? "2px solid #f59e0b" : isSrc ? "2px dashed #0ea5e9" : isUse ? "2px dashed #7dd3fc" : "none", outlineOffset: -1 }}>
       {isSrc && <span style={{ position: "absolute", top: -9, right: 6, fontSize: 12, fontWeight: 800, background: "#0369a1", color: "#fff", borderRadius: 5, padding: "0 5px" }}>引用元</span>}
@@ -100,7 +104,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
       {q && <span style={{ fontSize: 12, fontWeight: 700, color: "#075985", background: "#e0f2fe", borderRadius: 5, padding: "1px 5px", alignSelf: "flex-start", lineHeight: 1.4, wordBreak: "break-all" }}>↩ {gapDays(q, s)}日前の{q.type === "daily" ? "毎日" : DOW[q.dow]}{slotTime(q)}を引用</span>}
       {s.aim && <span title={"狙い：" + s.aim} style={{ fontSize: 12, color: "#4b5563", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◎ {s.aim}</span>}
       {by > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#075985" }}>引用される {by}</span>}
-      {f ? <span style={{ fontSize: 12, lineHeight: 1.4, color: "#1a1a1a", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{headOf(f)}</span> : <span style={{ fontSize: 12, fontWeight: 700, color: "#b45309" }}>空き</span>}
+      {nm > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#047857", background: "#ecfdf5", borderRadius: 5, padding: "1px 5px", alignSelf: "flex-start" }}>資料 {nm}</span>}
     </button>;
   };
 
@@ -175,6 +179,8 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
             </div>}
             <div><label style={lab} htmlFor="dp-aim">狙い（この枠で何を起こしたいか）</label>
               <AimField key={cur.id} id="dp-aim" inputRef={aimRef} value={cur.aim || ""} onSave={v => patch(cur.id, { aim: v })} /></div>
+            <div><span style={lab}>資料（この枠の投稿を書くときに、右の「手順」タブに出る）</span>
+              <MaterialsEditor key={cur.id} materials={cur.materials || []} onChange={list => patch(cur.id, { materials: list })} showToast={showToast} /></div>
             <div style={{ height: 1, background: "#e6dfd6" }} />
             <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62" }}>次の回（{shortDt(nextDt)}）</div>
             {src && <div style={{ border: "1px solid #7dd3fc", background: "#f0f9ff", borderRadius: 10, padding: "8px 10px" }}>

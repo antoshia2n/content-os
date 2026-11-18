@@ -111,10 +111,14 @@ export const hasThumbCol=()=>THUMB_COL;
 // 2026-11-18 引用元：表の列 quote_of があるか（サムネと同じ見方）
 let QUOTE_COL=false;
 export const hasQuoteCol=()=>QUOTE_COL;
+// 2026-11-18 枠の資料のチェック（投稿ごと）：列 checks があるか
+let CHECKS_COL=false;
+export const hasChecksCol=()=>CHECKS_COL;
 export function dbToPost(p){
   const rawLinks=p.memo_links||[];
   if(p&&Object.prototype.hasOwnProperty.call(p,"thumb_url"))THUMB_COL=true;
   if(p&&Object.prototype.hasOwnProperty.call(p,"quote_of"))QUOTE_COL=true;
+  if(p&&Object.prototype.hasOwnProperty.call(p,"checks"))CHECKS_COL=true;
   return{...p,
     thumb:p.thumb_url||"",
     // 日時未定（データベース上は空）は、画面側では空文字として扱う
