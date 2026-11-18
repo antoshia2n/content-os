@@ -45,6 +45,35 @@ async function loadWorkspaces() {
   } catch { return null; }
 }
 
+// 2026-11-18 場所の一覧と替え方を部品の外でも使えるように（上の帯ではアカウントの切り替えの中に場所を並べる）
+export function useWorkspaces({ beforeSwitch, onToast, onDone } = {}) {
+  const cur = getWorkspace();
+  const [list, setList] = React.useState(cur ? [{ id: cur, name: "場所", role: "editor" }] : []);
+  React.useEffect(() => {
+    let dead = false;
+    loadWorkspaces().then(ws => {
+      if (dead || !ws) return;
+      if (cur && !ws.some(w => w.id === cur)) { setWorkspace(null); location.reload(); return; }
+      setList(ws);
+    });
+    return () => { dead = true; };
+  }, []);
+  const nameOf = id => id ? (list.find(w => w.id === id)?.name || "場所") : myName();
+  const items = [{ id: null, name: myName(), sub: "自分の場所" }, ...list.map(w => ({ id: w.id, name: w.name, sub: w.role === "owner" ? "みんなの場所・持ち主" : "みんなの場所" }))];
+  const go = async next => {
+    if (next === cur) { onDone?.(); return; }
+    let ok = true;
+    if (beforeSwitch) {
+      let tm;
+      ok = await Promise.race([Promise.resolve(beforeSwitch()), new Promise(r => { tm = setTimeout(() => r(false), 10000); })]).catch(() => false).finally(() => clearTimeout(tm));
+    }
+    if (ok === "skip") { onDone?.(); return; }
+    if (ok !== true) { onToast?.("保存が終わっていないので、場所はまだ替えていない。少しおいてもう一度"); onDone?.(); return; }
+    setWorkspace(next); location.reload();
+  };
+  return { cur, has: list.length > 0, items, nameOf, go };
+}
+
 export function WsChip({ beforeSwitch, onToast, note = "場所を替えると、見るデータが入れ替わる（ほかの場所のデータは混ざらない）" }) {
   const cur = getWorkspace();
   const [list, setList] = React.useState(cur ? [{ id: cur, name: "場所", role: "editor" }] : []);

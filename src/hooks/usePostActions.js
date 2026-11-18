@@ -3,7 +3,7 @@
 
 import { useCallback, useRef } from "react";
 import { dbUpsertPost, dbDeletePost, dbUpdatePost, dbUpdateAccount } from "../lib/supabase.js";
-import { genId, nowStr, nextDaySameTime, COLORS, hasThumbCol } from "../constants.js";
+import { genId, nowStr, nextDaySameTime, COLORS, hasThumbCol, hasQuoteCol } from "../constants.js";
 
 
 export function usePostActions({
@@ -65,6 +65,8 @@ export function usePostActions({
       notion_page_id: cleanP.notion_page_id || null,
       // サムネ（2026-11-07）：列があるときだけ送る（列が無いまま送ると保存ごと失敗するため）
       ...(hasThumbCol() ? { thumb_url: cleanP.thumb || null } : {}),
+      // 引用元（2026-11-18）：X 引用のときだけ残す。列があるときだけ送る
+      ...(hasQuoteCol() ? { quote_of: cleanP.postType === "x_quote" && cleanP.quote_of ? Number(cleanP.quote_of) : null } : {}),
     };
     const { error } = await dbUpsertPost(record);
     if (error) { showToast("保存に失敗しました"); return false; }
