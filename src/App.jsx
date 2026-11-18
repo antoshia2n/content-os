@@ -303,8 +303,10 @@ function App({uid,panel=false,owner=false}){
   useEffect(()=>{
     if(!showShare)return;
     const h=e=>{if(shareRef.current&&!shareRef.current.contains(e.target))setShowShare(false);};
-    document.addEventListener("mousedown",h);
-    return()=>document.removeEventListener("mousedown",h);
+    // 2026-11-18 見直し：Esc でも閉じ、閉じたら「…」のボタンへ戻る（5b の「窓」の決まり）
+    const k=e=>{if(e.key==="Escape"){e.stopPropagation();setShowShare(false);shareRef.current?.querySelector("button")?.focus();}};
+    document.addEventListener("mousedown",h);document.addEventListener("keydown",k,true);
+    return()=>{document.removeEventListener("mousedown",h);document.removeEventListener("keydown",k,true);};
   },[showShare]);
 
   const [today,setToday]=useState(()=>fmtDate(new Date()));

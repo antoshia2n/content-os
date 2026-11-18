@@ -302,7 +302,8 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
                 ? <div style={{ fontSize: 12.5, color: "#6b6259" }}>すべての曜日と同じ（{(cur.materials || []).length} 件）
                     <button type="button" onClick={() => setV("materials", [...(cur.materials || [])])} style={{ marginLeft: 6, border: "1px solid #e6dfd6", background: "#fff", borderRadius: 7, padding: "3px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>この曜日だけの参考にする</button></div>
                 : <>
-                  <MaterialsEditor key={`${cur.id}-${dayOn ? dayTab : 0}`} materials={(dayOn ? rule.materials : cur.materials) || []} onChange={list => setV("materials", list)} showToast={showToast} />
+                  <MaterialsEditor key={`${cur.id}-${dayOn ? dayTab : 0}`} materials={(dayOn ? rule.materials : cur.materials) || []} onChange={list => setV("materials", list)} showToast={showToast}
+                    onRemoved={(m, before) => { const id = cur.id, d = dayOn ? dayTab : 0; if (setUndo) setUndo({ msg: `「${m.label}」を削除しました`, run: () => saveSlots(prev => prev.map(x => x.id !== id ? x : d ? { ...x, day_rules: { ...(x.day_rules || {}), [String(d)]: { ...((x.day_rules || {})[String(d)] || {}), materials: before } } } : { ...x, materials: before })) }); }} />
                   {dayOn && <button type="button" onClick={() => setV("materials", undefined)} style={{ marginTop: 6, border: "none", background: "none", padding: 0, fontSize: 12, color: "#b45309", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>すべての曜日と同じに戻す</button>}
                 </>}</div>
             {!dayOn && <>
@@ -367,8 +368,10 @@ function SlotEval({ s, posts, slots, dow, n, setN, onOpen }) {
 function AimField({ id, value, onSave, inputRef, placeholder }) {
   const [v, setV] = useState(value);
   const t = useRef(null);
-  const commit = x => { clearTimeout(t.current); if (x !== value) onSave(x); };
-  useEffect(() => () => clearTimeout(t.current), []);
+  const commit = x => { clearTimeout(t.current); t.current = null; if (x !== value) onSave(x); };
+  // 2026-11-18 見直し：打って 1 秒たつ前に別の枠・曜日へ移ると、打ちかけの字が消えていた。閉じるときに残りを保存する
+  const last = useRef({ v, value, onSave }); last.current = { v, value, onSave };
+  useEffect(() => () => { if (t.current) { clearTimeout(t.current); const l = last.current; if (l.v !== l.value) l.onSave(l.v); } }, []);
   return <textarea id={id} ref={inputRef} rows={3} value={v} placeholder={placeholder || "例：週の頭に保存されるノウハウで、プロフへの流入を作る"}
     onChange={e => { const x = e.target.value; setV(x); clearTimeout(t.current); t.current = setTimeout(() => commit(x), 1000); }} onBlur={() => commit(v)}
     style={{ width: "100%", border: "1px solid #a39a90", borderRadius: 8, padding: "7px 9px", fontSize: 13, fontFamily: "inherit", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" }} />;
