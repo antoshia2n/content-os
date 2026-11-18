@@ -118,7 +118,7 @@ export function RequestTab({ mode = "make", uid, draft, setDraft, saved, templat
   const parts = threadParts(draft?.body || "");
   const schBlock = scheduleBlock(draft || {}, parts, { xLen }) || (isQuote && !quoteOf ? "引用元を選んでください" : "");
   // 引用元の候補：この投稿より前の日時の投稿（新しい順に 30 件）
-  const sources = (allPosts || []).filter(p => p.id !== postId && p.datetime && (!draft?.datetime || p.datetime < draft.datetime) && ["x_post", "x_article", "x_quote"].includes(p.postType)).sort((a, b) => (a.datetime < b.datetime ? 1 : -1)).slice(0, 30);
+  const sources = (allPosts || []).filter(p => p.id !== postId && p.datetime && (!draft?.datetime || p.datetime <= draft.datetime) && ["x_post", "x_article", "x_quote"].includes(p.postType)).sort((a, b) => (a.datetime < b.datetime ? 1 : -1)).slice(0, 30);
   const schedule = async () => {
     if (schBlock || busy) return;
     setBusy(true); setErr("");
