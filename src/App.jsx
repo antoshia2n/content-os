@@ -74,6 +74,7 @@ const StockView          =lazyNamed(()=>import("./screens/StockView.jsx"),"Stock
 const ReviewView         =lazyNamed(()=>import("./screens/ReviewView.jsx"),"ReviewView");
 import { Btn } from "./components/shared.jsx";
 import { CalFilter } from "./components/CalFilter.jsx";
+import { useZoom, ZoomControl } from "./components/ZoomControl.jsx";
 import { usePostActions } from "./hooks/usePostActions.js";
 import { useDays } from "./hooks/useDays.js";
 import { TodayRing } from "./components/TodayRing.jsx";
@@ -214,6 +215,7 @@ function App({uid,panel=false,owner=false}){
   const [navOn,setNavOn]=useState(()=>typeof window==="undefined"||window.innerWidth>860);
   // 2026-10-23 2便：カレンダーの見せ方（週／リスト）・右のネタの棚・Buffer に入れる確認
   const [calMode,setCalModeRaw]=useState(()=>{const narrow=typeof window!=="undefined"&&window.innerWidth<=760;try{return localStorage.getItem("contentos.calmode")||(narrow?"list":"week");}catch{return narrow?"list":"week";}});
+  const [calZoom,setCalZoom]=useZoom("calendar"); // 2026-11-18 表示の大きさ
   const setCalMode=m=>{setCalModeRaw(m);try{localStorage.setItem("contentos.calmode",m);}catch{/* 覚えられなくても動く */}};
   // 2026-10-24 6便：週の表は、予定と枠のある時間帯だけを出す。夜中も見たいときだけ 0 時から出す
   const [trayOn,setTrayOn]=useState(()=>typeof window==="undefined"||window.innerWidth>900);
@@ -836,6 +838,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
             <button className={`ck-vtab ${calMode==="list"?"on":""}`} onClick={()=>setCalMode("list")}>リスト</button><GQ id="calendar" n={2} style={{alignSelf:"center"}}/>
             <button className={`ck-vtab ${trayOn?"on":""}`} onClick={()=>setTrayOn(v=>!v)} title="右にネタと日時なしのアウトプットを出す">ネタの棚</button><GQ id="calendar" n={3} style={{alignSelf:"center"}}/>
           </div>
+          <span style={{marginLeft:6}}><ZoomControl value={calZoom} onChange={setCalZoom}/></span>
           <div className="ck-calf"><CalFilter groups={[
             {key:"st",label:"状態",sel:filterStatus,set:setFilter,items:Object.entries(STATUS).filter(([k])=>k!=="idea").map(([k,v])=>({k,label:v.label,n:weekAll.filter(p=>p.status===k&&(!filterPlatform.length||filterPlatform.includes(p.postType||"x_post"))).length})).filter(x=>x.n>0||filterStatus.includes(x.k))},
             {key:"pt",label:"種類",sel:filterPlatform,set:setFilterPlatform,items:Object.entries(allPostTypes).map(([k,v])=>({k,label:v.label,n:weekAll.filter(p=>(p.postType||"x_post")===k&&(!filterStatus.length||filterStatus.includes(p.status))).length})).filter(x=>x.n>0||filterPlatform.includes(x.k))},
@@ -846,13 +849,13 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* ── カレンダービュー ── */}
       {view==="calendar"&&(
         <div className="ck"><style>{PLAN_CSS}</style><div className="ck-cal"><div className="ck-cal-main">
-        {calMode==="list"?(
+        {calMode==="list"?(<div style={{zoom:calZoom/100}}>
           <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} occupied={posts} slots={visibleSlots} postTypes={allPostTypes}
             dragId={dragId} setDragId={setDragId} onPlace={placeAt} onSwap={swapAt} onOpen={openPost} openNew={openNew}
-            changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)}/>
+            changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)}/></div>
         ):(
         <div style={{height:"calc(100vh - 100px)",overflow:"auto"}}>
-          <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860}}>
+          <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860,zoom:calZoom/100}}>
             <div style={{background:"#fff",position:"sticky",top:0,zIndex:20,borderRight:"1px solid #e6dfd6",borderBottom:BD2}}/>
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];

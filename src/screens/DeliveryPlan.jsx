@@ -10,6 +10,7 @@ import { slotLabel } from "./CalendarView.jsx";
 import { openCtx } from "../components/CtxMenu.jsx";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { MaterialsEditor } from "../components/SlotMaterials.jsx";
+import { useZoom, ZoomControl } from "../components/ZoomControl.jsx";
 
 const DOW = ["", "月", "火", "水", "木", "金", "土", "日"];
 const SLEEP = "寝かせ";
@@ -82,6 +83,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
   const [genres, setGenres] = useState([]);
   const [newTime, setNewTime] = useState("");
   const aimRef = useRef(null);
+  const [zoom, setZoom] = useZoom("plan");
   useEffect(() => { if (uid) dbFetchSheetGenres(uid).then(setGenres).catch(() => {}); }, [uid]);
 
   const grid = slots.filter(s => s.type !== "nth_weekday");
@@ -170,6 +172,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
         {!asScreen && <span id="plan-title" style={{ fontWeight: 800, fontSize: 16 }}>配信計画</span>}
         <span style={{ fontSize: 12, color: "#736a62" }}>マスの空いた所を押すと枠を追加・枠を右クリックでメニュー</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <ZoomControl value={zoom} onChange={setZoom} />
           <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} aria-label="追加する時刻" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "4px 6px", fontSize: 13, fontFamily: "inherit" }} />
           <button type="button" onClick={() => { if (!newTime) { showToast("時刻を入れてください"); return; } setExtraTimes(t => [...new Set([...t, newTime])]); setNewTime(""); }} style={{ border: "1px solid #e6dfd6", background: "#fff", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>＋ 時刻の行を追加</button>
           {!asScreen && <button type="button" onClick={onClose} style={{ border: "1px solid #e6dfd6", background: "#fff", borderRadius: 20, padding: "5px 12px", fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer", fontFamily: "inherit" }}>閉じる</button>}
@@ -177,7 +180,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
       </div>
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 14, padding: 14 }}>
         <div style={{ flex: 1, minWidth: 0, background: "#fff", border: "1px solid #e6dfd6", borderRadius: 12, overflow: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 760, tableLayout: "fixed" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 760, tableLayout: "fixed", zoom: zoom / 100 }}>
             <thead><tr><th style={{ width: 62, background: "#f7f3ee", borderBottom: "1px solid #e6dfd6" }} />{SLOT_DOWS.map(([d, l]) => <th key={d} style={{ fontSize: 12, fontWeight: 800, color: "#736a62", padding: 8, textAlign: "left", background: "#f7f3ee", borderBottom: "1px solid #e6dfd6" }}>{l}</th>)}</tr></thead>
             <tbody>
               {times.map(t => <tr key={t}>
