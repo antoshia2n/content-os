@@ -26,12 +26,26 @@ export function gapDays(src, dst) {
 }
 // 2026-11-18 引用・告知の相手との関係。引用は相手が前だけ。告知は前（＝告知）でも後（＝予告）でもよく、近いほう（同じなら前）
 export function relOf(target, s) {
+  // 2026-11-18 Naoki「まず日にちから選びたい。最大 31 日前とかまで」→ 選んだ日数（quote_gap・後は負）があればそれを使う
+  if (Number.isInteger(s.quote_gap) && String(s.quote_of) === String(target.id)) {
+    const g = s.quote_gap, n = Math.abs(g), after = g < 0;
+    return { n, after, text: n === 0 ? "同じ日の" : after ? `${n}日後の` : `${n}日前の` };
+  }
   const back = gapDays(target, s); // 相手が何日前か
   if (s.postType !== "x_promo") return { n: back, after: false, text: back === 0 ? "同じ日の" : `${back}日前の` };
   const fwd = gapDays(s, target); // 相手が何日後か
   if (fwd < back) return { n: fwd, after: true, text: fwd === 0 ? "同じ日の" : `${fwd}日後の` };
   return { n: back, after: false, text: back === 0 ? "同じ日の" : `${back}日前の` };
 }
+// 2026-11-18 何日前（後は負）の日にある枠。毎週の枠はその曜日、毎日の枠は毎日。同じ日の引用は時刻が前（同じも可）のものだけ
+const MAX_GAP = 31;
+export function slotsOnGap(all, cur, g) {
+  const tDow = cur.type === "daily" ? null : ((((cur.dow || 1) - 1 - g) % 7) + 7) % 7 + 1;
+  return all.filter(x => x.id !== cur.id && !isRelType(x.postType) && x.type !== "nth_weekday"
+    && (x.type === "daily" || tDow == null || x.dow === tDow)
+    && !(g === 0 && cur.postType !== "x_promo" && slotTime(x) > slotTime(cur)));
+}
+const gapLabel = (g, promo) => (g === 0 ? "同じ日" : g > 0 ? `${g}日前${promo ? "（告知）" : ""}` : `${-g}日後（予告）`);
 const relVerb = (s, r) => (s.postType === "x_promo" ? (r.after ? "予告" : "告知") : "引用");
 // その枠の次の回（今日の、まだ過ぎていない時刻を含む）
 export function nextOccurrence(s, now = new Date()) {
@@ -197,7 +211,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
                 <input id="dp-time" type="time" value={slotTime(cur)} onChange={e => e.target.value && patch(cur.id, { time: e.target.value })} style={fld} /></div>
             </div>
             <div><label style={lab} htmlFor="dp-pt">出すもの（アウトプットの種類）</label>
-              <select id="dp-pt" value={cur.postType || "x_post"} onChange={e => patch(cur.id, { postType: e.target.value, quote_of: isRelType(e.target.value) ? cur.quote_of : null })} style={fld}>
+              <select id="dp-pt" value={cur.postType || "x_post"} onChange={e => patch(cur.id, { postType: e.target.value, quote_of: isRelType(e.target.value) ? cur.quote_of : null, quote_gap: isRelType(e.target.value) ? cur.quote_gap ?? null : null })} style={fld}>
                 {Object.entries(postTypes).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select></div>
             <div><label style={lab} htmlFor="dp-genre">ネタの表（ここからネタを出す）</label>
@@ -207,10 +221,30 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
                 {genres.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
               </select></div>
             {isRelType(cur.postType) && <div><label style={lab} htmlFor="dp-q">{cur.postType === "x_promo" ? "告知するもの（どの枠の投稿を告知するか）" : "引用元（どの枠の投稿を引用するか）"}</label>
-              <select id="dp-q" value={cur.quote_of ? String(cur.quote_of) : ""} onChange={e => patch(cur.id, { quote_of: e.target.value || null })} style={fld}>
-                <option value="">選ばない</option>
-                {slots.filter(x => x.id !== cur.id && !isRelType(x.postType)).map(x => { const rr = relOf(x, cur); return <option key={x.id} value={String(x.id)}>{rr.text.replace(/の$/, "")}・{nameOf(x, postTypes)}{x.genre ? `（${x.genre}）` : ""}{cur.postType === "x_promo" ? `（${relVerb(cur, rr)}）` : ""}</option>; })}
-              </select>
+              {(() => {
+                // まず「何日前か」→ その日にある枠。前に選んだ相手は、その日数のまま出す
+                const promo = cur.postType === "x_promo";
+                const g = Number.isInteger(cur.quote_gap) ? cur.quote_gap : src ? (r => (r.after ? -r.n : r.n))(relOf(src, cur)) : null;
+                const gaps = [0, ...Array.from({ length: MAX_GAP }, (_, i) => i + 1), ...(promo ? Array.from({ length: MAX_GAP }, (_, i) => -(i + 1)) : [])];
+                const cand = g == null ? [] : slotsOnGap(slots, cur, g);
+                const pickGap = v => {
+                  if (v === "") { patch(cur.id, { quote_of: null, quote_gap: null }); return; }
+                  const ng = Number(v), c = slotsOnGap(slots, cur, ng);
+                  const keep = cur.quote_of && c.some(x => String(x.id) === String(cur.quote_of)) ? String(cur.quote_of) : c.length === 1 ? String(c[0].id) : null;
+                  patch(cur.id, { quote_gap: ng, quote_of: keep });
+                };
+                return <div style={{ display: "flex", gap: 6 }}>
+                  <select id="dp-q" aria-label="何日前か" value={g == null ? "" : String(g)} onChange={e => pickGap(e.target.value)} style={{ ...fld, flex: "0 0 128px" }}>
+                    <option value="">日を選ぶ</option>
+                    {gaps.map(x => <option key={x} value={String(x)}>{gapLabel(x, promo)}</option>)}
+                  </select>
+                  <select aria-label={promo ? "告知する枠" : "引用元の枠"} value={cur.quote_of ? String(cur.quote_of) : ""} disabled={g == null}
+                    onChange={e => patch(cur.id, { quote_of: e.target.value || null, quote_gap: e.target.value ? g : null })} style={{ ...fld, flex: 1, minWidth: 0 }}>
+                    <option value="">{g == null ? "先に日を選ぶ" : cand.length ? "枠を選ぶ" : "その日に枠がありません"}</option>
+                    {cand.map(x => <option key={x.id} value={String(x.id)}>{slotTime(x)} {getPostTypeStyle(x.postType, postTypes).label}{x.type === "daily" ? "（毎日）" : ""}{x.genre ? `・${x.genre}` : ""}</option>)}
+                  </select>
+                </div>;
+              })()}
               {src && <div style={{ fontSize: 12, color: REL_TYPES[cur.postType].ink, marginTop: 4 }}>{relOf(src, cur).text}投稿を{relVerb(cur, relOf(src, cur))}する。表で点線の枠が相手</div>}
             </div>}
             <div><label style={lab} htmlFor="dp-aim">狙い（この枠で何を起こしたいか）</label>
