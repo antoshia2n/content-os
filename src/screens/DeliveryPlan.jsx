@@ -98,6 +98,30 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
     { label: "この枠を削除", danger: true, run: () => remove(s) },
   ];
 
+  // 2026-11-18 Naoki「引用の方が下に来て、ちょっとサイズが小さいイメージで。サブタスク的な見え方」→ 確定案に OK 13:06
+  // 引用・告知は 1 行の小さな行。同じマスに相手がいれば相手のすぐ下に字下げで、いなければマスの一番下に並べる
+  const subPill = (s, nested) => {
+    const rt = REL_TYPES[s.postType]; const q = s.quote_of ? slots.find(x => String(x.id) === String(s.quote_of)) : null;
+    const r = q ? relOf(q, s) : null; const f = filled(s); const nm = (s.materials || []).length;
+    const isSrc = cur && src && src.id === s.id, isUse = cur && String(s.quote_of) === String(cur.id);
+    const what = q ? `${r.text}${getPostTypeStyle(q.postType, postTypes).label}` : "相手を選ぶ";
+    const tip = `${getPostTypeStyle(s.postType, postTypes).label}：${q ? `${what}を${relVerb(s, r)}` : "相手がまだ無い"}\n次の回：${f ? headOf(f) : "空き"}${s.aim ? `\n狙い：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
+    return <button key={s.id} type="button" onClick={() => setSel(s.id)} onContextMenu={e => openCtx(e, menuFor(s))} aria-pressed={sel === s.id} title={tip}
+      aria-label={`${getPostTypeStyle(s.postType, postTypes).label}・${q ? `${what}を${relVerb(s, r)}` : "相手がまだ無い"}・次の回 ${f ? headOf(f) : "空き"}`}
+      style={{ display: "flex", alignItems: "flex-start", gap: 4, width: nested ? "calc(100% - 10px)" : "100%", marginLeft: nested ? 10 : 0, marginBottom: 4, padding: "3px 6px", borderRadius: 6, border: "none",
+        background: rt.soft, boxShadow: `inset 3px 0 0 ${rt.bar}`, cursor: "pointer", fontFamily: "inherit", textAlign: "left", fontSize: 12, lineHeight: 1.35, color: rt.ink, fontWeight: 700,
+        outline: sel === s.id ? "2px solid #f59e0b" : isSrc ? `2px dashed ${REL_TYPES[cur.postType]?.bar || rt.bar}` : isUse ? `2px dashed ${rt.bar}` : "none", outlineOffset: -1 }}>
+      <span aria-hidden style={{ color: "#a39a90", fontWeight: 800 }}>└</span>
+      <span style={{ minWidth: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-all" }}>{rt.word}・{what}</span>
+    </button>;
+  };
+  const cellItems = here => {
+    const main = here.filter(s => !isRelType(s.postType)), subs = here.filter(s => isRelType(s.postType)), used = new Set();
+    const out = [];
+    main.forEach(m => { out.push(pill(m)); subs.filter(x => String(x.quote_of) === String(m.id)).forEach(x => { used.add(x.id); out.push(subPill(x, true)); }); });
+    subs.filter(x => !used.has(x.id)).forEach(x => out.push(subPill(x, false)));
+    return out;
+  };
   const pill = (s, small) => {
     const pt = getPostTypeStyle(s.postType, postTypes); const q = s.quote_of ? slots.find(x => String(x.id) === String(s.quote_of)) : null;
     const byQ = quotedBy(s.id).filter(x => x.postType === "x_quote").length, byP = quotedBy(s.id).filter(x => x.postType === "x_promo").length; const f = filled(s);
@@ -147,7 +171,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
                 {SLOT_DOWS.map(([d, l]) => {
                   const here = grid.filter(s => slotTime(s) === t && (s.type === "daily" || s.dow === d));
                   return <td key={d} style={{ verticalAlign: "top", padding: 4, borderTop: "1px solid #f1ebe4", borderLeft: "1px solid #f1ebe4", height: 80 }}>
-                    {here.map(s => pill(s))}
+                    {cellItems(here)}
                     <button type="button" onClick={() => add(d, t)} aria-label={`${l} ${t} に枠を追加`} className="dp-add"
                       style={{ width: "100%", minHeight: here.length ? 22 : 66, border: "none", borderRadius: 8, background: "transparent", color: "transparent", fontSize: here.length ? 12 : 18, cursor: "pointer", fontFamily: "inherit" }}>＋</button>
                   </td>;
@@ -158,7 +182,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
           </table>
           {monthly.length > 0 && <div style={{ padding: 12, borderTop: "1px solid #e6dfd6" }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62", marginBottom: 6 }}>毎月の枠</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 6 }}>{monthly.map(s => <div key={s.id}><div style={{ fontSize: 12, color: "#736a62", marginBottom: 2 }}>{slotLabel(s)}</div>{pill(s, true)}</div>)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 6 }}>{monthly.map(s => <div key={s.id}><div style={{ fontSize: 12, color: "#736a62", marginBottom: 2 }}>{slotLabel(s)}</div>{isRelType(s.postType) ? subPill(s, false) : pill(s, true)}</div>)}</div>
           </div>}
         </div>
         <div style={{ width: 340, flexShrink: 0, background: "#fff", border: "1px solid #e6dfd6", borderRadius: 12, padding: 14, overflowY: "auto" }}>
