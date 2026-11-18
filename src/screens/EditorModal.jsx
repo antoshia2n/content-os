@@ -12,7 +12,7 @@ import { loadPendingRefs, savePendingRefs, toggleIn, whereAttached } from "../li
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
-import { hasThumbCol, hasQuoteCol } from "../constants.js";
+import { hasThumbCol, hasQuoteCol, isRelType } from "../constants.js";
 import { QuoteSource } from "../components/QuoteSource.jsx";
 import { MaterialsView } from "../components/SlotMaterials.jsx";
 import { slotForPost } from "../lib/materials.js";
@@ -582,7 +582,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
                           style={{minWidth:30,height:30,borderRadius:7,border:`1.5px solid ${on?SCORE[k].bg:"#a39a90"}`,background:on?SCORE[k].bg:"#fff",color:on?"#fff":"#333",fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{on?"✓ ":""}{k}</button>;})}
                       </div>
                     </div>
-                    {draft.postType==="x_quote"&&hasQuoteCol()&&<QuoteSource draft={draft} setDraft={setDraft} allPosts={allPosts} toast={showSmall}/>}
+                    {isRelType(draft.postType)&&hasQuoteCol()&&<QuoteSource draft={draft} setDraft={setDraft} allPosts={allPosts} toast={showSmall} postTypes={postTypes}/>}
                     {hasNums&&<div>
                       <span style={lab}>反応の数字（Buffer から毎日）</span>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>

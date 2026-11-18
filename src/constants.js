@@ -11,6 +11,7 @@ export const PORTAL_URL     = "https://portal.shia2n.jp";
 export const POST_TYPE = {
   x_post:    { label:"Xポスト",  color:"#0369a1", bg:"#e8f5fe", border:"#93d3fc", dot:"#1d9bf0" },
   x_quote:   { label:"X引用",   color:"#075985", bg:"#e0f2fe", border:"#7dd3fc", dot:"#0ea5e9" },
+  x_promo:   { label:"X告知",   color:"#9a3412", bg:"#ffedd5", border:"#fdba74", dot:"#ea580c" }, // 2026-11-18 Naoki「引用と同じ感じで『告知』とかも用意」
   x_article: { label:"X記事",   color:"#1d4ed8", bg:"#dbeafe", border:"#93c5fd", dot:"#2563eb" },
   note:      { label:"note",   color:"#0f766e", bg:"#d1faf5", border:"#6ee7da", dot:"#41c9b4" },
   membership:{ label:"メンシプ", color:"#6d28d9", bg:"#ede9fe", border:"#c4b5fd", dot:"#8b5cf6" },
@@ -22,6 +23,12 @@ export const POST_TYPE = {
 export const DEFAULT_POST_TYPE = Object.freeze({
   label:"その他", color:"#4b5563", bg:"#f3f4f6", border:"#d1d5db", dot:"#9ca3af",
 });
+// 2026-11-18 ほかの枠・投稿につながる種類（引用・告知）。posts.quote_of・slots.quote_of に「相手」を持つ
+export const REL_TYPES = {
+  x_quote: { word:"引用", target:"引用元", ink:"#075985", soft:"#f0f9ff", bar:"#0ea5e9" },
+  x_promo: { word:"告知", target:"告知するもの", ink:"#9a3412", soft:"#fff7ed", bar:"#ea580c" },
+};
+export const isRelType = t => Object.prototype.hasOwnProperty.call(REL_TYPES, t);
 export function getPostTypeStyle(postType, postTypes = POST_TYPE){
   return Object.prototype.hasOwnProperty.call(postTypes, postType)
     ? postTypes[postType] || DEFAULT_POST_TYPE
