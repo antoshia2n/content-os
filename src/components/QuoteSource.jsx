@@ -23,7 +23,7 @@ export function QuoteSource({ draft, setDraft, allPosts = [], toast, postTypes =
     return allPosts
       .filter(p => p.id !== draft.id && (promo ? !REL_TYPES[p.postType] : TYPES.some(([k]) => k === p.postType)))
       .filter(p => kind === "all" || p.postType === kind)
-      .filter(p => promo || !draft.datetime || !p.datetime || p.datetime < draft.datetime)
+      .filter(p => promo || !draft.datetime || !p.datetime || p.datetime <= draft.datetime) // 同じ時刻の投稿も引用元にできる（2026-11-18）
       .filter(p => !qq || headOf(p).toLowerCase().includes(qq))
       .sort(promo && draft.datetime
         ? (a, b) => Math.abs(new Date(a.datetime || 0) - new Date(draft.datetime)) - Math.abs(new Date(b.datetime || 0) - new Date(draft.datetime))
