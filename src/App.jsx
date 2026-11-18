@@ -989,7 +989,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* シートはアウトプットの「シート」へ移した（2026-10-23） */}
 
       {/* ── 配信計画の画面（2026-11-18 上の帯のタブ） ── */}
-      {view==="plan"&&isAdmin&&<div className="ck"><DeliveryPlan asScreen uid={uid} slots={slots} saveSlots={saveSlots} posts={posts} postTypes={allPostTypes} placeAt={placeAt}
+      {view==="plan"&&isAdmin&&<div className="ck"><DeliveryPlan asScreen uid={uid} slots={slots} saveSlots={saveSlots} posts={posts} postTypes={allPostTypes} placeAt={placeAt} templates={templates}
         onOpen={openPost} onClose={()=>setView("calendar")} showToast={showToast} setUndo={setUndo}/></div>}
 
       {/* ── 成績ビュー（Buffer から戻ってきた数字） ── */}

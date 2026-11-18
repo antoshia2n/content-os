@@ -168,7 +168,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
   // 2026-11-10 軽量化 便1：広い画面の右は「詳細・検索」の 2 つ。詳細は 設定 → メモとリンク → コメント → ラベルとサムネ の 1 本（履歴は画面から外した。記録は表に残る）
   const [sidePanel,setSidePanel]=useState(compact?(post.status==="idea"?"meta":null):"set");
   // 2026-11-18 枠の資料：この投稿の枠（予定の日時と種類から）に資料があれば、右に「手順」タブを出す
-  const mSlot=React.useMemo(()=>{const s=slotForPost(draft,slots);return s&&(s.materials||[]).length?s:null;},[draft.datetime,draft.postType,slots]);
+  const mSlot=React.useMemo(()=>{const s=slotForPost(draft,slots);return s&&((s.materials||[]).length||s.tpl_id||s.aim||s.genre)?s:null;},[draft.datetime,draft.postType,slots]);
   const stepsLeft=mSlot?(mSlot.materials||[]).filter(m=>m.kind==="check").flatMap(m=>m.items||[]).filter(i=>!(draft.checks||{})[i.id]).length:0;
   const [sideW,setSideW]=useState(340);
   const [cmt,setCmt]=useState("");
@@ -537,7 +537,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
               </div>}
               <div style={{flex:1,overflowY:"auto",padding:sidePanel==="search"?0:13}}>
                 {(sidePanel==="req"||sidePanel==="ship")&&!compact&&<RequestTab key={sidePanel} mode={sidePanel==="ship"?"ship":"make"} uid={uid} refs={reqRefs} setRefs={setReqRefs} allPosts={allPosts} draft={draft} setDraft={setDraft} saved={allPosts.some(p=>p.id===draft.id)} templates={templates} postTypes={postTypes} toast={showSmall} onManageTemplates={onManageTemplates?()=>onManageTemplates({kind:"request"}):null}/>}
-                {sidePanel==="steps"&&!compact&&mSlot&&<MaterialsView slot={mSlot} slotName={slotLabel(mSlot)} checks={draft.checks||{}} onToggle={id=>setDraft(d=>{const c={...(d.checks||{})};if(c[id])delete c[id];else c[id]=true;return {...d,checks:c};})}/>}
+                {sidePanel==="steps"&&!compact&&mSlot&&<MaterialsView slot={mSlot} slotName={slotLabel(mSlot)} tplName={templates.find(t=>String(t.id)===String(mSlot.tpl_id))?.name||""} onOpenTpl={()=>setSidePanel("tpl")} checks={draft.checks||{}} onToggle={id=>setDraft(d=>{const c={...(d.checks||{})};if(c[id])delete c[id];else c[id]=true;return {...d,checks:c};})}/>}
                 {sidePanel==="tpl"&&!compact&&<TemplateTab templates={templates} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates?()=>onManageTemplates():null} onEdit={onManageTemplates?(t=>onManageTemplates(t.id)):null} toast={showSmall}/>}
                 {sidePanel==="search"&&(
                   <PostSearchPanel
