@@ -251,6 +251,14 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
   const [partsOpen,setPartsOpen]=useState(false);
   const [partDone,setPartDone]=useState(-1);
   useEffect(()=>{setPartIdx(i=>i<xParts.length?i:0);},[xParts.length]);
+  // 見直し 2026-11-20：別の投稿を開いたら 1 本目から。一覧は外を押す・Esc で閉じる
+  useEffect(()=>{setPartIdx(0);setPartsOpen(false);setPartDone(-1);},[post.id]);
+  const partsBox=useRef(null);
+  useEffect(()=>{if(!partsOpen)return;
+    const down=e=>{if(partsBox.current&&!partsBox.current.contains(e.target))setPartsOpen(false);};
+    const key=e=>{if(e.key==="Escape"){e.stopPropagation();setPartsOpen(false);}};
+    document.addEventListener("mousedown",down);document.addEventListener("keydown",key,true);
+    return()=>{document.removeEventListener("mousedown",down);document.removeEventListener("keydown",key,true);};},[partsOpen]);
   const copyPart=i=>{
     const t=xParts[i];if(t==null)return;
     const done=()=>{setPartDone(i);setTimeout(()=>setPartDone(d=>d===i?-1:d),2500);setPartIdx(i+1<xParts.length?i+1:0);};
@@ -474,16 +482,16 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
           {/* 2026-11-13 Naoki「通常のコピーボタンは右上に」：右下から上の帯へ戻した（note 用・X記事用の別の形は「…」のまま） */}
-          {isXThread?<span style={{position:"relative",display:"inline-flex",flexShrink:0}}>
+          {isXThread?<span ref={partsBox} style={{position:"relative",display:"inline-flex",flexShrink:0}}>
             <button onClick={()=>doCopy("x")} title="スレッドを 1 本ずつコピーします。X の入力欄に貼ったら、もう一度押すと次の 1 本"
               style={{height:34,padding:"0 12px",borderRadius:"10px 0 0 10px",border:partDone>=0?"1px solid #047857":"none",background:partDone>=0?"#ecfdf5":"#b45309",color:partDone>=0?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
               {partDone>=0?`✓ ${partDone+1}/${xParts.length} をコピーしました`:`${partIdx+1}/${xParts.length} をコピー`}</button>
             <button onClick={()=>setPartsOpen(v=>!v)} aria-expanded={partsOpen} aria-label="1 本ずつの一覧" title="1 本ずつの一覧"
               style={{height:34,padding:"0 8px",borderRadius:"0 10px 10px 0",border:"none",borderLeft:"1px solid #ffffff55",background:"#b45309",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>▾</button>
             {partsOpen&&<div role="dialog" aria-label="スレッドを 1 本ずつコピー" style={{position:"absolute",top:40,right:0,zIndex:60,width:320,maxHeight:360,overflow:"auto",background:"#fff",border:BD2,borderRadius:10,boxShadow:"0 8px 28px #00000022",padding:6}}>
-              {xParts.map((t,i)=>{const n=xLen(t),over=n>280;return <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 6px",borderBottom:i<xParts.length-1?"1px solid #f1ebe4":"none",background:i===partIdx?"#fff7ed":"#fff",borderRadius:6}}>
+              {xParts.map((t,i)=>{const n=xLen(t),over=false;return <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 6px",borderBottom:i<xParts.length-1?"1px solid #f1ebe4":"none",background:i===partIdx?"#fff7ed":"#fff",borderRadius:6}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:800,color:"#3d3530"}}>{i+1}/{xParts.length}<span style={{marginLeft:6,fontWeight:700,color:over?"#b91c1c":"#736a62"}}>{n}/280{over?"・長すぎます":""}</span></div>
+                  <div style={{fontSize:12,fontWeight:800,color:"#3d3530"}}>{i+1}/{xParts.length}<span style={{marginLeft:6,fontWeight:700,color:over?"#b91c1c":"#736a62"}}>{[...t].length} 字</span></div>
                   <div style={{fontSize:12,color:"#6b6259",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"pre-line"}}>{t}</div>
                 </div>
                 <button type="button" onClick={()=>copyPart(i)} style={{flexShrink:0,height:28,padding:"0 10px",borderRadius:7,border:partDone===i?"1px solid #047857":"1px solid #a39a90",background:partDone===i?"#ecfdf5":"#fff",color:partDone===i?"#047857":"#1a1a1a",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>{partDone===i?"✓":"コピー"}</button>

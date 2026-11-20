@@ -28,6 +28,13 @@ export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved
   const drag = useRef(null);
   const put = list => onChange(list);
   const [addOpen, setAddOpen] = useState(false);
+  const addBox = useRef(null);
+  // 見直し 2026-11-20：「＋ 資料を追加」の一覧は外を押す・Esc で閉じる
+  useEffect(() => { if (!addOpen) return;
+    const down = e => { if (addBox.current && !addBox.current.contains(e.target)) setAddOpen(false); };
+    const key = e => { if (e.key === "Escape") { e.stopPropagation(); setAddOpen(false); } };
+    document.addEventListener("mousedown", down); document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); }; }, [addOpen]);
   const open = (kind, m) => { setFind(null); setAddOpen(false); return setForm(m ? { id: m.id, kind, label: m.label || "", url: m.url || "", text: kind === "note" ? m.text || "" : (m.items || []).map(i => i.text).join("\n") } : { kind, label: "", url: "", text: "" }); };
   const save = () => {
     const f = form; if (!f) return;
@@ -81,7 +88,7 @@ export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved
     </div>}
     {find && <OtherPicker kind={find} onClose={() => setFind(null)} onPick={r => { put([...materials, { id: newId(), kind: find, label: r.title.slice(0, 80), url: r.url, ref: String(r.id) }]); setFind(null); }} />}
     {/* 2026-11-20 Naoki「UI がごちゃごちゃ」→ 5 つ並んでいた「＋」を 1 つのボタンにまとめた */}
-    <div style={{ position: "relative" }}>
+    <div ref={addBox} style={{ position: "relative" }}>
       <button type="button" disabled={busy} onClick={() => setAddOpen(v => !v)} aria-expanded={addOpen} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{busy ? "置いています…" : "＋ 資料を追加 ▾"}</button>
       {addOpen && <div role="menu" style={{ position: "absolute", top: 32, left: 0, zIndex: 30, background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, boxShadow: "0 8px 24px #00000020", padding: 4, minWidth: 210 }}>
         {[["note", "メモ・プロンプト", () => open("note")], ["link", "リンク", () => open("link")], ["check", "チェックリスト", () => open("check")],
@@ -142,7 +149,8 @@ export function MaterialsView({ slot, slotName, checks = {}, onToggle, tplName, 
 function NoteBlock({ m }) {
   const [done, setDone] = useState(false);
   const copy = () => { const t = m.text || ""; const ok = () => { setDone(true); setTimeout(() => setDone(false), 1500); };
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(ok, () => {}); };
+    const fb = () => { const ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); ok(); } catch { /* 写せない */ } document.body.removeChild(ta); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(ok, fb); else fb(); };
   return <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, padding: "8px 10px" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#3d3530" }}><Mark kind="note" /><span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.label}</span>
       <button type="button" onClick={copy} style={{ ...sb, flex: "none", border: done ? "1px solid #047857" : sb.border, color: done ? "#047857" : sb.color }}>{done ? "✓ コピーしました" : "コピー"}</button></div>
