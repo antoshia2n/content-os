@@ -9,7 +9,7 @@ import {
   OVERDUE_STATUS,
   fmtDate, fmtTime, slotTime, genId, nowStr,
   getWeekDates, dbToPost, getUrlParams,
-  TRASH_LABEL, TRASH_DAYS, isTrashed, isArchived, trashedAt, REL_TYPES,
+  TRASH_LABEL, TRASH_DAYS, isTrashed, isArchived, trashedAt, REL_TYPES, isRelType,
 } from "./constants.js";
 import {
   dbFetchPosts, dbDeletePost, dbFetchTemplates, dbRemoveTemplate,
@@ -644,6 +644,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
   // 2026-11-20 済みにしていない過ぎた枠は、直近 7 日ぶん「未」で残す（やり忘れが目に入るように）
   const missFrom=missWindowStart(today);
   const slotMiss=(dateStr,s)=>slotGone(dateStr,s)&&dateStr>=missFrom&&!takenSlot.has(slotKey(dateStr,s));
+  // 2026-11-20 見直し（Naoki OK 22:48）：「済」は引用・告知の枠だけ（ほかの枠で押すと本文の空の公開済みができ、あとで同じ回が 2 件に分かれるため）。ほかの枠は「未」で残すまで
   // 枠に「済」：X で直接出した引用・告知などを、公開済みの記録として 1 件残す（押し間違いは「元に戻す」で消す）
   const markSlotDone=React.useCallback(async(dateStr,s)=>{
     const pt=s.postType||"x_post",src=sourcePostFor(s,dateStr,slots,posts),word=(REL_TYPES[pt]||{}).word;
@@ -892,7 +893,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
             return <span key={i} style={{display:"inline-flex",alignItems:"center",gap:6,border:`1px solid ${miss?"#fca5a5":pt.border}`,background:miss?"#fef2f2":"#fff",borderRadius:8,padding:"3px 4px 3px 8px",fontSize:13}}>
               <button type="button" onClick={()=>openNew(`${r.ds}T${slotTime(r.s)}`,{title:r.s.title||"",postType:r.s.postType||"x_post"})} style={{border:"none",background:"none",padding:0,cursor:"pointer",fontFamily:"inherit",fontSize:13,color:miss?"#b91c1c":"#3d3530"}}>
                 {r.ds===today?"":`${+r.ds.slice(5,7)}/${+r.ds.slice(8,10)} `}{slotTime(r.s)} <b style={{color:pt.color}}>{pt.label}</b>{miss?"・未":""}</button>
-              <button type="button" onClick={()=>markSlotDone(r.ds,r.s)} style={{border:`1px solid ${miss?"#dc2626":"#a7f3d0"}`,background:miss?"#dc2626":"#fff",color:miss?"#fff":"#047857",borderRadius:5,fontSize:12,fontWeight:700,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>済</button>
+              {isRelType(r.s.postType)&&<button type="button" onClick={()=>markSlotDone(r.ds,r.s)} style={{border:`1px solid ${miss?"#dc2626":"#a7f3d0"}`,background:miss?"#dc2626":"#fff",color:miss?"#fff":"#047857",borderRadius:5,fontSize:12,fontWeight:700,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>済</button>}
             </span>;};
           return <div style={{background:"#fff",borderBottom:BD2,padding:"6px 12px"}}>
             <button type="button" aria-expanded={todayOpen} onClick={()=>setTodayOpen(v=>!v)}
@@ -1003,7 +1004,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                                   <div style={{fontSize:12,color:miss?"#b91c1c":"#6b6259",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                                     {miss?"未":g.title||"予約枠"}
                                   </div>
-                                  <DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>
+                                  {isRelType(g.postType)&&<DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>}
                                 </div>
                               );
                             })}
@@ -1027,7 +1028,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                                   ?<div style={{fontSize:12,fontWeight:700,color:"#6b6259",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
                                   :<div style={{fontSize:12,color:"#736a62",lineHeight:1.3}}>予約枠</div>
                                 }
-                                <DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>
+                                {isRelType(g.postType)&&<DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>}
                                 <span style={{fontSize:12,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                               </div>
                             );

@@ -4,7 +4,7 @@
 // 編集画面（EditorModal）には触らない。行を押すと今の編集画面が開く。
 import { getWorkspace } from "shia2n-core/lib/supabase-lite.js"; // 2026-11-04 場所の投稿は Buffer に入れない（サーバーで断る）
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { getPostTypeStyle, STATUS, slotTime, stripHtml } from "../constants.js";
+import { getPostTypeStyle, STATUS, slotTime, stripHtml, isRelType } from "../constants.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
@@ -178,8 +178,8 @@ export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, 
             const key = `g:${ds}:${it.t}:${j}`, miss = past(it.s);
             return <div key={key} className={`ck-lrow ghost ${over === key ? "drop" : ""}`} style={miss ? { background: "#fef2f2" } : undefined} onClick={() => openNew(`${ds}T${it.t}`, { title: it.s.title || "", postType: it.s.postType || "x_post" })} {...dz(key, id => onPlace(id, `${ds}T${it.t}`, it.s.postType || "x_post"))}>
               <span className="tm">{it.t}</span>
-              <div className="ck-ghostbox"><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti" style={miss ? { color: "#b91c1c", fontWeight: 700 } : undefined}>{miss ? `未${it.s.title ? `・${it.s.title}` : ""}　— X で出したら「済」` : `${it.s.title || "空き枠"}　— ネタをここへドラッグ`}</span></div>
-              {onDone ? <button type="button" aria-label="済みにする（公開済みとして残す）" onClick={e => { e.stopPropagation(); onDone(ds, it.s); }}
+              <div className="ck-ghostbox"><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti" style={miss ? { color: "#b91c1c", fontWeight: 700 } : undefined}>{miss ? `未${it.s.title ? `・${it.s.title}` : ""}${isRelType(it.s.postType) ? "　— X で出したら「済」" : "　— ネタをここへドラッグ"}` : `${it.s.title || "空き枠"}　— ネタをここへドラッグ`}</span></div>
+              {onDone && isRelType(it.s.postType) ? <button type="button" aria-label="済みにする（公開済みとして残す）" onClick={e => { e.stopPropagation(); onDone(ds, it.s); }}
                 style={{ alignSelf: "center", border: `1px solid ${miss ? "#dc2626" : "#a7f3d0"}`, background: miss ? "#dc2626" : "#fff", color: miss ? "#fff" : "#047857", borderRadius: 6, fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit" }}>済</button> : <span />}
             </div>;
           }
