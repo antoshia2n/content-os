@@ -96,7 +96,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
   const ideasOf = s => posts.filter(p => p.status === "idea" && (p.postType || "x_post") === (s.postType || "x_post") && (s.genre ? p.genre === s.genre : true) && !(p.labels || []).includes(SLEEP));
   const menuFor = s => [
     { label: "この枠を開く", run: () => setSel(s.id) },
-    { label: "狙いを編集", run: () => { setSel(s.id); setTimeout(() => aimRef.current && aimRef.current.focus(), 0); } },
+    { label: "メモを編集", run: () => { setSel(s.id); setTimeout(() => aimRef.current && aimRef.current.focus(), 0); } },
     { label: "この枠を引用する枠を追加", run: () => { const d = s.type === "daily" ? 1 : ((s.dow || 1) + 1) % 7 || 7; add(d, "12:00", { postType: "x_quote", quote_of: String(s.id) }); showToast(`${DOW[d]} 12:00 に引用の枠を追加しました`); } },
     { label: "この枠を告知する枠を追加", run: () => { const d = s.type === "daily" ? 1 : ((s.dow || 1) + 5) % 7 + 1; add(d, "12:00", { postType: "x_promo", quote_of: String(s.id) }); showToast(`${DOW[d]} 12:00 に告知の枠を追加しました`); } },
     { label: "複製して次の日へ", run: () => { const d = ((s.dow || 1) % 7) + 1; add(d, slotTime(s), { postType: s.postType, genre: s.genre || null, aim: s.aim || "" }); showToast(`${DOW[d]} に複製しました`); } },
@@ -110,14 +110,17 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
     const r = q ? relOf(q, s) : null; const f = filled(s); const nm = (s.materials || []).length;
     const isSrc = cur && src && src.id === s.id, isUse = cur && String(s.quote_of) === String(cur.id);
     const what = q ? `${r.text}${getPostTypeStyle(q.postType, postTypes).label}` : "相手を選ぶ";
-    const tip = `${getPostTypeStyle(s.postType, postTypes).label}：${q ? `${what}を${relVerb(s, r)}` : "相手がまだ無い"}\n次の回：${f ? headOf(f) : "空き"}${s.aim ? `\n狙い：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
+    const tip = `${getPostTypeStyle(s.postType, postTypes).label}：${q ? `${what}を${relVerb(s, r)}` : "相手がまだ無い"}\n次の回：${f ? headOf(f) : "空き"}${s.aim ? `\nメモ：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
     return <button key={s.id} type="button" onClick={() => setSel(s.id)} onContextMenu={e => openCtx(e, menuFor(s))} aria-pressed={sel === s.id} title={tip}
       aria-label={`${getPostTypeStyle(s.postType, postTypes).label}・${q ? `${what}を${relVerb(s, r)}` : "相手がまだ無い"}・次の回 ${f ? headOf(f) : "空き"}`}
       style={{ display: "flex", alignItems: "flex-start", gap: 4, width: nested ? "calc(100% - 10px)" : "100%", marginLeft: nested ? 10 : 0, marginBottom: 4, padding: "3px 6px", borderRadius: 6, border: "none",
         background: rt.soft, boxShadow: `inset 3px 0 0 ${rt.bar}`, cursor: "pointer", fontFamily: "inherit", textAlign: "left", fontSize: 12, lineHeight: 1.35, color: rt.ink, fontWeight: 700,
         outline: sel === s.id ? "2px solid #f59e0b" : isSrc ? `2px dashed ${REL_TYPES[cur.postType]?.bar || rt.bar}` : isUse ? `2px dashed ${rt.bar}` : "none", outlineOffset: -1 }}>
       <span aria-hidden style={{ color: "#a39a90", fontWeight: 800 }}>└</span>
-      <span style={{ minWidth: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-all" }}>{rt.word}・{what}</span>
+      <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+        <span style={{ overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-all" }}>{rt.word}・{what}</span>
+        {s.aim && <span style={{ fontWeight: 600, color: "#4b5563", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-all", whiteSpace: "pre-line" }}>{s.aim}</span>}
+      </span>
     </button>;
   };
   const cellItems = (here, d) => {
@@ -137,7 +140,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
     const isSrc = cur && src && src.id === s.id, isUse = cur && String(s.quote_of) === String(cur.id);
     // 2026-11-18 Naoki「『空き』とかでるのはマウスオーバーポップアップにして、代わりに資料 4 とかの表示で OK」
     const nm = (s.materials || []).length;
-    const tip = `次の回：${f ? headOf(f) : "空き"}${s.aim ? `\n狙い：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
+    const tip = `次の回：${f ? headOf(f) : "空き"}${s.aim ? `\nメモ：${s.aim}` : ""}${nm ? `\n資料：${(s.materials || []).map(m => m.label).join("・")}` : ""}`;
     return <button key={s.id} type="button" onClick={() => pickSlot(s0, d)} onContextMenu={e => openCtx(e, menuFor(s0))} aria-pressed={sel === s.id && (s0.type !== "daily" || dayTab === d)} title={`${tip}${st.rated ? `\n評価：${st.grade}（平均 ${st.avg.toFixed(1)}・${st.rated} 件）` : ""}`}
       aria-label={`${nameOf(s, postTypes)}${st.rated >= 3 ? `・評価 ${st.grade}` : ""}${ov ? "・この曜日だけ調整あり" : ""}${s.genre ? `・ネタの表 ${s.genre}` : ""}${q ? `・${r.text}枠を${relVerb(s, r)}` : ""}・次の回 ${f ? headOf(f) : "空き"}${nm ? `・資料 ${nm}` : ""}`}
       style={{ position: "relative", width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 3, padding: "6px 7px", borderRadius: 9, background: rt ? rt.soft : "#fff", boxShadow: rt ? `inset 3px 0 0 ${rt.bar}` : "none", cursor: "pointer", fontFamily: "inherit", minHeight: small ? 0 : 66, marginBottom: 4,
@@ -146,7 +149,8 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
       <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800, color: "#1a1a1a" }}><span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: pt.dot, flexShrink: 0 }} />{pt.label}{s.type === "daily" && <span style={{ fontWeight: 600, color: "#736a62" }}>毎日</span>}</span>
       {s.genre && <span style={{ fontSize: 12, color: "#6b6259", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>▤ {s.genre}</span>}
       {q && <span style={{ fontSize: 12, fontWeight: 700, color: rt.ink, lineHeight: 1.4, wordBreak: "break-all" }}>{r.after ? "→" : "↩"} {r.text}{getPostTypeStyle(q.postType, postTypes).label}を{relVerb(s, r)}</span>}
-      {s.aim && <span title={"狙い：" + s.aim} style={{ fontSize: 12, color: "#4b5563", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◎ {s.aim}</span>}
+      {/* 2026-11-20 Naoki「狙いの代わりにメモ。一覧で見えると嬉しい」→ 先頭 2 行を出す（全文はマウスを乗せたとき） */}
+      {s.aim && <span style={{ fontSize: 12, color: "#4b5563", lineHeight: 1.45, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-all", whiteSpace: "pre-line", background: "#fff7ed", borderRadius: 5, padding: "2px 5px" }}>{s.aim}</span>}
       {(byQ > 0 || byP > 0) && <span style={{ fontSize: 12, fontWeight: 700, color: "#6b6259" }}>{[byQ ? `引用される ${byQ}` : "", byP ? `告知される ${byP}` : ""].filter(Boolean).join("・")}</span>}
       {ov && <span style={{ fontSize: 12, fontWeight: 700, color: "#9a3412", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{SLOT_DOWS.find(([x]) => x === d)?.[1]}：{tplName(s.tpl_id) || s.genre || "調整あり"}</span>}
       {(nm > 0 || gc) && <span style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -177,7 +181,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
   return <div style={asScreen ? { display: "flex", flexDirection: "column", height: "calc(100vh - 55px)", background: "#f5f0eb" } : { display: "contents" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: asScreen ? "8px 16px" : "12px 16px", background: "#fff", borderBottom: "1px solid #e6dfd6", flexWrap: "wrap", rowGap: 6 }}>
         {!asScreen && <span id="plan-title" style={{ fontWeight: 800, fontSize: 16 }}>配信計画</span>}
-        <span style={{ fontSize: 12, color: "#736a62" }}>マスの空いた所を押すと枠を追加・枠を右クリックでメニュー</span>
+        <span style={{ fontSize: 12, color: "#736a62" }}>空いたマスを押すと枠を追加</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           <ZoomControl value={zoom} onChange={setZoom} />
           <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)} aria-label="追加する時刻" style={{ border: "1px solid #a39a90", borderRadius: 8, padding: "4px 6px", fontSize: 13, fontFamily: "inherit" }} />
@@ -210,7 +214,7 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
           </div>}
         </div>
         <div style={{ width: 340, flexShrink: 0, background: "#fff", border: "1px solid #e6dfd6", borderRadius: 12, padding: 14, overflowY: "auto" }}>
-          {!cur ? <div style={{ fontSize: 13, color: "#736a62", lineHeight: 1.7 }}>枠を押すと、ここで 出す種類・ネタの表・狙い・引用元 を決められます。次の回の枠にネタを入れるのもここから。</div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {!cur ? <div style={{ fontSize: 13, color: "#736a62", lineHeight: 1.7 }}>枠を押すと、ここで 出すもの・メモ・資料 を決められます。次の回の枠にネタを入れるのもここから。</div> : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{slotLabel(cur)} の枠</div>
             {cur.type === "daily" && !isRelType(cur.postType) && <div role="group" aria-label="曜日ごとの決めごと" style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
               {[[0, "すべて"], ...SLOT_DOWS].map(([d, l]) => { const on = dayTab === d, mk = d && hasDayRule(cur, d);
@@ -234,20 +238,6 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
             {!dayOn && <div><label style={lab} htmlFor="dp-pt">出すもの（アウトプットの種類）</label>
               <select id="dp-pt" value={cur.postType || "x_post"} onChange={e => patch(cur.id, { postType: e.target.value, quote_of: isRelType(e.target.value) ? cur.quote_of : null, quote_gap: isRelType(e.target.value) ? cur.quote_gap ?? null : null })} style={fld}>
                 {Object.entries(postTypes).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select></div>}
-            <div><label style={lab} htmlFor="dp-genre">柱（ネタの表・何について書くか）</label>
-              <select id="dp-genre" value={dayOn ? (rule.genre ?? "__inherit") : cur.genre || ""} onChange={e => setV("genre", e.target.value === "__inherit" ? null : e.target.value || null)} style={fld}>
-                {dayOn && <option value="__inherit">すべての曜日と同じ（{cur.genre || "決めない"}）</option>}
-                <option value="">決めない（この種類のネタ全部）</option>
-                {getV("genre") && !genres.some(g => g.name === getV("genre")) && <option value={getV("genre")}>{getV("genre")}</option>}
-                {genres.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-              </select></div>
-            {!isRelType(cur.postType) && <div><label style={lab} htmlFor="dp-tpl">型（どの形で書くか・構成とプロンプトは「型」にある）</label>
-              <select id="dp-tpl" value={dayOn ? (rule.tpl_id ?? "__inherit") : cur.tpl_id || ""} onChange={e => setV("tpl_id", e.target.value === "__inherit" ? null : e.target.value || null)} style={fld}>
-                {dayOn && <option value="__inherit">すべての曜日と同じ（{tplName(cur.tpl_id) || "決めない"}）</option>}
-                <option value="">決めない</option>
-                {getV("tpl_id") && !templates.some(t => String(t.id) === String(getV("tpl_id"))) && <option value={getV("tpl_id")}>（消えた型）</option>}
-                {[...templates].sort((a, b) => ((a.post_type === cur.postType ? 0 : 1) - (b.post_type === cur.postType ? 0 : 1))).map(t => <option key={t.id} value={String(t.id)}>{t.name}{t.post_type && t.post_type !== cur.postType ? `（${getPostTypeStyle(t.post_type, postTypes).label}）` : ""}</option>)}
               </select></div>}
             {isRelType(cur.postType) && !dayOn && <div><label style={lab} htmlFor="dp-q">{cur.postType === "x_promo" ? "告知するもの（どの枠の投稿を告知するか）" : "引用元（どの枠の投稿を引用するか）"}</label>
               {(() => {
@@ -276,10 +266,10 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
               })()}
               {src && <div style={{ fontSize: 12, color: REL_TYPES[cur.postType].ink, marginTop: 4 }}>{relOf(src, cur).text}投稿を{relVerb(cur, relOf(src, cur))}する。表で点線の枠が相手</div>}
             </div>}
-            <div><label style={lab} htmlFor="dp-aim">狙い（この枠で何を起こしたいか）</label>
+            <div><label style={lab} htmlFor="dp-aim">メモ（この枠でやること・気をつけること。表とマウスを乗せたときに出る）</label>
               <AimField key={`${cur.id}-${dayOn ? dayTab : 0}`} id="dp-aim" inputRef={aimRef} value={(dayOn ? rule.aim : cur.aim) || ""} onSave={v => setV("aim", v || null)}
                 placeholder={dayOn ? `すべての曜日と同じ：${cur.aim || "（なし）"}` : undefined} /></div>
-            <div><span style={lab}>参考と資料（スワイプくん・思考整理くん・リンク・チェックリスト・PDF・MD。書くときに右の「手順」タブに出る）</span>
+            <div><span style={lab}>資料（プロンプト・リンク・チェックリストなど。書くときに右の「手順」タブに出る）</span>
               {dayOn && rule.materials === undefined
                 ? <div style={{ fontSize: 12.5, color: "#6b6259" }}>すべての曜日と同じ（{(cur.materials || []).length} 件）
                     <button type="button" onClick={() => setV("materials", [...(cur.materials || [])])} style={{ marginLeft: 6, border: "1px solid #e6dfd6", background: "#fff", borderRadius: 7, padding: "3px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>この曜日だけの参考にする</button></div>
@@ -288,6 +278,26 @@ function PlanBody({ uid, slots, saveSlots, posts, postTypes, placeAt, onOpen, on
                     onRemoved={(m, before) => { const id = cur.id, d = dayOn ? dayTab : 0; if (setUndo) setUndo({ msg: `「${m.label}」を削除しました`, run: () => saveSlots(prev => prev.map(x => x.id !== id ? x : d ? { ...x, day_rules: { ...(x.day_rules || {}), [String(d)]: { ...((x.day_rules || {})[String(d)] || {}), materials: before } } } : { ...x, materials: before })) }); }} />
                   {dayOn && <button type="button" onClick={() => setV("materials", undefined)} style={{ marginTop: 6, border: "none", background: "none", padding: 0, fontSize: 12, color: "#b45309", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>すべての曜日と同じに戻す</button>}
                 </>}</div>
+            {/* 2026-11-20 Naoki「柱と型はあんまり使わない」→ 消さずに畳む（使っている枠があれば開いた状態で出す） */}
+            <details open={!!(getV("genre") || getV("tpl_id"))} style={{ border: "1px solid #e6dfd6", borderRadius: 9, padding: "6px 9px" }}>
+              <summary style={{ fontSize: 12, fontWeight: 700, color: "#6b6259", cursor: "pointer" }}>くわしく（柱・型）{getV("genre") || getV("tpl_id") ? `：${[getV("genre"), tplName(getV("tpl_id"))].filter(Boolean).join("・")}` : ""}</summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+            <div><label style={lab} htmlFor="dp-genre">柱（ネタの表・何について書くか）</label>
+              <select id="dp-genre" value={dayOn ? (rule.genre ?? "__inherit") : cur.genre || ""} onChange={e => setV("genre", e.target.value === "__inherit" ? null : e.target.value || null)} style={fld}>
+                {dayOn && <option value="__inherit">すべての曜日と同じ（{cur.genre || "決めない"}）</option>}
+                <option value="">決めない（この種類のネタ全部）</option>
+                {getV("genre") && !genres.some(g => g.name === getV("genre")) && <option value={getV("genre")}>{getV("genre")}</option>}
+                {genres.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+              </select></div>
+            {!isRelType(cur.postType) && <div><label style={lab} htmlFor="dp-tpl">型（どの形で書くか・構成とプロンプトは「型」にある）</label>
+              <select id="dp-tpl" value={dayOn ? (rule.tpl_id ?? "__inherit") : cur.tpl_id || ""} onChange={e => setV("tpl_id", e.target.value === "__inherit" ? null : e.target.value || null)} style={fld}>
+                {dayOn && <option value="__inherit">すべての曜日と同じ（{tplName(cur.tpl_id) || "決めない"}）</option>}
+                <option value="">決めない</option>
+                {getV("tpl_id") && !templates.some(t => String(t.id) === String(getV("tpl_id"))) && <option value={getV("tpl_id")}>（消えた型）</option>}
+                {[...templates].sort((a, b) => ((a.post_type === cur.postType ? 0 : 1) - (b.post_type === cur.postType ? 0 : 1))).map(t => <option key={t.id} value={String(t.id)}>{t.name}{t.post_type && t.post_type !== cur.postType ? `（${getPostTypeStyle(t.post_type, postTypes).label}）` : ""}</option>)}
+              </select></div>}
+              </div>
+            </details>
             {!dayOn && <>
             <div style={{ height: 1, background: "#e6dfd6" }} />
             <div style={{ fontSize: 12, fontWeight: 800, color: "#736a62" }}>次の回（{shortDt(nextDt)}）</div>

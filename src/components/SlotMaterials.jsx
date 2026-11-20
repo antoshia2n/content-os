@@ -12,6 +12,7 @@ const KIND = {
   md: { mark: "MD", bg: "#ede9fe", fg: "#6d28d9", name: "MD" },
   swipe: { mark: "S", bg: "#fef3c7", fg: "#92400e", name: "スワイプくん" }, // 2026-11-18 参考の見本
   map: { mark: "M", bg: "#e0e7ff", fg: "#3730a3", name: "思考整理くん" }, // 2026-11-18 参考の下地
+  note: { mark: "✎", bg: "#fff7ed", fg: "#9a3412", name: "メモ・プロンプト" }, // 2026-11-20 Naoki「リンクを入れるところで、プロンプトとかのメモも入れたい」
 };
 const Mark = ({ kind }) => { const k = KIND[kind] || KIND.link; return <span aria-hidden style={{ width: 24, height: 22, borderRadius: 6, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 800, flex: "none", background: k.bg, color: k.fg }}>{k.mark}</span>; };
 const fld = { width: "100%", border: "1px solid #a39a90", borderRadius: 8, padding: "7px 9px", fontSize: 13, fontFamily: "inherit", background: "#fff", boxSizing: "border-box" };
@@ -26,13 +27,17 @@ export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved
   const fileRef = useRef(null);
   const drag = useRef(null);
   const put = list => onChange(list);
-  const open = (kind, m) => { setFind(null); return setForm(m ? { id: m.id, kind, label: m.label || "", url: m.url || "", text: (m.items || []).map(i => i.text).join("\n") } : { kind, label: "", url: "", text: "" }); };
+  const [addOpen, setAddOpen] = useState(false);
+  const open = (kind, m) => { setFind(null); setAddOpen(false); return setForm(m ? { id: m.id, kind, label: m.label || "", url: m.url || "", text: kind === "note" ? m.text || "" : (m.items || []).map(i => i.text).join("\n") } : { kind, label: "", url: "", text: "" }); };
   const save = () => {
     const f = form; if (!f) return;
     if (f.kind === "link" && !safeUrl(f.url)) { showToast?.("リンクは https:// から始まる住所を入れてください"); return; }
     const prev = materials.find(m => m.id === f.id);
     if (f.kind === "check" && !itemsFromText(f.text).length) { showToast?.("項目を 1 行に 1 つ書いてください"); return; }
-    const m = f.kind === "check"
+    if (f.kind === "note" && !f.text.trim()) { showToast?.("本文を書いてください"); return; }
+    const m = f.kind === "note"
+      ? { id: f.id || newId(), kind: "note", label: f.label.trim() || f.text.trim().split("\n")[0].slice(0, 40), text: f.text }
+      : f.kind === "check"
       ? { id: f.id || newId(), kind: "check", label: f.label.trim() || "チェックリスト", items: itemsFromText(f.text, prev?.items || []) }
       : { ...(prev || {}), id: f.id || newId(), kind: f.kind, label: f.label.trim() || (f.kind === "link" ? safeUrl(f.url) : "資料"), url: f.kind === "link" ? safeUrl(f.url) : prev?.url };
     put(prev ? materials.map(x => (x.id === m.id ? m : x)) : [...materials, m]);
@@ -64,8 +69,9 @@ export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved
     {form && <div style={{ border: "1px solid #a39a90", borderRadius: 10, padding: 10, background: "#fff", display: "flex", flexDirection: "column", gap: 7, marginBottom: 6 }}
       onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } if (e.key === "Escape") { e.stopPropagation(); setForm(null); } }}>
       <b style={{ fontSize: 13 }}>{form.id ? "編集" : "追加"}：{KIND[form.kind].name}</b>
-      <input autoFocus value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={form.kind === "check" ? "名前（例：X記事の仕上げチェック）" : "名前"} aria-label="名前" style={fld} />
+      <input autoFocus value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={form.kind === "check" ? "名前（例：X記事の仕上げチェック）" : form.kind === "note" ? "名前（例：引用ポストのプロンプト）・空なら本文の 1 行目" : "名前"} aria-label="名前" style={fld} />
       {form.kind === "link" && <input value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} placeholder="https://" aria-label="住所" style={fld} />}
+      {form.kind === "note" && <textarea rows={8} value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} placeholder={"プロンプトや書くときのメモ\n書く画面の「手順」タブで、コピーのボタンつきで出ます"} aria-label="本文" style={{ ...fld, resize: "vertical", lineHeight: 1.6 }} />}
       {form.kind === "check" && <textarea rows={6} value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))} placeholder={"1 行に 1 項目\n冒頭 3 行で読者の損を言い切った\n図解を 2 枚以上入れた"} aria-label="項目（1 行に 1 つ）" style={{ ...fld, resize: "vertical", lineHeight: 1.6 }} />}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <span style={{ fontSize: 12, color: "#736a62" }}>⌘／Ctrl＋Enter で保存</span>
@@ -74,10 +80,16 @@ export function MaterialsEditor({ materials = [], onChange, showToast, onRemoved
       </div>
     </div>}
     {find && <OtherPicker kind={find} onClose={() => setFind(null)} onPick={r => { put([...materials, { id: newId(), kind: find, label: r.title.slice(0, 80), url: r.url, ref: String(r.id) }]); setFind(null); }} />}
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {[["swipe", "＋ スワイプくんから"], ["map", "＋ 思考整理くんから"]].map(([k, l]) => <button key={k} type="button" onClick={() => { setForm(null); setFind(f => (f === k ? null : k)); }} aria-expanded={find === k} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{l}</button>)}
-      {[["link", "＋ リンク"], ["check", "＋ チェックリスト"]].map(([k, l]) => <button key={k} type="button" onClick={() => open(k)} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{l}</button>)}
-      <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{busy ? "置いています…" : "＋ ファイル（PDF・MD）"}</button>
+    {/* 2026-11-20 Naoki「UI がごちゃごちゃ」→ 5 つ並んでいた「＋」を 1 つのボタンにまとめた */}
+    <div style={{ position: "relative" }}>
+      <button type="button" disabled={busy} onClick={() => setAddOpen(v => !v)} aria-expanded={addOpen} style={{ ...sb, border: "1px dashed #a39a90", color: "#6b6259" }}>{busy ? "置いています…" : "＋ 資料を追加 ▾"}</button>
+      {addOpen && <div role="menu" style={{ position: "absolute", top: 32, left: 0, zIndex: 30, background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, boxShadow: "0 8px 24px #00000020", padding: 4, minWidth: 210 }}>
+        {[["note", "メモ・プロンプト", () => open("note")], ["link", "リンク", () => open("link")], ["check", "チェックリスト", () => open("check")],
+          ["swipe", "スワイプくんから選ぶ", () => { setForm(null); setAddOpen(false); setFind("swipe"); }], ["map", "思考整理くんから選ぶ", () => { setForm(null); setAddOpen(false); setFind("map"); }],
+          ["pdf", "ファイル（PDF・MD）", () => { setAddOpen(false); fileRef.current?.click(); }]].map(([k, l, run]) =>
+          <button key={k} type="button" role="menuitem" onClick={run} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", border: "none", background: "none", borderRadius: 7, padding: "6px 8px", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "left", color: "#1a1a1a" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f7f3ee")} onMouseLeave={e => (e.currentTarget.style.background = "none")}><Mark kind={k} />{l}</button>)}
+      </div>}
       <input ref={fileRef} type="file" accept=".pdf,.md,application/pdf,text/markdown" onChange={pick} style={{ display: "none" }} />
     </div>
   </div>;
@@ -113,15 +125,28 @@ export function MaterialsView({ slot, slotName, checks = {}, onToggle, tplName, 
   const ms = slot?.materials || [];
   return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
     <div style={{ fontSize: 12, color: "#6b6259" }}>枠：{slotName}（直すときは 上の帯の「配信計画」→ この枠）</div>
-    {(slot?.genre || tplName || slot?.aim) && <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, padding: "8px 10px", fontSize: 13, display: "grid", gridTemplateColumns: "auto 1fr", gap: "3px 10px" }}>
+    {slot?.aim && <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "8px 10px", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}><div style={{ fontSize: 12, fontWeight: 700, color: "#9a3412", marginBottom: 2 }}>メモ</div>{slot.aim}</div>}
+    {(slot?.genre || tplName) && <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, padding: "8px 10px", fontSize: 13, display: "grid", gridTemplateColumns: "auto 1fr", gap: "3px 10px" }}>
       {slot?.genre && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>柱</span><span>{slot.genre}</span></>}
       {tplName && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>型</span><span>{tplName}{onOpenTpl && <button type="button" onClick={onOpenTpl} style={{ ...sb, marginLeft: 6, padding: "1px 7px" }}>型を開く →</button>}</span></>}
-      {slot?.aim && <><span style={{ color: "#736a62", fontSize: 12, fontWeight: 700 }}>狙い</span><span>{slot.aim}</span></>}
     </div>}
     {ms.map(m => m.kind === "check" ? <CheckBlock key={m.id} m={m} checks={checks} onToggle={onToggle} />
+      : m.kind === "note" ? <NoteBlock key={m.id} m={m} />
       : m.kind === "md" ? <MdBlock key={m.id} m={m} />
       : <a key={m.id} href={safeUrl(m.url) || undefined} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderRadius: 8, background: "#fff", border: "1px solid #e6dfd6", fontSize: 13, color: "#1a1a1a", textDecoration: "none" }}>
           <Mark kind={m.kind} /><span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.label}</span><span style={{ fontSize: 12, color: "#736a62", fontWeight: 700, flex: "none" }}>別タブで開く ↗</span></a>)}
+  </div>;
+}
+
+// 2026-11-20 メモ・プロンプト：本文をそのまま見せて、コピーのボタンを付ける
+function NoteBlock({ m }) {
+  const [done, setDone] = useState(false);
+  const copy = () => { const t = m.text || ""; const ok = () => { setDone(true); setTimeout(() => setDone(false), 1500); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(ok, () => {}); };
+  return <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 10, padding: "8px 10px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#3d3530" }}><Mark kind="note" /><span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.label}</span>
+      <button type="button" onClick={copy} style={{ ...sb, flex: "none", border: done ? "1px solid #047857" : sb.border, color: done ? "#047857" : sb.color }}>{done ? "✓ コピーしました" : "コピー"}</button></div>
+    <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 220, overflow: "auto", color: "#1a1a1a" }}>{m.text}</div>
   </div>;
 }
 
