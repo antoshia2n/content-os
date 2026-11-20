@@ -57,8 +57,8 @@ export function threadParts(html) {
 // X の入力欄は書式つき（HTML）で貼ると段落の間の空行が消えたり増えたりするので、X 向けは文字だけで運ぶ。
 // 段落＝空行 1 つで区切る・段落の中の改行（<br>）はそのまま・ふつうの区切り線は空行・行末の空白と &nbsp; を外す。
 // スレッドは 1 本ずつ「【1/3】」の見出しで分ける（X ではスレッドの 1 本ずつ貼るため）
-export function xPlainText(html) {
-  if (typeof document === "undefined") return "";
+export function xPlainText(html, asParts = false) {
+  if (typeof document === "undefined") return asParts ? [] : "";
   const root = document.createElement("div");
   root.innerHTML = html || "";
   const walk = node => {
@@ -79,6 +79,10 @@ export function xPlainText(html) {
   });
   const clean = s => s.replace(/ /g, " ").replace(/​/g, "").replace(/[ \t]+\n/g, "\n").replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
   const parts = groups.map(ns => clean(ns.map(walk).join(""))).filter(Boolean);
+  if (asParts) return parts;
   if (parts.length <= 1) return parts[0] || "";
   return parts.map((t, i) => `【${i + 1}/${parts.length}】\n${t}`).join("\n\n\n");
 }
+
+// 2026-11-20 スレッドは 1 本ずつ貼るので、1 本ずつの文（見出しなし）を返す
+export const xThreadParts = html => xPlainText(html, true);

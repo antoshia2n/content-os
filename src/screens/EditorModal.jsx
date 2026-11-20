@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
 import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText, fallbackCopy } from "../components/editor.jsx";
-import { xPlainText } from "../lib/xtext.js";
+import { xPlainText, xThreadParts, xLen } from "../lib/xtext.js";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
@@ -244,8 +244,21 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
   const isXArticle=draft.postType==="x_article";
   const [copyNote2,setCopyNote2]=useState("");
   const isXShort=["x_post","x_quote","x_promo"].includes(draft.postType||"x_post");
+  // 2026-11-20 Naoki「スレッド式はまとめて貼れない」→ 1 本ずつコピー。押すたびに次の 1 本へ進む（最後まで行くと 1 本目へ戻る）
+  const xParts=React.useMemo(()=>isXShort?xThreadParts(draft.body||""):[],[isXShort,draft.body]);
+  const isXThread=xParts.length>1;
+  const [partIdx,setPartIdx]=useState(0);
+  const [partsOpen,setPartsOpen]=useState(false);
+  const [partDone,setPartDone]=useState(-1);
+  useEffect(()=>{setPartIdx(i=>i<xParts.length?i:0);},[xParts.length]);
+  const copyPart=i=>{
+    const t=xParts[i];if(t==null)return;
+    const done=()=>{setPartDone(i);setTimeout(()=>setPartDone(d=>d===i?-1:d),2500);setPartIdx(i+1<xParts.length?i+1:0);};
+    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));else fallbackCopy(t,done);
+  };
   const doCopy=(target,mode)=>{
     const raw=draft.body||"";
+    if(target==="x"&&!mode&&isXThread){copyPart(partIdx);return;}
     // 2026-11-20 X のポスト（引用・告知も）は文字だけでコピーする（書式つきで貼ると X で改行がくずれるため）
     if(target==="x"&&!mode&&isXShort){
       const done=()=>{setCopyX(true);setTimeout(()=>setCopyX(false),3500);if(imgs.length)setCopyNote2(`文をコピーしました。画像 ${imgs.length} 枚は X で別に付けてください（「…」の「画像をまとめて保存」から）`);};
@@ -421,7 +434,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
               <button onClick={close} style={{background:"none",border:BD,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,color:"#555",cursor:"pointer",whiteSpace:"nowrap"}}>← 一覧</button>
               <div style={{flex:1}}/>
               <TemplatePicker compact templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>
-              <button onClick={()=>doCopy("x")} style={{background:copyX?"#00ba7c":"#fff",color:copyX?"#fff":"#555",border:copyX?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{copyX?"コピーしました":"コピー"}</button>
+              <button onClick={()=>doCopy("x")} style={{background:copyX||partDone>=0?"#00ba7c":"#fff",color:copyX||partDone>=0?"#fff":"#555",border:copyX||partDone>=0?"1px solid #00ba7c":BD,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",transition:"background .2s"}}>{isXThread?(partDone>=0?`${partDone+1}/${xParts.length} をコピーしました`:`${partIdx+1}/${xParts.length} をコピー`):copyX?"コピーしました":"コピー"}</button>
 {canAuto&&<span role="status" aria-live="polite" style={{fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",fontWeight:700,whiteSpace:"nowrap",color:autoOn&&/^保存(しました|済み)/.test(autoMsg)?"#047857":autoOn&&/できません/.test(autoMsg)?"#b91c1c":"#6b6259"}}>{autoOn?autoMsg:(akey(draft)!==savedKey.current?"保存していない変更があります":"")}</span>}
               {!autoOn&&<button onClick={handleSave} style={{background:"#b45309",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:800,color:"#fff",cursor:"pointer"}}>保存</button>}
             </div>
@@ -461,7 +474,23 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
           {/* 2026-11-13 Naoki「通常のコピーボタンは右上に」：右下から上の帯へ戻した（note 用・X記事用の別の形は「…」のまま） */}
-          <button onClick={()=>doCopy("x")} style={{height:34,padding:"0 14px",borderRadius:10,border:copyX?"1px solid #047857":"none",background:copyX?"#ecfdf5":"#b45309",color:copyX?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}} title={isXArticle&&imgs.length?"画像の位置に目印を入れてコピー（X記事は画像を貼り付けで入れられないため）":undefined}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー":imgs.length&&!isXShort?"コピー（画像つき）":"コピー"}</button>
+          {isXThread?<span style={{position:"relative",display:"inline-flex",flexShrink:0}}>
+            <button onClick={()=>doCopy("x")} title="スレッドを 1 本ずつコピーします。X の入力欄に貼ったら、もう一度押すと次の 1 本"
+              style={{height:34,padding:"0 12px",borderRadius:"10px 0 0 10px",border:partDone>=0?"1px solid #047857":"none",background:partDone>=0?"#ecfdf5":"#b45309",color:partDone>=0?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+              {partDone>=0?`✓ ${partDone+1}/${xParts.length} をコピーしました`:`${partIdx+1}/${xParts.length} をコピー`}</button>
+            <button onClick={()=>setPartsOpen(v=>!v)} aria-expanded={partsOpen} aria-label="1 本ずつの一覧" title="1 本ずつの一覧"
+              style={{height:34,padding:"0 8px",borderRadius:"0 10px 10px 0",border:"none",borderLeft:"1px solid #ffffff55",background:"#b45309",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>▾</button>
+            {partsOpen&&<div role="dialog" aria-label="スレッドを 1 本ずつコピー" style={{position:"absolute",top:40,right:0,zIndex:60,width:320,maxHeight:360,overflow:"auto",background:"#fff",border:BD2,borderRadius:10,boxShadow:"0 8px 28px #00000022",padding:6}}>
+              {xParts.map((t,i)=>{const n=xLen(t),over=n>280;return <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"7px 6px",borderBottom:i<xParts.length-1?"1px solid #f1ebe4":"none",background:i===partIdx?"#fff7ed":"#fff",borderRadius:6}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:800,color:"#3d3530"}}>{i+1}/{xParts.length}<span style={{marginLeft:6,fontWeight:700,color:over?"#b91c1c":"#736a62"}}>{n}/280{over?"・長すぎます":""}</span></div>
+                  <div style={{fontSize:12,color:"#6b6259",lineHeight:1.5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",whiteSpace:"pre-line"}}>{t}</div>
+                </div>
+                <button type="button" onClick={()=>copyPart(i)} style={{flexShrink:0,height:28,padding:"0 10px",borderRadius:7,border:partDone===i?"1px solid #047857":"1px solid #a39a90",background:partDone===i?"#ecfdf5":"#fff",color:partDone===i?"#047857":"#1a1a1a",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>{partDone===i?"✓":"コピー"}</button>
+              </div>;})}
+            </div>}
+          </span>:
+          <button onClick={()=>doCopy("x")} style={{height:34,padding:"0 14px",borderRadius:10,border:copyX?"1px solid #047857":"none",background:copyX?"#ecfdf5":"#b45309",color:copyX?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}} title={isXArticle&&imgs.length?"画像の位置に目印を入れてコピー（X記事は画像を貼り付けで入れられないため）":undefined}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー":imgs.length&&!isXShort?"コピー（画像つき）":"コピー"}</button>}
           {!focusOn&&<MoreMenu items={[
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
