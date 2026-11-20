@@ -150,7 +150,7 @@ export function IdeaTray({ ideas, undated, postTypes, dragStart, dragEnd, onOpen
 }
 
 // ── リスト：週の 7 日を縦に。予定と空き枠を時刻順に並べる ──
-export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, slots, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer }) {
+export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, slots, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer, onDone, missFrom }) {
   // 枠が埋まっているかは、絞り込み前の全部の予定で見る
   const taken = useMemo(() => new Set((occupied || posts).filter(p => p.status !== "idea" && p.datetime).map(p => `${p.datetime.slice(0, 16)}_${p.postType || "x_post"}`)), [occupied, posts]);
   const [over, setOver] = useState(null);
@@ -167,17 +167,20 @@ export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, 
       const daySlots = slots.filter(s => slotMatchesDate(s, d));
       // 過ぎた枠は出さない（過去の日時へ置かないため）
       const now = new Date(); const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      const ghosts = ds < today ? [] : daySlots.filter(s => !(ds === today && slotTime(s) <= nowHM) && !taken.has(`${ds}T${slotTime(s)}_${s.postType || "x_post"}`));
+      // 2026-11-20 済みにしていない過ぎた枠は、直近 7 日ぶん「未」で残す（missFrom から今日まで）
+      const past = s => ds < today || (ds === today && slotTime(s) <= nowHM);
+      const ghosts = daySlots.filter(s => !taken.has(`${ds}T${slotTime(s)}_${s.postType || "x_post"}`) && (!past(s) || (missFrom && ds >= missFrom)));
       const items = [...dayPosts.map(p => ({ k: "p", t: p.datetime.slice(11, 16), p })), ...ghosts.map(s => ({ k: "g", t: slotTime(s), s }))].sort((a, b) => a.t.localeCompare(b.t));
       return <section key={ds} className={`ck-day ${ds === today ? "today" : ""}`}>
-        <div className="ck-dayh">{d.getMonth() + 1}/{d.getDate()}<small>{W[d.getDay()]}曜{ds === today ? "・今日" : ""}</small><span className="n">{dayPosts.length} 本{ghosts.length ? `・空き ${ghosts.length}` : ""}</span><button className="add" onClick={() => openNew(`${ds}T09:00`)}>＋</button></div>
+        <div className="ck-dayh">{d.getMonth() + 1}/{d.getDate()}<small>{W[d.getDay()]}曜{ds === today ? "・今日" : ""}</small><span className="n">{dayPosts.length} 本{ghosts.filter(s => !past(s)).length ? `・空き ${ghosts.filter(s => !past(s)).length}` : ""}{ghosts.filter(past).length ? <b style={{ color: "#b91c1c" }}>・未 {ghosts.filter(past).length}</b> : ""}</span><button className="add" onClick={() => openNew(`${ds}T09:00`)}>＋</button></div>
         {items.map((it, j) => {
           if (it.k === "g") {
-            const key = `g:${ds}:${it.t}:${j}`;
-            return <div key={key} className={`ck-lrow ghost ${over === key ? "drop" : ""}`} onClick={() => openNew(`${ds}T${it.t}`, { title: it.s.title || "", postType: it.s.postType || "x_post" })} {...dz(key, id => onPlace(id, `${ds}T${it.t}`, it.s.postType || "x_post"))}>
+            const key = `g:${ds}:${it.t}:${j}`, miss = past(it.s);
+            return <div key={key} className={`ck-lrow ghost ${over === key ? "drop" : ""}`} style={miss ? { background: "#fef2f2" } : undefined} onClick={() => openNew(`${ds}T${it.t}`, { title: it.s.title || "", postType: it.s.postType || "x_post" })} {...dz(key, id => onPlace(id, `${ds}T${it.t}`, it.s.postType || "x_post"))}>
               <span className="tm">{it.t}</span>
-              <div className="ck-ghostbox"><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti">{it.s.title || "空き枠"}　— ネタをここへドラッグ</span></div>
-              <span />
+              <div className="ck-ghostbox"><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti" style={miss ? { color: "#b91c1c", fontWeight: 700 } : undefined}>{miss ? `未${it.s.title ? `・${it.s.title}` : ""}　— X で出したら「済」` : `${it.s.title || "空き枠"}　— ネタをここへドラッグ`}</span></div>
+              {onDone ? <button type="button" aria-label="済みにする（公開済みとして残す）" onClick={e => { e.stopPropagation(); onDone(ds, it.s); }}
+                style={{ alignSelf: "center", border: `1px solid ${miss ? "#dc2626" : "#a7f3d0"}`, background: miss ? "#dc2626" : "#fff", color: miss ? "#fff" : "#047857", borderRadius: 6, fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit" }}>済</button> : <span />}
             </div>;
           }
           const p = it.p; const key = `p:${p.id}`;

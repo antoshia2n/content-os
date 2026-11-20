@@ -9,7 +9,7 @@ import {
   OVERDUE_STATUS,
   fmtDate, fmtTime, slotTime, genId, nowStr,
   getWeekDates, dbToPost, getUrlParams,
-  TRASH_LABEL, TRASH_DAYS, isTrashed, isArchived, trashedAt,
+  TRASH_LABEL, TRASH_DAYS, isTrashed, isArchived, trashedAt, REL_TYPES,
 } from "./constants.js";
 import {
   dbFetchPosts, dbDeletePost, dbFetchTemplates, dbRemoveTemplate,
@@ -20,12 +20,20 @@ import { CalendarList, IdeaTray, BufferModal, PLAN_CSS, bufferReason } from "./s
 import {
   slotMatchesDate,
 } from "./screens/CalendarView.jsx";
+import { slotPast, missWindowStart, slotKey, sourcePostFor } from "./lib/slotDone.js";
 
 // 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
 // それぞれ自分の Suspense を持つので、読み込み中もほかの画面は消えない
 // 2026-11-10 開発部：開いたままのタブで新しい版が出ると、古い部品の住所が無くなり読み込みに失敗する（画面全体が消えて固まって見える）。
 // 読み込みに失敗したら 1 回だけ自動で読み直す。それでも失敗したら、その窓だけに知らせを出し、ほかの画面は消さない
 const RELOAD_KEY="ck-chunk-reload";
+// 2026-11-20 カレンダーの枠の右上の「済」（X で直接出したものを公開済みとして残す）。押しても枠の中身（新しく書く）は開かない
+function DoneBtn({miss,onDone}){
+  const [busy,setBusy]=useState(false);
+  return <button type="button" aria-label="済みにする（公開済みとして残す）" title="X で出したら押す：公開済みとして残します"
+    disabled={busy} onClick={async e=>{e.stopPropagation();if(busy)return;setBusy(true);try{await onDone();}finally{setBusy(false);}}}
+    style={{position:"absolute",top:3,right:3,minWidth:24,height:22,padding:"0 4px",border:`1px solid ${miss?"#dc2626":"#a7f3d0"}`,borderRadius:5,background:miss?"#dc2626":"#fff",color:miss?"#fff":"#047857",fontSize:12,fontWeight:700,cursor:busy?"wait":"pointer",fontFamily:"inherit",lineHeight:1}}>済</button>;
+}
 const isChunkError=e=>/dynamically imported module|Importing a module script failed|error loading dynamically|MIME type|Failed to fetch/i.test(String(e?.message||e));
 function loadOrReload(loader){
   return loader().catch(e=>{
@@ -632,7 +640,32 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
 
   // 過ぎた空き枠は出さない（もう入れられないため）。数えるのも、これからの枠だけ
   const nowHM=nowDt.slice(11,16);
-  const slotGone=(dateStr,s)=>dateStr<today||(dateStr===today&&slotTime(s)<=nowHM);
+  const slotGone=(dateStr,s)=>slotPast(dateStr,s,today,nowHM);
+  // 2026-11-20 済みにしていない過ぎた枠は、直近 7 日ぶん「未」で残す（やり忘れが目に入るように）
+  const missFrom=missWindowStart(today);
+  const slotMiss=(dateStr,s)=>slotGone(dateStr,s)&&dateStr>=missFrom&&!takenSlot.has(slotKey(dateStr,s));
+  // 枠に「済」：X で直接出した引用・告知などを、公開済みの記録として 1 件残す（押し間違いは「元に戻す」で消す）
+  const markSlotDone=React.useCallback(async(dateStr,s)=>{
+    const pt=s.postType||"x_post",src=sourcePostFor(s,dateStr,slots,posts),word=(REL_TYPES[pt]||{}).word;
+    const head=t=>String(t||"").replace(/<[^>]+>/g,"").trim().slice(0,40);
+    const title=s.title||(src?`${word||"引用"}：${head(src.title)||"（タイトルなし）"}`:`${(allPostTypes[pt]||{}).label||"投稿"}（済）`);
+    const p={id:genId(),account_id:targetAccId,status:"published",datetime:`${dateStr}T${slotTime(s)}`,title,postType:pt,body:"",memo:"",memoLinks:[],comments:[],history:[{at:nowStr(),note:"カレンダーの枠から済みにした"}],labels:[],genre:null,theme:null,mm_url:null,manabu:false,quote_of:src?src.id:null};
+    if(!await saveToDb(p,{count:false}))return;
+    setUndo({msg:`${fmtShort(p.datetime)} の${(allPostTypes[pt]||{}).label||"枠"}を済みにしました`,run:async()=>{const {error}=await dbDeletePost(p.id);if(error){showToast("戻せませんでした");return;}removePost(p.id);showToast("元に戻しました");}});
+  },[slots,posts,allPostTypes,targetAccId,saveToDb,setUndo,removePost,showToast]);// eslint-disable-line react-hooks/exhaustive-deps
+  // 今日の枠の残り（カレンダーの上の帯）
+  const todaySlots=React.useMemo(()=>{
+    const d=new Date(today+"T00:00");
+    return visibleSlots.filter(s=>slotMatchesDate(s,d)).map(s=>({s,done:takenSlot.has(slotKey(today,s))})).sort((a,b)=>slotTime(a.s).localeCompare(slotTime(b.s)));
+  },[visibleSlots,takenSlot,today]);
+  const [todayOpen,setTodayOpen]=useState(false);
+  // 直近 7 日の「未」の数（今日の過ぎた枠を含む）
+  const missRecent=React.useMemo(()=>{
+    const out=[];
+    for(let i=0;i<7;i++){const d=new Date(today+"T00:00");d.setDate(d.getDate()-i);const ds=fmtDate(d);
+      visibleSlots.filter(s=>slotMatchesDate(s,d)).forEach(s=>{if(slotMiss(ds,s))out.push({ds,s});});}
+    return out.sort((a,b)=>(a.ds+slotTime(a.s)).localeCompare(b.ds+slotTime(b.s)));
+  },[visibleSlots,takenSlot,today,nowHM]);// eslint-disable-line react-hooks/exhaustive-deps
   // 週ビューヘッダー統計（毎レンダーfilterを7×4回走らせないためuseMemoに）
   const weekStats=React.useMemo(()=>{
     return weekDateStrs.map((dateStr,i)=>{
@@ -642,6 +675,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
         reservedCnt:dayPosts.filter(p=>p.status==="reserved"||p.status==="waiting").length,
         publishedCnt:dayPosts.filter(p=>p.status==="published").length,
         ghostCnt:visibleSlots.filter(s=>slotMatchesDate(s,weekDates[i])&&!slotGone(dateStr,s)&&!takenSlot.has(`${dateStr}_${slotTime(s).slice(0,2)}_${s.postType||"x_post"}`)).length,
+        missCnt:visibleSlots.filter(s=>slotMatchesDate(s,weekDates[i])&&slotMiss(dateStr,s)).length,
       };
     });
   },[filtered,weekDateStrs,weekDates,visibleSlots,takenSlot,today,nowHM]);// eslint-disable-line react-hooks/exhaustive-deps
@@ -851,10 +885,31 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
       {/* ── カレンダービュー ── */}
       {view==="calendar"&&(
         <div className="ck"><style>{PLAN_CSS}</style><div className="ck-cal"><div className="ck-cal-main">
+        {(todaySlots.length>0||missRecent.length>0)&&(()=>{
+          const done=todaySlots.filter(x=>x.done).length,left=todaySlots.filter(x=>!x.done);
+          const rows=[...missRecent.filter(m=>m.ds!==today),...left.map(x=>({ds:today,s:x.s}))];
+          const chip=(r,i)=>{const pt=getPostTypeStyle(r.s.postType,allPostTypes),miss=slotMiss(r.ds,r.s);
+            return <span key={i} style={{display:"inline-flex",alignItems:"center",gap:6,border:`1px solid ${miss?"#fca5a5":pt.border}`,background:miss?"#fef2f2":"#fff",borderRadius:8,padding:"3px 4px 3px 8px",fontSize:13}}>
+              <button type="button" onClick={()=>openNew(`${r.ds}T${slotTime(r.s)}`,{title:r.s.title||"",postType:r.s.postType||"x_post"})} style={{border:"none",background:"none",padding:0,cursor:"pointer",fontFamily:"inherit",fontSize:13,color:miss?"#b91c1c":"#3d3530"}}>
+                {r.ds===today?"":`${+r.ds.slice(5,7)}/${+r.ds.slice(8,10)} `}{slotTime(r.s)} <b style={{color:pt.color}}>{pt.label}</b>{miss?"・未":""}</button>
+              <button type="button" onClick={()=>markSlotDone(r.ds,r.s)} style={{border:`1px solid ${miss?"#dc2626":"#a7f3d0"}`,background:miss?"#dc2626":"#fff",color:miss?"#fff":"#047857",borderRadius:5,fontSize:12,fontWeight:700,padding:"2px 8px",cursor:"pointer",fontFamily:"inherit"}}>済</button>
+            </span>;};
+          return <div style={{background:"#fff",borderBottom:BD2,padding:"6px 12px"}}>
+            <button type="button" aria-expanded={todayOpen} onClick={()=>setTodayOpen(v=>!v)}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",border:"none",background:"none",padding:"2px 0",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+              <span style={{fontSize:13,fontWeight:700,color:"#3d3530"}}>今日の枠 {done}/{todaySlots.length} 済</span>
+              <span aria-hidden="true" style={{flex:"0 0 140px",height:6,borderRadius:99,background:"#eee7df",overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${todaySlots.length?done/todaySlots.length*100:0}%`,background:"#10b981"}}/></span>
+              {missRecent.length>0&&<span style={{fontSize:12,fontWeight:700,color:"#fff",background:"#dc2626",borderRadius:99,padding:"1px 8px"}}>直近7日の未 {missRecent.length}</span>}
+              {rows.length===0&&<span style={{fontSize:12,color:"#047857",fontWeight:700}}>今日の分は全部済み</span>}
+              <span style={{marginLeft:"auto",fontSize:12,color:"#736a62"}}>{todayOpen?"閉じる ▴":rows.length?`残り ${rows.length} を見る ▾`:""}</span>
+            </button>
+            {todayOpen&&rows.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{rows.map(chip)}</div>}
+          </div>;
+        })()}
         {calMode==="list"?(<div style={{zoom:calZoom/100}}>
           <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} occupied={posts} slots={visibleSlots} postTypes={allPostTypes}
             dragId={dragId} setDragId={setDragId} onPlace={placeAt} onSwap={swapAt} onOpen={openPost} openNew={openNew}
-            changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)}/></div>
+            changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)} onDone={markSlotDone} missFrom={missFrom}/></div>
         ):(
         <div style={{height:"calc(100vh - 100px)",overflow:"auto"}}>
           <div style={{display:"grid",gridTemplateColumns:"48px repeat(7, 1fr)",minWidth:860,zoom:calZoom/100}}>
@@ -862,7 +917,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
             {weekDates.map((date,i)=>{
               const dateStr=weekDateStrs[i];
               const isToday=dateStr===today;
-              const{draftCnt,reservedCnt,publishedCnt,ghostCnt}=weekStats[i]||{};
+              const{draftCnt,reservedCnt,publishedCnt,ghostCnt,missCnt}=weekStats[i]||{};
               return(
                 <div key={i} style={{background:"#fff",padding:"6px 5px 4px",textAlign:"center",borderBottom:BD2,borderRight:"1px solid #e6dfd6",position:"sticky",top:0,zIndex:20}}>
                   <div style={{fontSize:12,fontWeight:700,color:isToday?"#b45309":i>=5?"#b91c1c":"#736a62"}}>{DAYS[i]}</div>
@@ -872,6 +927,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                     {reservedCnt>0&&<span style={{fontSize:12,background:"#ede9fe",color:"#7c3aed",borderRadius:4,padding:"0 3px",fontWeight:700}} title={`予約 ${reservedCnt} 件`}>予{reservedCnt}</span>}
                     {publishedCnt>0&&<span style={{fontSize:12,background:"#d1fae5",color:"#047857",borderRadius:4,padding:"0 3px",fontWeight:700}} title={`公開済 ${publishedCnt} 件`}>済{publishedCnt}</span>}
                     {ghostCnt>0&&<span style={{fontSize:12,background:"#fef3c7",color:"#b45309",borderRadius:4,padding:"0 3px",fontWeight:700}} title={`空いている予約枠 ${ghostCnt} 件`}>枠{ghostCnt}</span>}
+                    {missCnt>0&&<span style={{fontSize:12,background:"#fee2e2",color:"#b91c1c",borderRadius:4,padding:"0 3px",fontWeight:700}} title={`時刻を過ぎて済みになっていない枠 ${missCnt} 件`}>未{missCnt}</span>}
                   </div>
                 </div>
               );
@@ -927,47 +983,51 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                       })}
                       {/* ゴースト枠（実投稿で埋まっていないもののみ表示） */}
                       {(()=>{
-                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!takenSlot.has(`${key}_${g.postType||"x_post"}`)&&!slotGone(dateStr,g));
+                        const ghosts=(ghostBySlot[key]||[]).filter(g=>!takenSlot.has(`${key}_${g.postType||"x_post"}`)&&(!slotGone(dateStr,g)||slotMiss(dateStr,g)));
                         if(ghosts.length===0)return null;
                         const multi=ghosts.length>1;
                         return multi?(
                           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
                             {ghosts.map((g,gi)=>{
-                              const gpt=getPostTypeStyle(g.postType,allPostTypes);
+                              const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g);
                               return(
                                 <div key={"g"+gi}
                                   onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
-                                  style={{flex:"1 1 0",minWidth:0,border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:5,padding:"3px 4px",cursor:"pointer",opacity:0.92,transition:"all .15s",background:gpt.bg}}
+                                  style={{flex:"1 1 0",minWidth:0,position:"relative",border:`1.5px dashed ${miss?"#dc2626":gpt.dot}`,borderLeft:`3px ${miss?"solid":"dashed"} ${miss?"#dc2626":gpt.dot}`,borderRadius:5,padding:"3px 4px",paddingRight:26,cursor:"pointer",opacity:0.92,transition:"all .15s",background:miss?"#fef2f2":gpt.bg}}
                                   onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
                                   onMouseLeave={e=>{e.currentTarget.style.opacity="0.92";e.currentTarget.style.boxShadow="none";}}>
                                   <div style={{...S.row,gap:2,marginBottom:1}}>
                                     <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
                                     <span style={{fontSize:12,color:gpt.color,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{gpt.label}</span>
                                   </div>
-                                  <div style={{fontSize:12,color:"#6b6259",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                                    {g.title||"予約枠"}
+                                  <div style={{fontSize:12,color:miss?"#b91c1c":"#6b6259",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                    {miss?"未":g.title||"予約枠"}
                                   </div>
+                                  <DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>
                                 </div>
                               );
                             })}
                           </div>
                         ):(
                           ghosts.map((g,gi)=>{
-                            const gpt=getPostTypeStyle(g.postType,allPostTypes);
+                            const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g);
                             return(
                               <div key={"g"+gi}
                                 onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
-                                style={{border:`1.5px dashed ${gpt.dot}`,borderLeft:`3px dashed ${gpt.dot}`,borderRadius:6,padding:"4px 6px",marginBottom:2,cursor:"pointer",opacity:0.92,transition:"all .15s",background:gpt.bg}}
+                                style={{position:"relative",border:`1.5px dashed ${miss?"#dc2626":gpt.dot}`,borderLeft:`3px ${miss?"solid":"dashed"} ${miss?"#dc2626":gpt.dot}`,borderRadius:6,padding:"4px 6px",paddingRight:30,marginBottom:2,cursor:"pointer",opacity:0.92,transition:"all .15s",background:miss?"#fef2f2":gpt.bg}}
                                 onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
                                 onMouseLeave={e=>{e.currentTarget.style.opacity="0.92";e.currentTarget.style.boxShadow="none";}}>
                                 <div style={{...S.row,gap:3}}>
                                   <span style={{width:4,height:4,borderRadius:"50%",background:gpt.dot,flexShrink:0}}/>
                                   <span style={{fontSize:12,color:gpt.color,fontWeight:700}}>{slotTime(g)}</span>
                                 </div>
-                                {g.title
+                                {miss
+                                  ?<div style={{fontSize:12,fontWeight:700,color:"#b91c1c",lineHeight:1.3,marginTop:1}}>未{g.title?`・${g.title.slice(0,8)}${g.title.length>8?"…":""}`:""}</div>
+                                  :g.title
                                   ?<div style={{fontSize:12,fontWeight:700,color:"#6b6259",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
                                   :<div style={{fontSize:12,color:"#736a62",lineHeight:1.3}}>予約枠</div>
                                 }
+                                <DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>
                                 <span style={{fontSize:12,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                               </div>
                             );
