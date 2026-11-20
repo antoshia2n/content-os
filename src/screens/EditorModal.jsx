@@ -2,7 +2,8 @@ import { getWorkspace } from "shia2n-core/lib/supabase-lite.js"; // 2026-11-10 �
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
-import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText } from "../components/editor.jsx";
+import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText, fallbackCopy } from "../components/editor.jsx";
+import { xPlainText } from "../lib/xtext.js";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
@@ -242,8 +243,16 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
   const imgs=bodyImages(draft.body||"");
   const isXArticle=draft.postType==="x_article";
   const [copyNote2,setCopyNote2]=useState("");
+  const isXShort=["x_post","x_quote","x_promo"].includes(draft.postType||"x_post");
   const doCopy=(target,mode)=>{
     const raw=draft.body||"";
+    // 2026-11-20 X のポスト（引用・告知も）は文字だけでコピーする（書式つきで貼ると X で改行がくずれるため）
+    if(target==="x"&&!mode&&isXShort){
+      const done=()=>{setCopyX(true);setTimeout(()=>setCopyX(false),3500);if(imgs.length)setCopyNote2(`文をコピーしました。画像 ${imgs.length} 枚は X で別に付けてください（「…」の「画像をまとめて保存」から）`);};
+      const t=xPlainText(raw);
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));else fallbackCopy(t,done);
+      return;
+    }
     const m=mode||(isXArticle?"mark":"rich");
     const html=m==="mark"&&imgs.length?markImagesForX(raw):raw;
     const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
@@ -452,7 +461,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
           <button className="em-btn" onClick={()=>setFocusOn(v=>!v)} aria-pressed={focusOn} title="⌘.（Ctrl+.）">{focusOn?"✓ 集中を終える":"集中モード"}</button>
           {!focusOn&&<TemplatePicker templates={templates} side={side} postType={draft.postType} postTypes={postTypes} bodyRef={bodyEditorRef} memoRef={memoRef} draft={draft} setDraft={setDraft} onManage={onManageTemplates}/>}
           {/* 2026-11-13 Naoki「通常のコピーボタンは右上に」：右下から上の帯へ戻した（note 用・X記事用の別の形は「…」のまま） */}
-          <button onClick={()=>doCopy("x")} style={{height:34,padding:"0 14px",borderRadius:10,border:copyX?"1px solid #047857":"none",background:copyX?"#ecfdf5":"#b45309",color:copyX?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}} title={isXArticle&&imgs.length?"画像の位置に目印を入れてコピー（X記事は画像を貼り付けで入れられないため）":undefined}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー":imgs.length?"コピー（画像つき）":"コピー"}</button>
+          <button onClick={()=>doCopy("x")} style={{height:34,padding:"0 14px",borderRadius:10,border:copyX?"1px solid #047857":"none",background:copyX?"#ecfdf5":"#b45309",color:copyX?"#047857":"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}} title={isXArticle&&imgs.length?"画像の位置に目印を入れてコピー（X記事は画像を貼り付けで入れられないため）":undefined}>{copyX?"✓ コピーしました":isXArticle&&imgs.length?"X記事用にコピー":imgs.length&&!isXShort?"コピー（画像つき）":"コピー"}</button>
           {!focusOn&&<MoreMenu items={[
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}

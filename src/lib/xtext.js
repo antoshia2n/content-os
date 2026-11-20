@@ -52,3 +52,33 @@ export function threadParts(html) {
     return { text, images: images.slice(0, 4), extra: Math.max(0, images.length - 4), localImg: box.querySelectorAll("img").length - images.length };
   }).filter(p => p.text || p.images.length);
 }
+
+// 2026-11-20 Naoki「X のポスト用にコピペしたときに改行が変になる」
+// X の入力欄は書式つき（HTML）で貼ると段落の間の空行が消えたり増えたりするので、X 向けは文字だけで運ぶ。
+// 段落＝空行 1 つで区切る・段落の中の改行（<br>）はそのまま・ふつうの区切り線は空行・行末の空白と &nbsp; を外す。
+// スレッドは 1 本ずつ「【1/3】」の見出しで分ける（X ではスレッドの 1 本ずつ貼るため）
+export function xPlainText(html) {
+  if (typeof document === "undefined") return "";
+  const root = document.createElement("div");
+  root.innerHTML = html || "";
+  const walk = node => {
+    if (node.nodeType === 3) return node.textContent;
+    const tag = node.tagName?.toLowerCase();
+    const inner = Array.from(node.childNodes).map(walk).join("");
+    if (tag === "br") return "\n";
+    if (["p", "div", "h1", "h2", "h3", "blockquote", "ul", "ol"].includes(tag)) return "\n" + inner.replace(/\n+$/, "") + "\n\n";
+    if (tag === "li") return "・" + inner + "\n";
+    if (tag === "hr") return "\n\n";
+    if (tag === "img") return "";
+    return inner;
+  };
+  const groups = [[]];
+  root.childNodes.forEach(n => {
+    const sep = n.nodeType === 1 && (n.classList?.contains("thread-sep") || n.getAttribute?.("data-thread") === "true");
+    if (sep) groups.push([]); else groups[groups.length - 1].push(n);
+  });
+  const clean = s => s.replace(/ /g, " ").replace(/​/g, "").replace(/[ \t]+\n/g, "\n").replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
+  const parts = groups.map(ns => clean(ns.map(walk).join(""))).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || "";
+  return parts.map((t, i) => `【${i + 1}/${parts.length}】\n${t}`).join("\n\n\n");
+}
