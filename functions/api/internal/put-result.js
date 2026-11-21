@@ -4,6 +4,7 @@
 // 画像は base64 で受け、Supabase の置き場 contentos の requests/<依頼の番号>/ へ置いて、その住所を result_urls に足す。
 // 書けるのは結果の欄と status だけ。依頼そのもの（何を作るか・指示）は GPT からは変えられない。
 import { checkAuth, getSupabase, json, preflight } from './_shared.js';
+import { sniffImage } from './_sniff.js'; // 2026-11-21 中身が画像でなければ 1 枚も置かない
 
 const NEXT = ['drafting', 'review', 'done'];
 const MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -42,6 +43,14 @@ export async function onRequestPost({ request, env }) {
   const urls = Array.isArray(cur.result_urls) ? [...cur.result_urls] : [];
   if (body.replace_images) urls.length = 0;
   const images = Array.isArray(body.images) ? body.images.slice(0, 6) : [];
+  // 2026-11-21：先に全部の中身を確かめる（画像でないものが 1 枚でもあれば、1 枚も置かない）。種類は中身で決める
+  for (let i = 0; i < images.length; i++) {
+    let b;
+    try { b = b64ToBytes(images[i]?.base64 || ''); } catch { return json({ ok: false, error: `image ${i} is not base64` }, 400); }
+    const real = sniffImage(b);
+    if (!real) return json({ ok: false, error: 'not_image', message: `${i + 1} 枚目は画像（png・jpeg・webp・gif）ではありません（1 枚も置いていません）`, index: i }, 400);
+    images[i] = { ...(images[i] || {}), mime: real };
+  }
   for (let i = 0; i < images.length; i++) {
     const im = images[i] || {};
     const mime = im.mime || 'image/png';
