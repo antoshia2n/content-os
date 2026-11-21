@@ -27,6 +27,19 @@ test("思考整理くん以外の画面からは呼べない・ログイン無�
   assert.match(r.error, /ログイン/);
 });
 
+// 2026-11-22 ブレインくん 便B
+import { brainFields } from "../functions/api/ext/ideas.js";
+test("ブレインくんのネタ：題・本文・ノートの住所（決まった形だけ）", () => {
+  const id = "11111111-2222-3333-4444-555555555555";
+  const f = brainFields({ title: " 勉強は\n時間の問題 ", memo: "わからない時間", note_id: id });
+  assert.equal(f.title, "勉強は 時間の問題");
+  assert.equal(f.memo, "わからない時間");
+  assert.equal(f.src_url, `https://brain.shia2n.jp/?note=${id}`);
+  assert.equal(brainFields({ title: "x", note_id: "../evil" }).src_url, null);
+  assert.equal(brainFields({ title: "x" }).memo, "x");
+  assert.ok(ALLOW_ORIGINS.includes("https://brain.shia2n.jp"));
+});
+
 // 2026-11-11 読書くん 便3
 import { bookFields, BOOK_ORIGINS } from "../functions/api/ext/ideas.js";
 test("読書くんのメモ：題は 1 行目・メモに出どころ・住所は決まった形だけ", () => {
