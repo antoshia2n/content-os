@@ -6,6 +6,8 @@ import { getWorkspace } from "shia2n-core/lib/supabase-lite.js"; // 2026-11-04 �
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { getPostTypeStyle, STATUS, slotTime, stripHtml, isRelType } from "../constants.js";
 import { slotMatchesDate } from "./CalendarView.jsx";
+import { effSlot } from "../lib/materials.js";
+import { slotNote, dowOfDate } from "../lib/slotNote.js"; // 2026-11-21 空き枠にメモ・決め事
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 
@@ -150,7 +152,7 @@ export function IdeaTray({ ideas, undated, postTypes, dragStart, dragEnd, onOpen
 }
 
 // ── リスト：週の 7 日を縦に。予定と空き枠を時刻順に並べる ──
-export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, slots, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer, onDone, missFrom }) {
+export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, slots, templates, postTypes, dragId, setDragId, onPlace, onSwap, onOpen, openNew, changeStatus, onBuffer, onDone, missFrom }) {
   // 枠が埋まっているかは、絞り込み前の全部の予定で見る
   const taken = useMemo(() => new Set((occupied || posts).filter(p => p.status !== "idea" && p.datetime).map(p => `${p.datetime.slice(0, 16)}_${p.postType || "x_post"}`)), [occupied, posts]);
   const [over, setOver] = useState(null);
@@ -178,7 +180,7 @@ export function CalendarList({ weekDates, weekDateStrs, today, posts, occupied, 
             const key = `g:${ds}:${it.t}:${j}`, miss = past(it.s);
             return <div key={key} className={`ck-lrow ghost ${over === key ? "drop" : ""}`} style={miss ? { background: "#fef2f2" } : undefined} onClick={() => openNew(`${ds}T${it.t}`, { title: it.s.title || "", postType: it.s.postType || "x_post" })} {...dz(key, id => onPlace(id, `${ds}T${it.t}`, it.s.postType || "x_post"))}>
               <span className="tm">{it.t}</span>
-              <div className="ck-ghostbox"><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti" style={miss ? { color: "#b91c1c", fontWeight: 700 } : undefined}>{miss ? `未${it.s.title ? `・${it.s.title}` : ""}${isRelType(it.s.postType) ? "　— X で出したら「済」" : "　— ネタをここへドラッグ"}` : `${it.s.title || "空き枠"}　— ネタをここへドラッグ`}</span></div>
+              <div className="ck-ghostbox" style={{ flexWrap: "wrap" }} title={slotNote(effSlot(it.s, dowOfDate(ds)), templates).tip || undefined}><TypeTag t={it.s.postType || "x_post"} postTypes={postTypes} /><span className="ti" style={miss ? { color: "#b91c1c", fontWeight: 700 } : undefined}>{miss ? `未${it.s.title ? `・${it.s.title}` : ""}${isRelType(it.s.postType) ? "　— X で出したら「済」" : "　— ネタをここへドラッグ"}` : `${it.s.title || "空き枠"}　— ネタをここへドラッグ`}</span>{(() => { const nt = slotNote(effSlot(it.s, dowOfDate(ds)), templates); const t = nt.memo || nt.rules; return t ? <span style={{ flexBasis: "100%", fontSize: 12, color: "#5b524a", lineHeight: 1.4, whiteSpace: "pre-line", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" }}>{t}</span> : null; })()}</div>
               {onDone && isRelType(it.s.postType) ? <button type="button" aria-label="済みにする（公開済みとして残す）" onClick={e => { e.stopPropagation(); onDone(ds, it.s); }}
                 style={{ alignSelf: "center", border: `1px solid ${miss ? "#dc2626" : "#a7f3d0"}`, background: miss ? "#dc2626" : "#fff", color: miss ? "#fff" : "#047857", borderRadius: 6, fontSize: 12, fontWeight: 700, padding: "3px 10px", cursor: "pointer", fontFamily: "inherit" }}>済</button> : <span />}
             </div>;
