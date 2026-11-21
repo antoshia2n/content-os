@@ -21,6 +21,8 @@ import {
   slotMatchesDate,
 } from "./screens/CalendarView.jsx";
 import { slotPast, missWindowStart, slotKey, sourcePostFor } from "./lib/slotDone.js";
+import { effSlot } from "./lib/materials.js";
+import { slotNote, dowOfDate } from "./lib/slotNote.js"; // 2026-11-21 カレンダーの予約枠にメモ・決め事を出す
 
 // 2026-10-06：開いたときにだけ読む画面（起動とパネルを軽くするため）。
 // それぞれ自分の Suspense を持つので、読み込み中もほかの画面は消えない
@@ -908,7 +910,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
           </div>;
         })()}
         {calMode==="list"?(<div style={{zoom:calZoom/100}}>
-          <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} occupied={posts} slots={visibleSlots} postTypes={allPostTypes}
+          <CalendarList weekDates={weekDates} weekDateStrs={weekDateStrs} today={today} posts={filtered} occupied={posts} slots={visibleSlots} templates={templates} postTypes={allPostTypes}
             dragId={dragId} setDragId={setDragId} onPlace={placeAt} onSwap={swapAt} onOpen={openPost} openNew={openNew}
             changeStatus={changeStatusB} onBuffer={p=>setBufferFor(p)} onDone={markSlotDone} missFrom={missFrom}/></div>
         ):(
@@ -990,9 +992,9 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                         return multi?(
                           <div style={{display:"flex",gap:2,flexWrap:"wrap"}}>
                             {ghosts.map((g,gi)=>{
-                              const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g);
+                              const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g),nt=slotNote(effSlot(g,dowOfDate(dateStr)),templates);
                               return(
-                                <div key={"g"+gi}
+                                <div key={"g"+gi} title={nt.tip||undefined}
                                   onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
                                   style={{flex:"1 1 0",minWidth:0,position:"relative",border:`1.5px dashed ${miss?"#dc2626":gpt.dot}`,borderLeft:`3px ${miss?"solid":"dashed"} ${miss?"#dc2626":gpt.dot}`,borderRadius:5,padding:"3px 4px",paddingRight:26,cursor:"pointer",opacity:0.92,transition:"all .15s",background:miss?"#fef2f2":gpt.bg}}
                                   onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
@@ -1004,6 +1006,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                                   <div style={{fontSize:12,color:miss?"#b91c1c":"#6b6259",fontWeight:600,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                                     {miss?"未":g.title||"予約枠"}
                                   </div>
+                                  {(nt.memo||nt.rules)&&<div style={{fontSize:12,color:"#5b524a",lineHeight:1.3,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(nt.memo||nt.rules).replace(/\s*\n\s*/g," ")}</div>}
                                   {isRelType(g.postType)&&<DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>}
                                 </div>
                               );
@@ -1011,9 +1014,9 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                           </div>
                         ):(
                           ghosts.map((g,gi)=>{
-                            const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g);
+                            const gpt=getPostTypeStyle(g.postType,allPostTypes),miss=slotMiss(dateStr,g),nt=slotNote(effSlot(g,dowOfDate(dateStr)),templates);
                             return(
-                              <div key={"g"+gi}
+                              <div key={"g"+gi} title={nt.tip||undefined}
                                 onClick={e=>{e.stopPropagation();openNew(`${dateStr}T${slotTime(g)}`,{title:g.title||"",postType:g.postType||"x_post"});}}
                                 style={{position:"relative",border:`1.5px dashed ${miss?"#dc2626":gpt.dot}`,borderLeft:`3px ${miss?"solid":"dashed"} ${miss?"#dc2626":gpt.dot}`,borderRadius:6,padding:"4px 6px",paddingRight:30,marginBottom:2,cursor:"pointer",opacity:0.92,transition:"all .15s",background:miss?"#fef2f2":gpt.bg}}
                                 onMouseEnter={e=>{e.currentTarget.style.opacity="1";e.currentTarget.style.boxShadow="0 1px 6px #0000001a";}}
@@ -1028,6 +1031,7 @@ const visibleSlots=React.useMemo(()=>!filterPlatform.length?slots:slots.filter(s
                                   ?<div style={{fontSize:12,fontWeight:700,color:"#6b6259",lineHeight:1.3,marginTop:1}}>{g.title.slice(0,12)}{g.title.length>12?"…":""}</div>
                                   :<div style={{fontSize:12,color:"#736a62",lineHeight:1.3}}>予約枠</div>
                                 }
+                                {(nt.memo||nt.rules)&&<div style={{fontSize:12,color:"#5b524a",lineHeight:1.35,marginTop:2,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:nt.memo?2:1,WebkitBoxOrient:"vertical",whiteSpace:"pre-line",wordBreak:"break-word"}}>{nt.memo||nt.rules}</div>}
                                 {isRelType(g.postType)&&<DoneBtn miss={miss} onDone={()=>markSlotDone(dateStr,g)}/>}
                                 <span style={{fontSize:12,color:gpt.color,fontWeight:700,background:"#fff",border:`1px solid ${gpt.border}`,padding:"0 4px",borderRadius:6,marginTop:2,display:"inline-block"}}>{gpt.label}</span>
                               </div>
