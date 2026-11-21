@@ -11,6 +11,7 @@
 //   check_markers（文字の配列）だけを渡すと、書かずに印ごとの当たり数を返す（呼ぶ側が最初に全部の印を下見するため）。
 //   drop_markers（文字の配列）を渡すと、画像を入れたあとでその印の段落を本文から外す。
 import { checkAuth, getSupabase, json, preflight } from './_shared.js';
+import { sniffImage } from './_sniff.js'; // 2026-11-21 中身が画像でなければ 1 枚も置かない
 import { checkMarkers, dropMarkers, findMarker, insertAtMarker } from './_markers.js';
 
 const MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -70,6 +71,14 @@ export async function onRequestPost({ request, env }) {
   }
 
   const added = [];
+  // 2026-11-21：先に全部の中身を確かめる（画像でないものが 1 枚でもあれば、1 枚も置かない）。種類は中身で決める
+  for (let i = 0; i < images.length; i++) {
+    let b;
+    try { b = b64ToBytes(images[i]?.base64 || ''); } catch { return json({ ok: false, error: `image ${i} is not base64` }, 400); }
+    const real = sniffImage(b);
+    if (!real) return json({ ok: false, error: 'not_image', message: `${i + 1} 枚目は画像（png・jpeg・webp・gif）ではありません（1 枚も置いていません）`, index: i }, 400);
+    images[i] = { ...(images[i] || {}), mime: real };
+  }
   for (let i = 0; i < images.length; i++) {
     const im = images[i] || {};
     const mime = im.mime || 'image/png';
