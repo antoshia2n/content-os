@@ -6,7 +6,12 @@
 // 本文の末尾に <p><img></p> を足す（エディタの画像と同じ形。画像つきコピー・画像の一括保存にそのまま乗る）。
 // 1 回に 6 枚まで。1 投稿につき、この口で置いた画像は 20 枚まで。
 // replace_images=true のときは、この口で前に置いた画像（posts/<番号>/ の住所）だけを本文から外す。手で入れた画像は触らない。
+// 2026-11-21 開発部：images[].at（本文の印の文字）を渡すと、末尾ではなくその印の段落のすぐ後ろへ入れる（中身は _markers.js）。
+//   印がちょうど 1 つ見つからない画像が 1 枚でもあれば、1 枚も置かずに止める（marker_not_found）。
+//   check_markers（文字の配列）だけを渡すと、書かずに印ごとの当たり数を返す（呼ぶ側が最初に全部の印を下見するため）。
+//   drop_markers（文字の配列）を渡すと、画像を入れたあとでその印の段落を本文から外す。
 import { checkAuth, getSupabase, json, preflight } from './_shared.js';
+import { checkMarkers, dropMarkers, findMarker, insertAtMarker } from './_markers.js';
 
 const MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -48,8 +53,18 @@ export async function onRequestPost({ request, env }) {
   if (body.replace_images) html = html.replace(mine, '');
   const already = (html.match(mine) || []).length;
 
+  if (Array.isArray(body.check_markers)) {
+    return json({ ok: true, markers: checkMarkers(html, body.check_markers) });
+  }
+
   const images = Array.isArray(body.images) ? body.images.slice(0, 6) : [];
   if (!images.length) return json({ ok: false, error: 'images required' }, 400);
+  const badAt = images
+    .map((im, i) => ({ i, at: String(im?.at || ''), count: im?.at ? findMarker(html, im.at).count : 1 }))
+    .filter((x) => x.count !== 1);
+  if (badAt.length) {
+    return json({ ok: false, error: 'marker_not_found', message: '本文の印がちょうど 1 つ見つからない画像があります（1 枚も置いていません）', markers: badAt }, 400);
+  }
   if (already + images.length > MAX_PER_POST) {
     return json({ ok: false, error: 'too_many', message: `1 投稿に置ける画像は ${MAX_PER_POST} 枚までです（今 ${already} 枚）`, max: MAX_PER_POST }, 400);
   }
@@ -71,8 +86,19 @@ export async function onRequestPost({ request, env }) {
     });
     if (!up.ok) return json({ ok: false, error: 'storage_error', detail: (await up.text()).slice(0, 300) }, 502);
     const url = `${sb.url}/storage/v1/object/public/contentos/${path}`;
-    added.push({ url, label: im.label || '' });
-    html += `<p><img src="${url}" alt="${esc(im.label)}" style="${IMG_STYLE}"/></p>`;
+    const tag = `<p><img src="${url}" alt="${esc(im.label)}" style="${IMG_STYLE}"/></p>`;
+    if (im.at) {
+      const next = insertAtMarker(html, im.at, tag, base);
+      if (next === null) return json({ ok: false, error: 'marker_not_found', message: `印「${im.at}」が見つかりません` }, 400);
+      html = next;
+    } else {
+      html += tag;
+    }
+    added.push({ url, label: im.label || '', at: im.at || null });
+  }
+  let dropped = 0;
+  if (Array.isArray(body.drop_markers) && body.drop_markers.length) {
+    ({ html, dropped } = dropMarkers(html, body.drop_markers));
   }
 
   // 同時に本文が書き換えられていたら止める（updated_at で確かめる）
@@ -84,5 +110,5 @@ export async function onRequestPost({ request, env }) {
   if (!rows.length) return json({ ok: false, error: 'conflict', message: '同時に書き換えられました。もう一度呼んでください' }, 409);
 
   const all = [...html.matchAll(new RegExp(`src="(${escRe(base)}[^"]*)"`, 'g'))].map((m) => m[1]);
-  return json({ ok: true, post: rows[0], added, images: all });
+  return json({ ok: true, post: rows[0], added, images: all, dropped_markers: dropped });
 }
