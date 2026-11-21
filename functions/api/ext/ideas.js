@@ -15,7 +15,7 @@
 import { verifyIdToken } from "shia2n-core/server/db-gateway.js";
 import { fetchAccounts, genPostId, getSupabase, resolveTarget } from "../internal/_shared.js";
 
-export const ALLOW_ORIGINS = ["https://mindmap.shia2n.jp", "https://dokusho.shia2n.jp", "https://dokusho.pages.dev"];
+export const ALLOW_ORIGINS = ["https://mindmap.shia2n.jp", "https://dokusho.shia2n.jp", "https://dokusho.pages.dev", "https://brain.shia2n.jp"];
 // 2026-11-11 読書くん 便3（Naoki OK 07:27）：読書くんのメモ 1 件を受け箱へ。出どころは memo_links の 1 行目（本とメモの住所）に残し、同じメモは 2 件にしない
 export const BOOK_ORIGINS = ["https://dokusho.shia2n.jp", "https://dokusho.pages.dev"];
 const BOOK_URL = /^https:\/\/dokusho\.shia2n\.jp\/\?book=[0-9a-f-]{36}&memo=[0-9a-f-]{36}$/;
@@ -30,6 +30,17 @@ export function bookFields(body) {
   const where = `『${book || "本"}』${pg != null ? ` p.${pg}` : ""}`;
   const title = tx.split("\n")[0].replace(/\s+/g, " ").trim().slice(0, 120);
   return { title, memo: tx ? `${tx}\n\n— ${where}` : "", src_url, label: where };
+}
+// 2026-11-22 ブレインくん 便B（Naoki OK 08:25）：ブレインくんのネタ 1 件を受け箱へ。出どころは memo_links の 1 行目（ノートの住所）に残し、同じノートは 2 件にしない
+export const BRAIN_ORIGINS = ["https://brain.shia2n.jp"];
+/** ブレインくんから来た中身：題（ノートの題）・メモ（本文）・memo_links（ノートの住所） */
+export function brainFields(body) {
+  const clip = (s, n) => String(s ?? "").replace(/\r\n?/g, "\n").slice(0, n);
+  const title = clip(body?.title, 200).replace(/\s+/g, " ").trim();
+  const memo = clip(body?.memo, 4000).trim();
+  const id = clip(body?.note_id, 60).trim();
+  const src_url = /^[0-9a-f-]{36}$/.test(id) ? `https://brain.shia2n.jp/?note=${id}` : null;
+  return { title, memo: memo || title, src_url, label: "ブレインくん" };
 }
 const MAX_IDS = 100;
 
@@ -81,9 +92,9 @@ async function who(request, env) {
   try { return await verifyIdToken(token, projectId); } catch { return null; }
 }
 
-async function fromBook(sb, uid, u, f, origin) {
+async function fromBook(sb, uid, u, f, origin, from = { source: "dokusho", note: "読書くんのメモから受け箱に入れた", noUrl: "本とメモの住所がありません" }) {
   if (!f.title) return out({ ok: false, error: "メモが空です" }, origin);
-  if (!f.src_url) return out({ ok: false, error: "本とメモの住所がありません" }, origin);
+  if (!f.src_url) return out({ ok: false, error: from.noUrl }, origin);
   // 同じメモから入れたネタが既にあれば、それを返す
   const cs = encodeURIComponent(JSON.stringify([{ url: f.src_url }]));
   const r0 = await fetch(`${sb.url}/rest/v1/posts?select=id,status&user_id=eq.${u}&memo_links=cs.${cs}&limit=1`, { headers: sb.headers });
@@ -92,9 +103,9 @@ async function fromBook(sb, uid, u, f, origin) {
   if (target.error) return out({ ok: false, error: "入れ先のアカウントがありません（コンテンツくんでアカウントを作ってください）" }, origin);
   const record = {
     id: genPostId(), user_id: uid, account_id: target.account_id, title: f.title, body: "", datetime: null,
-    platform: target.platform, post_type: "x_post", status: "idea", source: "dokusho", memo: f.memo,
+    platform: target.platform, post_type: "x_post", status: "idea", source: from.source, memo: f.memo,
     memo_links: [{ url: f.src_url, label: f.label }], mm_url: null, threads: [], comments: [], notion_page_id: null, genre: null,
-    history: [{ at: new Date().toISOString(), note: "読書くんのメモから受け箱に入れた" }],
+    history: [{ at: new Date().toISOString(), note: from.note }],
   };
   const r = await fetch(`${sb.url}/rest/v1/posts?select=id,status`, {
     method: "POST", headers: { ...sb.headers, Prefer: "return=representation" }, body: JSON.stringify(record),
@@ -129,6 +140,7 @@ export async function onRequest(context) {
     let body;
     try { body = await request.json(); } catch { return out({ ok: false, error: "送られた形が正しくありません" }, origin); }
     if (BOOK_ORIGINS.includes(origin)) return fromBook(sb, uid, u, bookFields(body), origin);
+    if (BRAIN_ORIGINS.includes(origin)) return fromBook(sb, uid, u, brainFields(body), origin, { source: "brain", note: "ブレインくんのネタから受け箱に入れた", noUrl: "ノートの住所がありません" });
     const f = ideaFields(body);
     if (!f.title) return out({ ok: false, error: "枝の字が空です" }, origin);
 
