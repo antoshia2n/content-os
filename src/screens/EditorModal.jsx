@@ -13,6 +13,7 @@ import { loadPendingRefs, savePendingRefs, toggleIn, whereAttached } from "../li
 import { auth } from "../firebase.js";
 import { useDialogFocus } from "../lib/useDialogFocus.js";
 import { uploadImage, bodyImages, markImagesForX, saveImageBundle } from "../lib/articleImages.js";
+import { forNote, hasQuote } from "../lib/noteCopy.js";
 import { hasThumbCol, hasQuoteCol, isRelType } from "../constants.js";
 import { QuoteSource } from "../components/QuoteSource.jsx";
 import { MaterialsView } from "../components/SlotMaterials.jsx";
@@ -264,7 +265,9 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
     const done=()=>{setPartDone(i);setTimeout(()=>setPartDone(d=>d===i?-1:d),2500);setPartIdx(i+1<xParts.length?i+1:0);};
     if(navigator.clipboard?.writeText)navigator.clipboard.writeText(t).then(done,()=>fallbackCopy(t,done));else fallbackCopy(t,done);
   };
-  const doCopy=(target,mode)=>{
+  // 2026-11-21 Naoki：note へ貼ると続いた画像が最後の 1 枚しか残らない → 画像つきコピーでは、画像だけの段落のあいだに空の段落をはさむ。
+  // opts.quoteBold で、引用（blockquote）を太字の段落に変えて出す（note では引用が灰色の枠と「出典を入力」になるため）。本文は変えない
+  const doCopy=(target,mode,opts)=>{
     const raw=draft.body||"";
     if(target==="x"&&!mode&&isXThread){copyPart(partIdx);return;}
     // 2026-11-20 X のポスト（引用・告知も）は文字だけでコピーする（書式つきで貼ると X で改行がくずれるため）
@@ -275,13 +278,14 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
       return;
     }
     const m=mode||(isXArticle?"mark":"rich");
-    const html=m==="mark"&&imgs.length?markImagesForX(raw):raw;
+    const html=m==="mark"&&imgs.length?markImagesForX(raw):forNote(raw,{quoteBold:!!opts?.quoteBold});
     const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
     const plain=htmlToPlain(html, isThread);
     copyRichText(html,plain,()=>{
       if(target==="x"){setCopyX(true);setTimeout(()=>setCopyX(false),3500);}
       else{setCopyNote(true);setTimeout(()=>setCopyNote(false),3500);}
-      if(imgs.length)setCopyNote2(m==="mark"?`画像 ${imgs.length} か所に【画像1】〜の目印を入れてコピーしました。画像は「…」の「画像をまとめて保存」から`:`文と画像 ${imgs.length} 枚をコピーしました`);
+      if(imgs.length)setCopyNote2(m==="mark"?`画像 ${imgs.length} か所に【画像1】〜の目印を入れてコピーしました。画像は「…」の「画像をまとめて保存」から`:`文と画像 ${imgs.length} 枚をコピーしました${opts?.quoteBold?"（引用は太字に変えました）":""}`);
+      else if(opts?.quoteBold)setCopyNote2("引用を太字に変えてコピーしました");
     });
   };
   // 画像をまとめて保存（00_サムネ・01・02…）
@@ -503,6 +507,7 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
             ...(imgs.length?[isXArticle
               ?{label:"note 用にコピー（画像つき）",onClick:()=>doCopy("note","rich"),close:true}
               :{label:"X記事用にコピー（画像の位置に目印）",onClick:()=>doCopy("note","mark"),close:true}]:[]),
+            ...(!isXShort&&hasQuote(draft.body)?[{label:"note 用にコピー（引用を太字に）",onClick:()=>doCopy("note","rich",{quoteBold:true}),close:true}]:[]),
             ...(imgCount?[{label:imgSave==="保存中…"?"画像を保存中…":`画像をまとめて保存（${imgCount} 枚）`,onClick:saveImages,disabled:imgSave==="保存中…",close:true}]:[]),
             ...(owner?[{label:notionState==="saving"?"Notion に保存中…":notionState==="done"?"Notion に保存しました":notionState==="error"?"Notion に保存できませんでした":"Notion に保存",onClick:saveToNotion,disabled:notionState==="saving"}]:[]), // 会員には出さない
             {label:localState==="done"?"ファイルに保存しました":localState==="error"?"ファイルに保存できませんでした":"ファイルに保存（.md）",onClick:saveLocalFile},
