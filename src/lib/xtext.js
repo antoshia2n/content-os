@@ -86,3 +86,12 @@ export function xPlainText(html, asParts = false) {
 
 // 2026-11-20 スレッドは 1 本ずつ貼るので、1 本ずつの文（見出しなし）を返す
 export const xThreadParts = html => xPlainText(html, true);
+
+// 2026-11-23 Naoki「X記事にコピーしたとき、1 行あける改行が反映されない」
+// X記事の入力欄（Draft.js）は、貼った HTML の空の段落（<p><br></p>・<p></p>・&nbsp; や全角の空白だけの段落）を捨てる。
+// 目に見えない文字（ゼロ幅の空白 U+200B）を 1 つ入れた段落なら残る（draft-js 0.11.7 の貼り付け処理で確かめた）。
+// 本文（保存してあるもの）は変えない。X記事へコピーする中身だけを直す
+const BLANK_P = /<(p|div)\b[^>]*>(?:\s|&nbsp;|&#160;| |　|<br\s*\/?>)*<\/\1>/gi;
+export function keepBlankLinesForX(html) {
+  return String(html || "").replace(BLANK_P, "<p>​</p>");
+}

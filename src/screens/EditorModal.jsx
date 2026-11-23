@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { POST_TYPE, getPostTypeStyle, STATUS, SCORE, BD, BD2, S, XFONT, IMG_SIZES_OPTS, IMG_ALIGNS_OPTS, genId, nowStr, stripHtml, isUrl, TOOLBAR_BLOCK_LABELS } from "../constants.js";
 import { supabase } from "../lib/supabase.js";
 import { BodyEditor, Toolbar, InsertModal, SideIcon, PostSearchPanel, htmlToPlain, copyRichText, fallbackCopy } from "../components/editor.jsx";
-import { xPlainText, xThreadParts, xLen } from "../lib/xtext.js";
+import { xPlainText, xThreadParts, xLen, keepBlankLinesForX } from "../lib/xtext.js";
 import { TagSelector, LabelEditor, MemoEditor, CopyBtn } from "../components/shared.jsx";
 import { postToMarkdown, sanitizeFilename } from "./ExportModal.jsx";
 import { TemplatePicker } from "../components/TemplatePicker.jsx";
@@ -278,7 +278,9 @@ export function EditorModal({uid,slots=[],post,onSave,onClose,allPosts=[],accoun
       return;
     }
     const m=mode||(isXArticle?"mark":"rich");
-    const html=m==="mark"&&imgs.length?markImagesForX(raw):forNote(raw,{quoteBold:!!opts?.quoteBold});
+    const html0=m==="mark"&&imgs.length?markImagesForX(raw):forNote(raw,{quoteBold:!!opts?.quoteBold});
+    // 2026-11-23 X記事へのコピーは、空の段落（1 行あけ）に見えない文字を入れて残す（X記事は空の段落を捨てるため）
+    const html=target==="x"||m==="mark"?keepBlankLinesForX(html0):html0;
     const isThread=/<hr[^>]*class="thread-sep"|data-thread="true"/i.test(html);
     const plain=htmlToPlain(html, isThread);
     copyRichText(html,plain,()=>{
